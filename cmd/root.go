@@ -25,8 +25,10 @@ var RootCmd = &cobra.Command{
 	Use:   "oneshot [flags]... [file]",
 	Short: "A single-fire HTTP server.",
 	Long: `Start an HTTP server which will only serve files once.
-If no file is given, oneshot will instead serve from stdin.
-If serving from stdin, oneshot will hold the clients connection until receiving the EOF character`,
+The first client to connect is given the file, all others receive an HTTP 410 Gone response code.
+
+If no file is given, oneshot will instead serve from stdin and hold the clients connection until receiving the EOF character.
+`,
 	Run: run,
 }
 

@@ -11,7 +11,8 @@ import (
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	s.mutex.Lock()
 	if s.done {
-		w.Write([]byte("resource is no longer available"))
+		s.mutex.Unlock()
+		w.WriteHeader(http.StatusGone)
 		return
 	}
 	s.done = true
