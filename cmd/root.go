@@ -30,7 +30,7 @@ If serving from stdin, oneshot will hold the clients connection until receiving 
 	Run: run,
 }
 
-func Execute() {
+func SetFlags() {
 	RootCmd.Flags().StringVarP(&port, "port", "p", "8080", "Port to bind to.")
 	RootCmd.Flags().DurationVarP(&timeout, "timeout", "t", 0,
 		`How long to wait for client.
@@ -54,7 +54,10 @@ If not set, either no extension or the extension of the file will be used, depen
 	RootCmd.Flags().StringVarP(&fileMime, "mime", "m", "", `MIME type of file presented to client.
 If not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.`,
 	)
+}
 
+func Execute() {
+	SetFlags()
 	if err := RootCmd.Execute(); err != nil {
 		log.Println(err)
 		os.Exit(0)
