@@ -1,5 +1,3 @@
-# oneshot
-A single-fire HTTP server
 ## oneshot
 
 A single-fire HTTP server.
