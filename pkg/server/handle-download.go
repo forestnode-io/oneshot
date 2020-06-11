@@ -56,7 +56,8 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	s.timer.Stop()
-	go s.server.Shutdown(context.Background())
-	s.Done <- struct{}{}
+	// Stop() method needs to run on seperate goroutine.
+	// Otherwise, we deadlock since http.Server.Shutdown()
+	// wont return until this function returns.
+	go s.Stop(context.Background())
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 	"math"
+	"context"
 )
 
 type Server struct {
@@ -34,7 +35,7 @@ func NewServer() *Server {
 	return s
 }
 
-func (s *Server) Serve() error {
+func (s *Server) Serve(ctx context.Context) error {
 	if s.Timeout == 0 {
 		max := math.MaxInt64
 		s.Timeout = time.Duration(max)
@@ -51,14 +52,23 @@ func (s *Server) Serve() error {
 			duration := s.Timeout.String()
 			s.InfoLog.Printf("no client requested the file after %s; timing out ...\n", duration)
 		}
-		s.server.Close()
-		s.Done <- struct{}{}
+		s.Stop(ctx)
 	})
 
 	if s.InfoLog != nil {
 		s.InfoLog.Printf("server started; listening on port %s", s.Port)
 	}
 	return s.server.ListenAndServe()
+}
+
+func (s *Server) Stop(ctx context.Context) error {
+	if s.timer == nil {
+		return nil
+	}
+	s.timer.Stop()
+	err := s.server.Shutdown(ctx)
+	s.Done <- struct{}{}
+	return err
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
