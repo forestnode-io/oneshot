@@ -72,6 +72,16 @@ func (s *Server) Stop(ctx context.Context) error {
 	return err
 }
 
+func (s *Server) Close() error {
+	if s.timer == nil {
+		return nil
+	}
+	s.timer.Stop()
+	err := s.server.Close()
+	s.Done <- struct{}{}
+	return err
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }

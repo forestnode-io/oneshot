@@ -93,7 +93,7 @@ func run(cmd *cobra.Command, args []string) {
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-sigChan
-		srvr.Stop(cmd.Context())
+		srvr.Close()
 		os.Exit(0)
 	}()
 
