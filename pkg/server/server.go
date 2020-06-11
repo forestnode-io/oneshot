@@ -1,33 +1,34 @@
 package server
 
 import (
-	"net/http"
+	"context"
 	"log"
+	"math"
+	"net/http"
 	"sync"
 	"time"
-	"math"
-	"context"
 )
 
 type Server struct {
 	router *http.ServeMux
-	mutex *sync.Mutex
+	mutex  *sync.Mutex
 	server *http.Server
-	timer *time.Timer
-	done bool
+	timer  *time.Timer
+	file   *File
+	done   bool
 
-	Port string
+	Port     string
 	ErrorLog *log.Logger
-	InfoLog *log.Logger
-	FilePath string
-	Timeout time.Duration // zero value -> max duration
-	Done chan struct{}
+	InfoLog  *log.Logger
+	Timeout  time.Duration // zero value -> max duration
+	Done     chan struct{}
 }
 
-func NewServer() *Server {
+func NewServer(file *File) *Server {
 	s := &Server{
 		router: http.NewServeMux(),
-		mutex: &sync.Mutex{},
+		mutex:  &sync.Mutex{},
+		file:   file,
 	}
 	s.server = &http.Server{Handler: s}
 
@@ -43,7 +44,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	s.server.Addr = ":" + s.Port
 
-	s.timer = time.AfterFunc(s.Timeout, func(){
+	s.timer = time.AfterFunc(s.Timeout, func() {
 		s.mutex.Lock()
 		s.done = true
 		s.mutex.Unlock()

@@ -1,14 +1,11 @@
 package server
 
 import (
-	"net/http"
-	"path/filepath"
-	"mime"
-	"io"
-	"fmt"
-	"os"
-	"time"
 	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
 )
 
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
@@ -20,8 +17,8 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	s.done = true
 	s.mutex.Unlock()
 
-	file, err := os.Open(s.FilePath)
-	defer file.Close()
+	err := s.file.Open()
+	defer s.file.Close()
 	if err != nil {
 		if s.ErrorLog != nil {
 			s.ErrorLog.Println(err.Error())
@@ -30,17 +27,13 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileName := filepath.Base(s.FilePath)
-	fileExt := filepath.Ext(s.FilePath)
-	contentType := mime.TypeByExtension(fileExt)
-
 	w.Header().Set("Content-Disposition",
-		fmt.Sprintf("attachment;filename=%s", fileName),
+		fmt.Sprintf("attachment;filename=%s", s.file.Name),
 	)
-	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Type", s.file.MimeType)
 
 	before := time.Now()
-	_, err = io.Copy(w, file)
+	_, err = io.Copy(w, s.file)
 	duration := time.Since(before)
 	if s.ErrorLog != nil && err != nil {
 		s.ErrorLog.Println(err.Error())
@@ -49,7 +42,7 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 
 	if s.InfoLog != nil && err == nil {
 		s.InfoLog.Printf("%s was downloaded at %s in %s by %s\n",
-			s.FilePath,
+			s.file.Name,
 			before.String(),
 			duration.String(),
 			r.RemoteAddr,
