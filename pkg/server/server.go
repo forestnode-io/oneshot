@@ -11,14 +11,17 @@ import (
 )
 
 type Server struct {
-	router *http.ServeMux
-	mutex  *sync.Mutex
-	server *http.Server
-	timer  *time.Timer
-	file   *File
-	done   bool
+	router         *http.ServeMux
+	mutex          *sync.Mutex
+	server         *http.Server
+	timer          *time.Timer
+	file           *File
+	done           bool
+	authenticating bool
 
 	Port     string
+	Username string
+	Password string
 	CertFile string
 	KeyFile  string
 	ErrorLog *log.Logger
@@ -48,18 +51,6 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	s.server.Addr = ":" + s.Port
 
-	s.timer = time.AfterFunc(s.Timeout, func() {
-		s.mutex.Lock()
-		s.done = true
-		s.mutex.Unlock()
-
-		if s.InfoLog != nil {
-			duration := s.Timeout.String()
-			s.InfoLog.Printf("no client requested the file after %s; timing out ...\n", duration)
-		}
-		s.Stop(ctx)
-	})
-
 	if s.CertFile != "" && s.KeyFile != "" {
 		if s.InfoLog != nil {
 			s.InfoLog.Printf("HTTPS server started; listening on port %s", s.Port)
@@ -79,6 +70,22 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.InfoLog != nil {
 		s.InfoLog.Printf("HTTP server started; listening on port %s", s.Port)
 	}
+
+	if s.Username != "" || s.Password != "" {
+		s.authenticating = true
+	}
+
+	s.timer = time.AfterFunc(s.Timeout, func() {
+		s.mutex.Lock()
+		s.done = true
+		s.mutex.Unlock()
+
+		if s.InfoLog != nil {
+			duration := s.Timeout.String()
+			s.InfoLog.Printf("no client requested the file after %s; timing out ...\n", duration)
+		}
+		s.Stop(ctx)
+	})
 	return s.server.ListenAndServe()
 }
 

@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"bufio"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -23,6 +26,11 @@ var (
 
 	certFile string
 	keyFile  string
+
+	username       string
+	password       string
+	passwordFile   string
+	passwordHidden bool
 )
 
 var RootCmd = &cobra.Command{
@@ -44,11 +52,11 @@ A value of zero will set the timeout to the max possible value.`,
 	)
 	RootCmd.Flags().BoolVarP(&noInfo, "quiet", "q", false,
 		`Don't show info messages.
-Use -Q instead to suppress error messages as well.`,
+Use -Q, --silent instead to suppress error messages as well.`,
 	)
 	RootCmd.Flags().BoolVarP(&noInfo, "silent", "Q", false,
 		`Don't show info and error messages.
-Use -q instead to suppress info messages only.`,
+Use -q, --quiet instead to suppress info messages only.`,
 	)
 	RootCmd.Flags().BoolVarP(&noDownload, "no-download", "D", false,
 		`Don't trigger browser download client side.
@@ -56,13 +64,16 @@ If set, the "Content-Disposition" header used to trigger downloads in the client
 	)
 	RootCmd.Flags().StringVarP(&fileName, "name", "n", "",
 		`Name of file presented to client.
-If not set, either a random name or the name of the file will be used, depending on if a file was given.`,
+If not set, either a random name or the name of the file will be used,
+depending on if a file was given.`,
 	)
 	RootCmd.Flags().StringVarP(&fileExt, "ext", "e", "", `Extension of file presented to client.
-If not set, either no extension or the extension of the file will be used, depending on if a file was given.`,
+If not set, either no extension or the extension of the file will be used,
+depending on if a file was given.`,
 	)
 	RootCmd.Flags().StringVarP(&fileMime, "mime", "m", "", `MIME type of file presented to client.
-If not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.`,
+If not set, either no MIME type or the mime/type of the file will be user,
+depending on of a file was given.`,
 	)
 
 	RootCmd.Flags().StringVar(&certFile, "tls-cert", "", `Certificate file to use for HTTPS.
@@ -70,6 +81,23 @@ Key file must also be provided using the --tls-key flag.`,
 	)
 	RootCmd.Flags().StringVar(&keyFile, "tls-key", "", `Key file to use for HTTPS.
 Cert file must also be provided using the --tls-cert flag.`,
+	)
+
+	RootCmd.Flags().StringVarP(&username, "username", "U", "", `Username for basic authentication.
+If a password is not also provided using either the -P, --password;
+-W, --hidden-password; or -w, --password-file flags then the client may enter any password.`,
+	)
+	RootCmd.Flags().StringVarP(&password, "password", "P", "", `Password for basic authentication.
+If a username is not also provided using the -U, --username flag then the client may enter any username.
+If either the -W, --hidden-password or -w, --password-file flags are set, this flag will be ignored.`,
+	)
+	RootCmd.Flags().StringVarP(&passwordFile, "password-file", "w", "", `File containing password for basic authentication.
+If a username is not also provided using the -U, --username flag then the client may enter any username.
+If the -W, --hidden-password flag is set, this flags will be ignored.`,
+	)
+	RootCmd.Flags().BoolVarP(&passwordHidden, "hidden-password", "W", false, `Prompt for password for basic authentication.
+If a username is not also provided using the -U, --username flag then the client may enter any username.
+Takes precedence over the -w, --password-file flag`,
 	)
 }
 
@@ -82,6 +110,26 @@ func Execute() {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	if passwordHidden {
+		os.Stdout.WriteString("password: ")
+		passreader := bufio.NewReader(os.Stdin)
+		passwordBytes, err := passreader.ReadString('\n')
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+		password = string(passwordBytes)
+		password = strings.TrimSpace(password)
+		os.Stdout.WriteString("\n")
+	} else if passwordFile != "" {
+		passwordBytes, err := ioutil.ReadFile(passwordFile)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+		password = string(passwordBytes)
+		password = strings.TrimSpace(password)
+	}
 	var filepath string
 	if len(args) >= 1 {
 		filepath = args[0]
@@ -99,6 +147,8 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.Download = !noDownload
 	srvr.CertFile = certFile
 	srvr.KeyFile = keyFile
+	srvr.Username = username
+	srvr.Password = password
 
 	if !noInfo && !noError {
 		srvr.InfoLog = log.New(os.Stdout, "oneshot :: ", 0)

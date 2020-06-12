@@ -9,6 +9,25 @@ import (
 )
 
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
+	if s.authenticating {
+		username, password, ok := r.BasicAuth()
+		if !ok {
+			w.Header().Set("WWW-Authenticate", "Basic")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// Whichever field is missing is not checked
+		if s.Username != "" && s.Username != username {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Header().Set("WWW-Authenticate", "Basic")
+			return
+		}
+		if s.Password != "" && s.Password != password {
+			w.Header().Set("WWW-Authenticate", "Basic")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+	}
 	s.mutex.Lock()
 	if s.done {
 		s.mutex.Unlock()
