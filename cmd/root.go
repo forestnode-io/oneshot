@@ -134,13 +134,13 @@ func run(cmd *cobra.Command, args []string) {
 	if len(args) >= 1 {
 		filepath = args[0]
 	}
-	file := server.File{
+	file := &server.File{
 		Path:     filepath,
 		Name:     fileName,
 		Ext:      fileExt,
 		MimeType: fileMime,
 	}
-	srvr := server.NewServer(&file)
+	srvr := server.NewServer(file)
 	srvr.Done = make(chan struct{})
 	srvr.Port = port
 	srvr.Timeout = timeout
@@ -151,10 +151,11 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.Password = password
 
 	if !noInfo && !noError {
-		srvr.InfoLog = log.New(os.Stdout, "oneshot :: ", 0)
+		srvr.InfoLog = log.New(os.Stdout, "\n", 0)
+		file.ProgressWriter = os.Stdout
 	}
 	if !noError {
-		srvr.ErrorLog = log.New(os.Stderr, "oneshot error :: ", log.LstdFlags)
+		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags)
 	}
 
 	sigChan := make(chan os.Signal)

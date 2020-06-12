@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math/rand"
 	"mime"
 	"os"
@@ -19,9 +22,12 @@ type File struct {
 	Ext      string
 	MimeType string
 
-	file      *os.File
-	size      int64
-	measuring bool
+	file   *os.File
+	buffer *bytes.Reader
+
+	size           int64
+	progress       int64
+	ProgressWriter io.Writer
 }
 
 func (f *File) Open() error {
@@ -35,7 +41,12 @@ func (f *File) Open() error {
 		if f.Name == "" {
 			f.Name = fmt.Sprintf("%0-x", rand.Int31())
 		}
-		f.measuring = true
+		dataBytes, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+		f.buffer = bytes.NewReader(dataBytes)
+		f.size = f.buffer.Size()
 	default:
 		var err error
 		f.file, err = os.Open(f.Path)
@@ -81,10 +92,33 @@ func (f *File) Read(p []byte) (n int, err error) {
 	if err != nil {
 		return
 	}
-	n, err = f.file.Read(p)
-	if f.measuring {
-		f.size += int64(n)
+
+	if f.progress == 0 {
+		f.ProgressWriter.Write([]byte("\n"))
+		f.WriteProgress()
+	}
+
+	if f.buffer != nil {
+		n, err = f.buffer.Read(p)
+	} else {
+		n, err = f.file.Read(p)
+	}
+
+	f.progress += int64(n)
+	f.WriteProgress()
+
+	if err == io.EOF && f.ProgressWriter != nil {
+		fmt.Fprint(f.ProgressWriter, "\n")
 	}
 
 	return
+}
+
+func (f *File) WriteProgress() {
+	if f.ProgressWriter == nil {
+		return
+	}
+	fmt.Fprintf(f.ProgressWriter, "download progress: %.2f%%\r",
+		100.0*float64(f.progress)/float64(f.size),
+	)
 }
