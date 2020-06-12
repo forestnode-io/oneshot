@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	noInfo  bool
-	noError bool
-	port    string
-	timeout time.Duration
+	noInfo     bool
+	noError    bool
+	port       string
+	timeout    time.Duration
+	noDownload bool
 
 	fileName string
 	fileExt  string
@@ -45,6 +46,10 @@ Use -Q instead to suppress error messages as well.`,
 	RootCmd.Flags().BoolVarP(&noInfo, "silent", "Q", false,
 		`Don't show info and error messages.
 Use -q instead to suppress info messages only.`,
+	)
+	RootCmd.Flags().BoolVarP(&noDownload, "no-download", "D", false,
+		`Don't trigger browser download client side.
+If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.`,
 	)
 	RootCmd.Flags().StringVarP(&fileName, "name", "n", "",
 		`Name of file presented to client.
@@ -81,6 +86,7 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.Done = make(chan struct{})
 	srvr.Port = port
 	srvr.Timeout = timeout
+	srvr.Download = !noDownload
 
 	if !noInfo && !noError {
 		srvr.InfoLog = log.New(os.Stdout, "oneshot :: ", 0)

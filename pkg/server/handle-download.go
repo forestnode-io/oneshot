@@ -28,9 +28,12 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition",
-		fmt.Sprintf("attachment;filename=%s", s.file.Name),
-	)
+	if s.Download {
+		w.Header().Set("Content-Disposition",
+			fmt.Sprintf("attachment;filename=%s", s.file.Name),
+		)
+	}
+
 	w.Header().Set("Content-Type", s.file.MimeType)
 
 	before := time.Now()

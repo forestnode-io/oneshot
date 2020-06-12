@@ -21,6 +21,7 @@ type Server struct {
 	ErrorLog *log.Logger
 	InfoLog  *log.Logger
 	Timeout  time.Duration // zero value -> max duration
+	Download bool          // should "Content-Disposition" header be set?
 	Done     chan struct{}
 }
 
