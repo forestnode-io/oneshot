@@ -19,7 +19,9 @@ type File struct {
 	Ext      string
 	MimeType string
 
-	file *os.File
+	file      *os.File
+	size      int64
+	measuring bool
 }
 
 func (f *File) Open() error {
@@ -33,14 +35,20 @@ func (f *File) Open() error {
 		if f.Name == "" {
 			f.Name = fmt.Sprintf("%0-x", rand.Int31())
 		}
+		f.measuring = true
 	default:
 		var err error
 		f.file, err = os.Open(f.Path)
 		if err != nil {
 			return err
 		}
+		info, err := f.file.Stat()
+		if err != nil {
+			return err
+		}
+		f.size = info.Size()
 		if f.Name == "" {
-			f.Name = filepath.Base(f.Path)
+			f.Name = info.Name()
 		}
 	}
 
@@ -64,10 +72,19 @@ func (f *File) Close() error {
 	return f.file.Close()
 }
 
+func (f *File) Size() int64 {
+	return f.size
+}
+
 func (f *File) Read(p []byte) (n int, err error) {
 	err = f.Open()
 	if err != nil {
-		return 0, err
+		return
 	}
-	return f.file.Read(p)
+	n, err = f.file.Read(p)
+	if f.measuring {
+		f.size += int64(n)
+	}
+
+	return
 }

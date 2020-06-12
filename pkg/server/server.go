@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math"
 	"net/http"
@@ -18,6 +19,8 @@ type Server struct {
 	done   bool
 
 	Port     string
+	CertFile string
+	KeyFile  string
 	ErrorLog *log.Logger
 	InfoLog  *log.Logger
 	Timeout  time.Duration // zero value -> max duration
@@ -57,8 +60,24 @@ func (s *Server) Serve(ctx context.Context) error {
 		s.Stop(ctx)
 	})
 
+	if s.CertFile != "" && s.KeyFile != "" {
+		if s.InfoLog != nil {
+			s.InfoLog.Printf("HTTPS server started; listening on port %s", s.Port)
+		}
+		return s.server.ListenAndServeTLS(s.CertFile, s.KeyFile)
+	}
+	if s.CertFile != "" {
+		err := errors.New("given cert file for HTTPS but no key file. exit\n")
+		s.ErrorLog.Printf(err.Error())
+		return err
+	}
+	if s.KeyFile != "" {
+		err := errors.New("given key file for HTTPS but no cert file. exit\n")
+		s.ErrorLog.Printf(err.Error())
+		return err
+	}
 	if s.InfoLog != nil {
-		s.InfoLog.Printf("server started; listening on port %s", s.Port)
+		s.InfoLog.Printf("HTTP server started; listening on port %s", s.Port)
 	}
 	return s.server.ListenAndServe()
 }

@@ -18,6 +18,10 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	s.done = true
 	s.mutex.Unlock()
 
+	if s.InfoLog != nil {
+		s.InfoLog.Printf("client connected: %s\n", r.RemoteAddr)
+	}
+
 	err := s.file.Open()
 	defer s.file.Close()
 	if err != nil {
@@ -45,9 +49,11 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.InfoLog != nil && err == nil {
-		s.InfoLog.Printf("%s was downloaded at %s in %s by %s\n",
+		s.InfoLog.Printf(
+			"file was downloaded:\n\tname: %s\n\ttime: %s\n\trate: %d Bytes / %s\n\tclient address: %s\n",
 			s.file.Name,
 			before.String(),
+			s.file.Size(),
 			duration.String(),
 			r.RemoteAddr,
 		)

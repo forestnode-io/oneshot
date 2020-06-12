@@ -20,6 +20,9 @@ var (
 	fileName string
 	fileExt  string
 	fileMime string
+
+	certFile string
+	keyFile  string
 )
 
 var RootCmd = &cobra.Command{
@@ -61,6 +64,13 @@ If not set, either no extension or the extension of the file will be used, depen
 	RootCmd.Flags().StringVarP(&fileMime, "mime", "m", "", `MIME type of file presented to client.
 If not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.`,
 	)
+
+	RootCmd.Flags().StringVar(&certFile, "tls-cert", "", `Certificate file to use for HTTPS.
+Key file must also be provided using the --tls-key flag.`,
+	)
+	RootCmd.Flags().StringVar(&keyFile, "tls-key", "", `Key file to use for HTTPS.
+Cert file must also be provided using the --tls-cert flag.`,
+	)
 }
 
 func Execute() {
@@ -87,6 +97,8 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.Port = port
 	srvr.Timeout = timeout
 	srvr.Download = !noDownload
+	srvr.CertFile = certFile
+	srvr.KeyFile = keyFile
 
 	if !noInfo && !noError {
 		srvr.InfoLog = log.New(os.Stdout, "oneshot :: ", 0)
