@@ -15,6 +15,7 @@ install-man-page:
 	go run -ldflags $(VERSION_FLAG) \
 	       	doc/man/main.go > oneshot.1
 	mv oneshot.1 $(MANPATH)/man1
+	mandb
 
 
 .PHONY: install
