@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+var version string
+var versionFlag bool
+
 var (
 	noInfo     bool
 	noError    bool
@@ -34,8 +37,9 @@ var (
 )
 
 var RootCmd = &cobra.Command{
-	Use:   "oneshot [flags]... [file]",
-	Short: "A single-fire HTTP server.",
+	Use:     "oneshot [flags]... [file]",
+	Version: version,
+	Short:   "A single-fire HTTP server.",
 	Long: `Start an HTTP server which will only serve files once.
 The first client to connect is given the file, all others receive an HTTP 410 Gone response code.
 
@@ -45,6 +49,8 @@ If no file is given, oneshot will instead serve from stdin and hold the clients 
 }
 
 func SetFlags() {
+	RootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Version for oneshot.")
+
 	RootCmd.Flags().StringVarP(&port, "port", "p", "8080", "Port to bind to.")
 	RootCmd.Flags().DurationVarP(&timeout, "timeout", "t", 0,
 		`How long to wait for client.
