@@ -2,7 +2,32 @@
 
 A single-fire HTTP server.
 
+
+### Installation
+
+There are multiple ways of obtaining oneshot:
+
+##### Brew
+```bash
+brew tap raphaelreyna/homebrew-repo
+brew install oneshot
+```
+
+##### Go get
+```bash
+go get -u -v github.com/raphaelreyna/oneshot
+```
+
+##### Compiling from source
+```bash
+git clone github.com/raphaelreyna/oneshot
+cd oneshot
+sudo make install
+```
+
+
 ### Synopsis
+
 
 Start an HTTP server which will only serve files once.
 The first client to connect is given the file, all others receive an HTTP 410 Gone response code.
