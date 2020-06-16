@@ -45,7 +45,7 @@ func NewServer(file *File) *Server {
 
 func (s *Server) Serve(ctx context.Context) error {
 	if s.Timeout == 0 {
-		max := math.MaxInt64
+		max := math.MaxInt32
 		s.Timeout = time.Duration(max)
 	}
 
