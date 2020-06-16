@@ -9,7 +9,7 @@ before:
 
 builds:
 - id: linux
-  main: ./main.go
+  main: main.go
   binary: oneshot
   ldflags:
     - -X github.com/raphaelreyna/oneshot/cmd.version={{.Version}}
@@ -23,7 +23,7 @@ builds:
     - 386
 
 - id: macos
-  main: ./cmd/main.go
+  main: main.go
   binary: oneshot
   ldflags:
     - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
@@ -34,7 +34,7 @@ builds:
     - amd64
 
 - id: windows
-  main: ./cmd/main.go
+  main: main.go
   binary: oneshot
   ldflags:
     - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
