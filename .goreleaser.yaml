@@ -1,0 +1,117 @@
+env_files:
+  github_token: ~/.tokens/github
+
+before:
+  hooks:
+    - go mod download
+    - rm README.md
+    - make README.md
+
+builds:
+- id: linux
+  main: ./main.go
+  binary: oneshot
+  ldflags:
+    - -X github.com/raphaelreyna/oneshot/cmd.version={{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
+  goos:
+    - linux
+  goarch:
+    - amd64
+    - arm
+    - arm64
+    - 386
+
+- id: macos
+  main: ./cmd/main.go
+  binary: oneshot
+  ldflags:
+    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
+  goos:
+    - darwin
+  goarch:
+    - amd64
+
+- id: windows
+  main: ./cmd/main.go
+  binary: oneshot
+  ldflags:
+    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
+  goos:
+    - windows
+  goarch:
+    - amd64
+    - 386
+
+
+archives:
+- id: brew
+  name_template: "oneshot_{{ .Version }}.{{ .Os }}_{{ .Arch }}"
+  builds:
+    - macos
+    - linux
+  replacements:
+    darwin: macos
+    amd64: x86_64
+    format: zip
+  files:
+    - LICENSE
+    - README.md
+
+- id: windows-zip
+  name_template: "oneshot_{{ .Version }}.{{ .Os }}_{{ .Arch }}"
+  builds:
+    - windows
+  replacements:
+    386: i386
+    amd64: x86_64
+  format: zip
+  files:
+    - LICENSE
+    - README.md
+      
+- id: binary
+  name_template: "oneshot_{{ .Version }}.{{ .Os }}_{{ .Arch }}"
+  builds:
+    - linux
+    - macos
+    - windows
+  replacements:
+    darwin: macos
+    386: i386
+    amd64: x86_64
+  format: binary
+
+checksum:
+  name_template: 'checksums.txt'
+  
+snapshot:
+  name_template: "{{ .Tag }}"
+
+brews:
+  - name: oneshot
+    ids:
+      - brew
+    github:
+      owner: raphaelreyna
+      name: homebrew-repo
+    homepage: "https://github.com/raphaelreyna/oneshot"
+    description: "A single fire HTTP server."
+
+release:
+  ids:
+    - brew
+    - windows-zip
+  github:
+    owner: raphaelreyna
+    name: oneshot
+  
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'

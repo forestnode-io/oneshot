@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -15,6 +17,7 @@ import (
 
 var version string
 var versionFlag bool
+var date string
 
 var (
 	noInfo     bool
@@ -38,7 +41,7 @@ var (
 
 var RootCmd = &cobra.Command{
 	Use:     "oneshot [flags]... [file]",
-	Version: version,
+	Version: fmt.Sprintf(": %s\ndate: %s\nauthor: Raphael Reyna\n", version, date),
 	Short:   "A single-fire HTTP server.",
 	Long: `Start an HTTP server which will only serve files once.
 The first client to connect is given the file, all others receive an HTTP 410 Gone response code.
@@ -136,12 +139,15 @@ func run(cmd *cobra.Command, args []string) {
 		password = string(passwordBytes)
 		password = strings.TrimSpace(password)
 	}
-	var filepath string
+	var filePath string
 	if len(args) >= 1 {
-		filepath = args[0]
+		filePath = args[0]
+	}
+	if filePath != "" && fileName != "" {
+		fileName = filepath.Base(filePath)
 	}
 	file := &server.File{
-		Path:     filepath,
+		Path:     filePath,
 		Name:     fileName,
 		Ext:      fileExt,
 		MimeType: fileMime,

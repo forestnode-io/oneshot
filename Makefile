@@ -1,19 +1,22 @@
-LOCATION="github.com/raphaelreyna/oneshot"
+LOCATION=github.com/raphaelreyna/oneshot
 VERSION=`git describe --tags --abbrev=0`
-VERSION_FLAG="-X '$(LOCATION)/cmd.version=$(VERSION)'"
+VERSION_FLAG=$(LOCATION)/cmd.version=$(VERSION)
+DATE=`date +"%d-%B-%Y"`
+DATE_FLAG=$(LOCATION)/cmd.date="${DATE}"
 MANPATH=/usr/local/share/man
 PREFIX=/usr/local
+HERE=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 oneshot:
-	go build -ldflags $(VERSION_FLAG) .
+	go build -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" .
 
 README.md:
-	go run -ldflags $(VERSION_FLAG) \
-	       	doc/md/main.go > README.md
+	cd doc/md && go run -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" \
+	       	. > $(HERE)/README.md
 
 install-man-page:
-	go run -ldflags $(VERSION_FLAG) \
-	       	doc/man/main.go > oneshot.1
+	cd doc/man && go run -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" \
+	       	doc/man/main.go > $(HERE)/oneshot.1
 	mv oneshot.1 $(MANPATH)/man1
 	mandb
 

@@ -36,6 +36,12 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	s.done = true
 	s.mutex.Unlock()
+	// Stop() method needs to run on seperate goroutine.
+	// Otherwise, we deadlock since http.Server.Shutdown()
+	// wont return until this function returns.
+	defer func() {
+		go s.Stop(context.Background())
+	}()
 
 	if s.InfoLog != nil {
 		s.InfoLog.Printf("client connected: %s\n", r.RemoteAddr)
@@ -51,15 +57,6 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	before := time.Now()
-	_, err = io.Copy(w, s.file)
-	duration := time.Since(before)
-	if s.ErrorLog != nil && err != nil {
-		go s.Stop(context.Background())
-		s.ErrorLog.Println(err.Error())
-		return
-	}
-
 	if s.Download {
 		w.Header().Set("Content-Disposition",
 			fmt.Sprintf("attachment;filename=%s", s.file.Name),
@@ -68,6 +65,16 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", s.file.MimeType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", s.file.Size()))
+	w.WriteHeader(http.StatusOK)
+
+	before := time.Now()
+	_, err = io.Copy(w, s.file)
+	duration := time.Since(before)
+	if s.ErrorLog != nil && err != nil {
+		go s.Stop(context.Background())
+		s.ErrorLog.Println(err.Error())
+		return
+	}
 
 	if s.InfoLog != nil && err == nil {
 		s.InfoLog.Printf(
@@ -80,8 +87,4 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	// Stop() method needs to run on seperate goroutine.
-	// Otherwise, we deadlock since http.Server.Shutdown()
-	// wont return until this function returns.
-	go s.Stop(context.Background())
 }
