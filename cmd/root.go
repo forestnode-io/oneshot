@@ -54,25 +54,22 @@ If no file is given, oneshot will instead serve from stdin and hold the clients 
 func SetFlags() {
 	RootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Version for oneshot.")
 
-	RootCmd.Flags().StringVarP(&port, "port", "p", "8080", "Port to bind to.")
-	RootCmd.Flags().DurationVarP(&timeout, "timeout", "t", 0,
-		`How long to wait for client.
-A value of zero will set the timeout to the max possible value.`,
+	RootCmd.Flags().StringVarP(&port, "port", "p", "8080", `Port to bind to.
+`,
 	)
-	RootCmd.Flags().BoolVarP(&noInfo, "quiet", "q", false,
-		`Don't show info messages.
+	RootCmd.Flags().DurationVarP(&timeout, "timeout", "t", 0, `How long to wait for client.
+A value of zero will cause oneshot to wait indefinitely.`,
+	)
+	RootCmd.Flags().BoolVarP(&noInfo, "quiet", "q", false, `Don't show info messages.
 Use -Q, --silent instead to suppress error messages as well.`,
 	)
-	RootCmd.Flags().BoolVarP(&noInfo, "silent", "Q", false,
-		`Don't show info and error messages.
+	RootCmd.Flags().BoolVarP(&noInfo, "silent", "Q", false, `Don't show info and error messages.
 Use -q, --quiet instead to suppress info messages only.`,
 	)
-	RootCmd.Flags().BoolVarP(&noDownload, "no-download", "D", false,
-		`Don't trigger browser download client side.
+	RootCmd.Flags().BoolVarP(&noDownload, "no-download", "D", false, `Don't trigger browser download client side.
 If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.`,
 	)
-	RootCmd.Flags().StringVarP(&fileName, "name", "n", "",
-		`Name of file presented to client.
+	RootCmd.Flags().StringVarP(&fileName, "name", "n", "", `Name of file presented to client.
 If not set, either a random name or the name of the file will be used,
 depending on if a file was given.`,
 	)
@@ -119,26 +116,6 @@ func Execute() {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	if passwordHidden {
-		os.Stdout.WriteString("password: ")
-		passreader := bufio.NewReader(os.Stdin)
-		passwordBytes, err := passreader.ReadString('\n')
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
-		os.Stdout.WriteString("\n")
-	} else if passwordFile != "" {
-		passwordBytes, err := ioutil.ReadFile(passwordFile)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
-	}
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]
@@ -153,7 +130,7 @@ func run(cmd *cobra.Command, args []string) {
 		MimeType: fileMime,
 	}
 	srvr := server.NewServer(file)
-	srvr.Done = make(chan struct{})
+	srvr.Done = make(chan error)
 	srvr.Port = port
 	srvr.Timeout = timeout
 	srvr.Download = !noDownload
@@ -170,6 +147,27 @@ func run(cmd *cobra.Command, args []string) {
 		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags)
 	}
 
+	if passwordHidden {
+		os.Stdout.WriteString("password: ")
+		passreader := bufio.NewReader(os.Stdin)
+		passwordBytes, err := passreader.ReadString('\n')
+		if err != nil {
+			srvr.ErrorLog.Println(err)
+			os.Exit(1)
+		}
+		password = string(passwordBytes)
+		password = strings.TrimSpace(password)
+		os.Stdout.WriteString("\n")
+	} else if passwordFile != "" {
+		passwordBytes, err := ioutil.ReadFile(passwordFile)
+		if err != nil {
+			srvr.ErrorLog.Println(err)
+			os.Exit(1)
+		}
+		password = string(passwordBytes)
+		password = strings.TrimSpace(password)
+	}
+
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
@@ -179,6 +177,13 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 
 	go srvr.Serve(cmd.Context())
-	<-srvr.Done
+	if err := <-srvr.Done; err != nil {
+		if err == server.TimeoutErr {
+			srvr.InfoLog.Println("timeout: data was never transferred.\n\nexit")
+			os.Exit(0)
+		}
+		srvr.ErrorLog.Printf("error transferring data to: %s", err.Error())
+		os.Exit(1)
+	}
 	os.Exit(0)
 }

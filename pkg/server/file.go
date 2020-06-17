@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,7 +10,10 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"sync"
 )
+
+var UnopenedReadErr = errors.New("attempted to read unopened file")
 
 // File represents the file being transferred, whether its from an
 // actual file or stdin. File also holds the files metadata.
@@ -17,20 +21,72 @@ type File struct {
 	// Path is optional if Name, Ext and MimeType are provided
 	Path string
 
-	// Name, Ext and MimeType are optional if Path is provided
-	Name     string
-	Ext      string
+	// Name is optional if Path is provided
+	Name string
+	// Ext is optional if Path is provided
+	Ext string
+	// MimeType is optional if Path is provided
 	MimeType string
 
-	file   *os.File
-	buffer *bytes.Reader
-
-	size           int64
-	progress       int64
+	// ProgressWriter will be used to output read progress
+	// whenever this File structs Read() method is called.
 	ProgressWriter io.Writer
+
+	file        *os.File
+	buffer      *bytes.Reader
+	bufferBytes []byte
+	size        int64
+	progress    int64
+	mutex       *sync.Mutex
+
+	requestCount int
+	readCount    int
 }
 
+func (f *File) Lock() {
+	if f.mutex == nil {
+		f.mutex = &sync.Mutex{}
+	}
+	f.mutex.Lock()
+}
+
+func (f *File) Unlock() {
+	if f.mutex == nil {
+		f.mutex = &sync.Mutex{}
+	}
+	f.mutex.Unlock()
+}
+
+func (f *File) Close() error {
+	if f.file == nil {
+		return nil
+	}
+	return f.file.Close()
+}
+
+func (f *File) Size() int64 {
+	return f.size
+}
+
+func (f *File) RequestCount() int {
+	return f.requestCount
+}
+
+// Requested increases the request count by one
+func (f *File) Requested() {
+	f.requestCount++
+}
+
+// ReadCount returns how many times the file has been read
+func (f *File) ReadCount() int {
+	return f.readCount
+}
+
+// Open prepares the files contents for reading.
+// If f.file is the empty string then f.Open() will read from stdin into a buffer.
+// This method is idempotent.
 func (f *File) Open() error {
+	var err error
 	if f.file != nil {
 		return nil
 	}
@@ -41,11 +97,11 @@ func (f *File) Open() error {
 		if f.Name == "" {
 			f.Name = fmt.Sprintf("%0-x", rand.Int31())
 		}
-		dataBytes, err := ioutil.ReadAll(os.Stdin)
+		f.bufferBytes, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			return err
 		}
-		f.buffer = bytes.NewReader(dataBytes)
+		f.buffer = bytes.NewReader(f.bufferBytes)
 		f.size = f.buffer.Size()
 	default:
 		var err error
@@ -72,30 +128,21 @@ func (f *File) Open() error {
 	if f.MimeType == "" {
 		f.MimeType = mime.TypeByExtension(f.Ext)
 	}
+	if f.MimeType == "" {
+		f.MimeType = "text/plain"
+	}
 
 	return nil
 }
 
-func (f *File) Close() error {
-	if f.file == nil {
-		return nil
-	}
-	return f.file.Close()
-}
-
-func (f *File) Size() int64 {
-	return f.size
-}
-
 func (f *File) Read(p []byte) (n int, err error) {
-	err = f.Open()
-	if err != nil {
-		return
+	if f.file == nil {
+		return 0, UnopenedReadErr
 	}
 
 	if f.progress == 0 {
 		f.ProgressWriter.Write([]byte("\n"))
-		f.WriteProgress()
+		f.writeProgress()
 	}
 
 	if f.buffer != nil {
@@ -105,20 +152,39 @@ func (f *File) Read(p []byte) (n int, err error) {
 	}
 
 	f.progress += int64(n)
-	f.WriteProgress()
+	f.writeProgress()
 
 	if err == io.EOF && f.ProgressWriter != nil {
+		f.readCount++
 		fmt.Fprint(f.ProgressWriter, "\n")
 	}
 
 	return
 }
 
-func (f *File) WriteProgress() {
+func (f *File) ResetReader() error {
+	if f.file == nil {
+		return nil
+	}
+
+	if f.buffer != nil {
+		f.buffer.Reset(f.bufferBytes)
+		return nil
+	}
+
+	err := f.Close()
+	if err != nil {
+		return err
+	}
+	f.file, err = os.Open(f.Path)
+	return err
+}
+
+func (f *File) writeProgress() {
 	if f.ProgressWriter == nil {
 		return
 	}
-	fmt.Fprintf(f.ProgressWriter, "download progress: %.2f%%\r",
+	fmt.Fprintf(f.ProgressWriter, "transfer progress: %.2f%%\r",
 		100.0*float64(f.progress)/float64(f.size),
 	)
 }
