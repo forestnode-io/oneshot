@@ -1,14 +1,16 @@
-package server
+package handlers
 
 import (
-	"context"
 	"fmt"
+	"github.com/raphaelreyna/oneshot/pkg/server"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
 
-func (s *Server) handleDownload(file *File) http.HandlerFunc {
+func HandleSend(file *server.File, download bool,
+	infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
 	msg += "\tMIME type: %s\n"
@@ -23,6 +25,12 @@ func (s *Server) handleDownload(file *File) http.HandlerFunc {
 		mb = kb * 1000
 		gb = mb * 1000
 	)
+
+	var iLog = func(format string, v ...interface{}) {
+		if infoLog != nil {
+			infoLog.Printf(format, v...)
+		}
+	}
 
 	var printSummary = func(start time.Time,
 		duration time.Duration, fileSize float64,
@@ -61,45 +69,29 @@ func (s *Server) handleDownload(file *File) http.HandlerFunc {
 			rateString = fmt.Sprintf("%.3f MB/s", rate)
 		default:
 			rate = rate / gb
-			rateString = fmt.Sprintf("%.3f MB/s", rate)
+			rateString = fmt.Sprintf("%.3f GB/s", rate)
 		}
 
-		s.infoLog(msg,
+		iLog(msg,
 			file.Name, file.MimeType, sizeString,
 			startTime, durationTime,
 			rateString, client)
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		file.Lock()
-		if file.RequestCount() > 0 {
-			file.Requested()
-			file.Unlock()
-			w.WriteHeader(http.StatusGone)
-			return
-		}
-		file.Requested()
-		file.Unlock()
-
-		// Stop() method needs to run on seperate goroutine.
-		// Otherwise, we deadlock since http.Server.Shutdown()
-		// wont return until this function returns.
-		defer func() {
-			go s.Stop(context.Background())
-		}()
-
-		s.infoLog("client connected: %s\n", r.RemoteAddr)
+	return func(w http.ResponseWriter, r *http.Request) error {
+		iLog("client connected: %s\n", r.RemoteAddr)
 
 		err := file.Open()
-		defer file.Close()
+		defer func() {
+			file.ResetReader()
+			file.Close()
+		}()
 		if err != nil {
-			s.err = err
-			s.internalError("error while opening file: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 
-		if s.Download {
+		if download {
 			w.Header().Set("Content-Disposition",
 				fmt.Sprintf("attachment;filename=%s", file.Name),
 			)
@@ -111,10 +103,10 @@ func (s *Server) handleDownload(file *File) http.HandlerFunc {
 		_, err = io.Copy(w, file)
 		duration := time.Since(before)
 		if err != nil {
-			s.err = err
-			return
+			return err
 		}
 
 		printSummary(before, duration, float64(file.Size()), r.RemoteAddr)
+		return nil
 	}
 }

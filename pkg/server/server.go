@@ -3,69 +3,137 @@ package server
 import (
 	"context"
 	"errors"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"time"
+	"sync"
 )
 
-var TimeoutErr = errors.New("server timed out")
+var OKDoneErr = errors.New("route done")
 
 type Server struct {
 	Port string
-
-	// Username to use for authentication.
-	// If not the empty string, authentication headers will be set.
-	// If Username is set but Password is not, then the client may enter any password.
-	Username string
-	// Password to use for authentication.
-	// If not the empty string, authentication headers will be set.
-	// If Password is set but Username is not, then the client may enter any username.
-	Password string
 
 	// Certfile is the public certificate that should be used for TLS
 	CertFile string
 	// Keyfile is the private key that should be used for TLS
 	KeyFile string
 
-	// Timeout sets how long we should wait for the client for before server shutdown.
-	Timeout time.Duration // zero value -> no timeout / infinite duration
-	// Download sets if a download should be triggered on the clients browser.
-	// This is done by setting an appropriate "Content-Disposition" header.
-	Download bool
-
 	// Done signals when the server has shutdown regardless of value.
-	// If nil, the file was sent; otherwise, value contains an error describing why the file could not be sent.
-	Done chan error
+	// Each route that finished will have an error message in the map.
+	// Routes that finish successfully will have an OKDoneErr error.
+	Done chan map[*Route]error
 
 	ErrorLog *log.Logger
 	InfoLog  *log.Logger
 
-	router         *http.ServeMux
-	server         *http.Server
-	timer          *time.Timer
-	file           *File
-	err            error
-	authenticating bool
+	router *mux.Router
+	server *http.Server
 
 	serving bool // Set to true after Serve() is called, false after Stop() or Close()
+
+	wg *sync.WaitGroup
+	sync.Mutex
+
+	finishedRoutes map[*Route]error
 }
 
-func NewServer(file *File) *Server {
+func NewServer() *Server {
 	s := &Server{
-		router: http.NewServeMux(),
-		file:   file,
+		router:         mux.NewRouter(),
+		finishedRoutes: make(map[*Route]error),
 	}
 	s.server = &http.Server{Handler: s}
 
-	s.router.HandleFunc("/", s.authenticate(s.handleDownload(s.file)))
 	return s
 }
 
-func (s *Server) Serve(ctx context.Context) error {
-	s.server.Addr = ":" + s.Port
-	if s.Username != "" || s.Password != "" {
-		s.authenticating = true
+func (s *Server) AddRoute(route *Route) {
+	if s.wg == nil {
+		s.wg = &sync.WaitGroup{}
+		s.wg.Add(1)
+		go func() {
+			s.wg.Wait()
+			s.Done <- s.finishedRoutes
+			close(s.Done)
+		}()
 	}
+
+	okMetric := true
+	if route.MaxRequests != 0 {
+		okMetric = false
+	} else if route.MaxOK == 0 {
+		route.MaxOK = 1
+	}
+
+	rr := s.router.HandleFunc(route.Pattern, func(w http.ResponseWriter, r *http.Request) {
+		var rc int64
+		var err error
+		route.Lock()
+		route.reqCount++
+
+		if okMetric {
+			switch {
+			case route.okCount >= route.MaxOK:
+				route.DoneHandlerFunc(w, r)
+			case route.okCount < route.MaxOK:
+				err = route.HandlerFunc(w, r)
+
+				if err == nil {
+					route.okCount++
+				} else if s.ErrorLog != nil {
+					s.ErrorLog.Println(err)
+				}
+
+				if route.okCount == route.MaxOK {
+					if err == nil {
+						err = OKDoneErr
+					}
+					s.Lock()
+					s.finishedRoutes[route] = err
+					s.Unlock()
+					s.wg.Done()
+				}
+			}
+			route.Unlock()
+			return
+		}
+
+		rc = route.reqCount
+		route.Unlock()
+		switch {
+		case rc > route.MaxRequests:
+			route.DoneHandlerFunc(w, r)
+		case rc <= route.MaxRequests:
+			err = route.HandlerFunc(w, r)
+
+			if err == nil {
+				route.Lock()
+				route.okCount++
+				route.Unlock()
+			} else if s.ErrorLog != nil {
+				s.ErrorLog.Println(err)
+			}
+
+			if rc == route.MaxRequests {
+				if err == nil {
+					err = OKDoneErr
+				}
+				s.Lock()
+				s.finishedRoutes[route] = err
+				s.Unlock()
+				s.wg.Done()
+			}
+		}
+	})
+
+	if len(route.Methods) > 0 {
+		rr.Methods(route.Methods...)
+	}
+}
+
+func (s *Server) Serve() error {
+	s.server.Addr = ":" + s.Port
 
 	if s.CertFile != "" && s.KeyFile != "" {
 		switch {
@@ -79,29 +147,21 @@ func (s *Server) Serve(ctx context.Context) error {
 			return err
 		}
 		s.infoLog("HTTPS server started; listening on port %s", s.Port)
-		s.startTimer(ctx)
 		s.serving = true
 		return s.server.ListenAndServeTLS(s.CertFile, s.KeyFile)
 	}
 
 	s.infoLog("HTTP server started; listening on port %s", s.Port)
-	s.startTimer(ctx)
 	s.serving = true
 	return s.server.ListenAndServe()
 }
 
-func (s *Server) Stop(ctx context.Context) error {
+func (s *Server) Shutdown(ctx context.Context) error {
 	if !s.serving {
 		return nil
 	}
 
-	if s.timer != nil {
-		s.timer.Stop()
-	}
-
-	err := s.server.Shutdown(ctx)
-	s.Done <- s.err
-	return err
+	return s.server.Shutdown(ctx)
 }
 
 func (s *Server) Close() error {
@@ -109,16 +169,14 @@ func (s *Server) Close() error {
 		return nil
 	}
 
-	if s.timer != nil {
-		s.timer.Stop()
-	}
-
 	err := s.server.Close()
-	s.Done <- s.err
 	return err
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !s.serving {
+		s.serving = true
+	}
 	s.router.ServeHTTP(w, r)
 }
 
@@ -131,21 +189,5 @@ func (s *Server) internalError(format string, v ...interface{}) {
 func (s *Server) infoLog(format string, v ...interface{}) {
 	if s.InfoLog != nil {
 		s.InfoLog.Printf(format, v...)
-	}
-}
-
-func (s *Server) startTimer(ctx context.Context) {
-	if s.Timeout != 0 {
-		s.infoLog("server timeout in %v\n", s.Timeout)
-		s.timer = time.AfterFunc(s.Timeout, func() {
-			s.file.Lock()
-
-			s.file.Requested()
-			s.err = TimeoutErr
-
-			s.file.Unlock()
-
-			s.Stop(ctx)
-		})
 	}
 }

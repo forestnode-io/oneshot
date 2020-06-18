@@ -176,7 +176,8 @@ func (f *File) ResetReader() error {
 	if err != nil {
 		return err
 	}
-	f.file, err = os.Open(f.Path)
+	f.file = nil
+	f.progress = 0
 	return err
 }
 
