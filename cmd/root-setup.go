@@ -141,7 +141,7 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 
 	route := &server.Route{
 		Pattern: "/",
-		Methods: []string{"GET"},
+		Methods: []string{"GET", "POST"},
 		DoneHandlerFunc: func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusGone)
 			w.Write([]byte("gone"))
