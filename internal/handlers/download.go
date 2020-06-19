@@ -79,8 +79,6 @@ func HandleSend(file *server.File, download bool,
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) error {
-		iLog("client connected: %s\n", r.RemoteAddr)
-
 		err := file.Open()
 		defer func() {
 			file.ResetReader()

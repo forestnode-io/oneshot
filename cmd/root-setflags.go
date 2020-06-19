@@ -3,9 +3,13 @@ package cmd
 func SetFlags() {
 	RootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Version for oneshot.")
 
-	RootCmd.Flags().StringVarP(&port, "port", "p", "8080", `Port to bind to.
-`,
+	RootCmd.Flags().BoolVarP(&exitOnFail, "exit-on-fail", "F", false, `Exit as soon as client disconnects regardless if file was transferred succesfully.
+By default, oneshot will exit once the client has downloaded the entire file.
+If using authentication, setting this flag will cause oneshot to exit if client provides wrong / no credentials.
+Use -Q, --silent instead to suppress error messages as well.`,
 	)
+
+	RootCmd.Flags().StringVarP(&port, "port", "p", "8080", `Port to bind to.`)
 	RootCmd.Flags().DurationVarP(&timeout, "timeout", "t", 0, `How long to wait for client.
 A value of zero will cause oneshot to wait indefinitely.`,
 	)
@@ -53,5 +57,48 @@ If the -W, --hidden-password flag is set, this flags will be ignored.`,
 	RootCmd.Flags().BoolVarP(&passwordHidden, "hidden-password", "W", false, `Prompt for password for basic authentication.
 If a username is not also provided using the -U, --username flag then the client may enter any username.
 Takes precedence over the -w, --password-file flag`,
+	)
+
+	RootCmd.Flags().BoolVarP(&cgi, "cgi", "c", false, `Run the given file in a forgiving CGI environment.
+See also: -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
+	)
+	RootCmd.Flags().BoolVarP(&cgiStrict, "cgi-strict", "C", false, `Run the given file in a CGI environment.
+Setting this flag overrides the -c, --cgi flag and acts as a modifier to the -S, --shell-command flag.
+If this flag is set, the file passed to oneshot will be run in a strict CGI environment; i.e. if the executable attempts to send invalid headers, oneshot will exit with an error.
+If you instead wish to simply send an executables stdout without worrying about setting headers, use the -c, --cgi flag.
+If the -S, --shell-command flag is used to pass a command, this flag has no effect.
+See also: -c, --cgi ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
+	)
+	RootCmd.Flags().BoolVarP(&shellCommand, "shell-command", "S", false, `Run a shell command in a flexible CGI environment.
+If you wish to run the command in a strict CGI environment where oneshot exits upon detecting invalid headers, use the -C, --strict-cgi flag as well.
+If this flag is used to pass a shell command, then any file passed to oneshot will be ignored.
+See also: -c, --cgi ; -C, --cgi-strict ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
+	)
+	RootCmd.Flags().StringVarP(&shell, "shell", "s", "/bin/sh", `Shell that should be used when running a shell command.
+Setting this flag does nothing if the -S, --shell-command flag is not set.
+See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
+	)
+	RootCmd.Flags().BoolVarP(&replaceHeaders, "replace-header", "R", false, `HTTP header to send to client.
+To allow executable to override header see the --replace flag.
+Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
+Must be in the form 'KEY: VALUE'.
+See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -H, --header ; -E, --env ; --cgi-stderr`,
+	)
+	RootCmd.Flags().StringArrayVarP(&rawHeaders, "header", "H", nil, `HTTP header to send to client.
+Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
+To allow executable to override header see the -R, --replace-headers flag.
+Must be in the form 'KEY: VALUE'.
+See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -E, --env ; --cgi-stderr`,
+	)
+	RootCmd.Flags().StringArrayVarP(&envVars, "env", "E", nil, `Environment variable to pass on to the executable.
+Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
+Must be in the form 'KEY=VALUE'.
+See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
+	)
+	RootCmd.Flags().StringVar(&cgiStderr, "cgi-stderr", "", `Where to redirect executable's stderr when running in CGI mode.`)
+	RootCmd.Flags().StringVarP(&dir, "dir", "d", "", `Working directory for the executable.
+Defaults to where oneshot was called.
+Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
+See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
 	)
 }

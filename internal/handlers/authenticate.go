@@ -1,12 +1,9 @@
 package handlers
 
 import (
-	"errors"
-	"log"
+	"fmt"
 	"net/http"
 )
-
-var AuthErr = errors.New("unauthenticated")
 
 func Authenticate(username, password string,
 	unauthenticated http.HandlerFunc,
@@ -15,24 +12,18 @@ func Authenticate(username, password string,
 	return func(w http.ResponseWriter, r *http.Request) error {
 		u, p, ok := r.BasicAuth()
 		if !ok {
-			log.Println("no auth provided")
 			unauthenticated(w, r)
-			return AuthErr
+			return fmt.Errorf("%s connected without providing username and password", r.RemoteAddr)
 		}
 		// Whichever field is missing is not checked
 		if username != "" && username != u {
-			log.Printf("expected username: %s got: %s\n", username, u)
 			unauthenticated(w, r)
-			return AuthErr
+			return fmt.Errorf("%s connected with invalid username and password", r.RemoteAddr)
 		}
 		if password != "" && password != p {
-			log.Printf("expected password: %s got: %s\n", password, p)
 			unauthenticated(w, r)
-			return AuthErr
+			return fmt.Errorf("%s connected with invalid username and password", r.RemoteAddr)
 		}
-		log.Printf("authenticated\nusername: %s\npassword: %s\nu: %s\np: %s\n",
-			username, password, u, p,
-		)
 		return authenticated(w, r)
 	}
 }

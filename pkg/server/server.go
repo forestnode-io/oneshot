@@ -77,6 +77,9 @@ func (s *Server) AddRoute(route *Route) {
 			case route.okCount >= route.MaxOK:
 				route.DoneHandlerFunc(w, r)
 			case route.okCount < route.MaxOK:
+				if s.InfoLog != nil {
+					s.InfoLog.Printf("client connected: %s\n", r.RemoteAddr)
+				}
 				err = route.HandlerFunc(w, r)
 
 				if err == nil {
@@ -105,6 +108,9 @@ func (s *Server) AddRoute(route *Route) {
 		case rc > route.MaxRequests:
 			route.DoneHandlerFunc(w, r)
 		case rc <= route.MaxRequests:
+			if s.InfoLog != nil {
+				s.InfoLog.Printf("client connected: %s\n", r.RemoteAddr)
+			}
 			err = route.HandlerFunc(w, r)
 
 			if err == nil {

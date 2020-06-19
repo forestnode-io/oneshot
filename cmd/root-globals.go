@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+const (
+	downloadMode uint8 = iota
+	cgiMode
+)
+
+var mode uint8
+
 var version string
 var versionFlag bool
 var date string
@@ -16,6 +23,8 @@ var (
 	port       string
 	timeout    time.Duration
 	noDownload bool
+
+	exitOnFail bool
 
 	fileName string
 	fileExt  string
@@ -28,6 +37,17 @@ var (
 	password       string
 	passwordFile   string
 	passwordHidden bool
+
+	rawHeaders []string
+
+	cgi            bool
+	cgiStrict      bool // only valid if cgi is true
+	shellCommand   bool
+	shell          string   // only used if shellCommand != ""
+	replaceHeaders bool     // only valid if cgi is true or shellCommand != ""
+	envVars        []string // only used if cgi is true or shellCommand != ""
+	cgiStderr      string   // only used if cgi is true or shellCommand != ""
+	dir            string   // only used if cgi is true or shellCommand != ""
 )
 
 var RootCmd = &cobra.Command{
