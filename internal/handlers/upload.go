@@ -9,8 +9,7 @@ import (
 	"time"
 )
 
-func HandleDownload(file *server.FileReader, download bool,
-	infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+func HandleUpload(file *server.FileWriter, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
 	msg += "\tMIME type: %s\n"
@@ -18,7 +17,7 @@ func HandleDownload(file *server.FileReader, download bool,
 	msg += "\tstart time: %s\n"
 	msg += "\tduration: %s\n"
 	msg += "\trate: %s\n"
-	msg += "\tdestination: %s\n"
+	msg += "\tsource: %s\n"
 
 	const (
 		kb = 1000
@@ -79,32 +78,29 @@ func HandleDownload(file *server.FileReader, download bool,
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) error {
+		file.Lock()
 		err := file.Open()
 		defer func() {
-			file.Reset()
 			file.Close()
 		}()
 		if err != nil {
+			file.Unlock()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return err
 		}
 
-		if download {
-			w.Header().Set("Content-Disposition",
-				fmt.Sprintf("attachment;filename=%s", file.Name),
-			)
-		}
-		w.Header().Set("Content-Type", file.MimeType)
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size()))
-
+		defer r.Body.Close()
 		before := time.Now()
-		_, err = io.Copy(w, file)
+		_, err = io.Copy(file, r.Body)
 		duration := time.Since(before)
 		if err != nil {
+			file.Reset()
+			file.Unlock()
 			return err
 		}
+		file.Unlock()
 
-		printSummary(before, duration, float64(file.Size()), r.RemoteAddr)
+		printSummary(before, duration, float64(file.Size), r.RemoteAddr)
 		return nil
 	}
 }

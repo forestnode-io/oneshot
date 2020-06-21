@@ -22,7 +22,7 @@ func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) *serv
 	if filePath != "" && fileName != "" {
 		fileName = filepath.Base(filePath)
 	}
-	file := &server.File{
+	file := &server.FileReader{
 		Path:     filePath,
 		Name:     fileName,
 		Ext:      fileExt,
@@ -46,7 +46,7 @@ func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) *serv
 	} else {
 		route.MaxOK = 1
 	}
-	route.HandlerFunc = handlers.HandleSend(file, !noDownload, srvr.InfoLog)
+	route.HandlerFunc = handlers.HandleDownload(file, !noDownload, srvr.InfoLog)
 
 	return route
 }
