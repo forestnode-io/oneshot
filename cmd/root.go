@@ -31,6 +31,7 @@ func run(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
+	port = strings.ReplaceAll(port, ":", "")
 
 	// Determine which mode user wants oneshot to run in
 	mode = downloadMode

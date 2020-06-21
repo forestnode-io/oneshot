@@ -5,7 +5,9 @@ import (
 	"errors"
 	"github.com/gorilla/mux"
 	"log"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -152,12 +154,30 @@ func (s *Server) Serve() error {
 			s.internalError(err.Error())
 			return err
 		}
-		s.infoLog("HTTPS server started; listening on port %s", s.Port)
+		ips, err := s.getHostIPs(true)
+		if err != nil {
+			s.internalError(err.Error())
+			return err
+		}
+		msg := "listening:\n"
+		for _, ip := range ips {
+			msg += "\t" + ip + "\n"
+		}
+		s.infoLog(msg)
 		s.serving = true
 		return s.server.ListenAndServeTLS(s.CertFile, s.KeyFile)
 	}
 
-	s.infoLog("HTTP server started; listening on port %s", s.Port)
+	ips, err := s.getHostIPs(false)
+	if err != nil {
+		s.internalError(err.Error())
+		return err
+	}
+	msg := "listening:\n"
+	for _, ip := range ips {
+		msg += "\t - " + ip + "\n"
+	}
+	s.infoLog(msg)
 	s.serving = true
 	return s.server.ListenAndServe()
 }
@@ -196,4 +216,45 @@ func (s *Server) infoLog(format string, v ...interface{}) {
 	if s.InfoLog != nil {
 		s.InfoLog.Printf(format, v...)
 	}
+}
+
+func (s *Server) getHostIPs(tls bool) ([]string, error) {
+	ips := []string{}
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	var home string
+	for _, addr := range addrs {
+		saddr := addr.String()
+
+		if strings.Contains(saddr, "::") {
+			continue
+		}
+
+		parts := strings.Split(saddr, "/")
+		ip := parts[0] + ":" + s.Port
+
+		if tls {
+			ip = "https://" + ip
+		} else {
+			ip = "http://" + ip
+		}
+
+		// Remove localhost since whats the point in sharing with yourself? (usually)
+		if parts[0] == "127.0.0.1" || parts[0] == "localhost" {
+			home = ip
+			continue
+		}
+
+		ips = append(ips, ip)
+	}
+
+	if len(ips) == 0 {
+		ips = append(ips, home)
+	}
+
+	return ips, nil
 }
