@@ -1,4 +1,4 @@
-package server
+package file
 
 import (
 	"bytes"
@@ -15,9 +15,9 @@ import (
 
 var UnopenedReadErr = errors.New("attempted to read unopened file")
 
-// File represents the file being transferred, whether its from an
-// actual file or stdin. File also holds the files metadata.
-type File struct {
+// FileReader represents the file being sent, whether its from an
+// actual file or stdin. FileReader also holds the files metadata.
+type FileReader struct {
 	// Path is optional if Name, Ext and MimeType are provided
 	Path string
 
@@ -43,49 +43,49 @@ type File struct {
 	readCount    int
 }
 
-func (f *File) Lock() {
+func (f *FileReader) Lock() {
 	if f.mutex == nil {
 		f.mutex = &sync.Mutex{}
 	}
 	f.mutex.Lock()
 }
 
-func (f *File) Unlock() {
+func (f *FileReader) Unlock() {
 	if f.mutex == nil {
 		f.mutex = &sync.Mutex{}
 	}
 	f.mutex.Unlock()
 }
 
-func (f *File) Close() error {
+func (f *FileReader) Close() error {
 	if f.file == nil {
 		return nil
 	}
 	return f.file.Close()
 }
 
-func (f *File) Size() int64 {
+func (f *FileReader) Size() int64 {
 	return f.size
 }
 
-func (f *File) RequestCount() int {
+func (f *FileReader) RequestCount() int {
 	return f.requestCount
 }
 
 // Requested increases the request count by one
-func (f *File) Requested() {
+func (f *FileReader) Requested() {
 	f.requestCount++
 }
 
 // ReadCount returns how many times the file has been read
-func (f *File) ReadCount() int {
+func (f *FileReader) ReadCount() int {
 	return f.readCount
 }
 
 // Open prepares the files contents for reading.
 // If f.file is the empty string then f.Open() will read from stdin into a buffer.
 // This method is idempotent.
-func (f *File) Open() error {
+func (f *FileReader) Open() error {
 	var err error
 	if f.file != nil {
 		return nil
@@ -135,7 +135,7 @@ func (f *File) Open() error {
 	return nil
 }
 
-func (f *File) Read(p []byte) (n int, err error) {
+func (f *FileReader) Read(p []byte) (n int, err error) {
 	if f.file == nil {
 		return 0, UnopenedReadErr
 	}
@@ -162,13 +162,8 @@ func (f *File) Read(p []byte) (n int, err error) {
 	return
 }
 
-func (f *File) ResetReader() error {
+func (f *FileReader) Reset() error {
 	if f.file == nil {
-		return nil
-	}
-
-	if f.buffer != nil {
-		f.buffer.Reset(f.bufferBytes)
 		return nil
 	}
 
@@ -181,7 +176,13 @@ func (f *File) ResetReader() error {
 	return err
 }
 
-func (f *File) writeProgress() {
+func (f *FileReader) newline() {
+	if f.ProgressWriter != nil {
+		f.ProgressWriter.Write([]byte("\n"))
+	}
+}
+
+func (f *FileReader) writeProgress() {
 	if f.ProgressWriter == nil {
 		return
 	}

@@ -2,14 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/file"
 	"io"
 	"log"
 	"net/http"
 	"time"
 )
 
-func HandleSend(file *server.File, download bool,
+func HandleDownload(file *file.FileReader, download bool,
 	infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
@@ -79,9 +79,10 @@ func HandleSend(file *server.File, download bool,
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) error {
+		iLog("connected: %s\n", r.RemoteAddr)
 		err := file.Open()
 		defer func() {
-			file.ResetReader()
+			file.Reset()
 			file.Close()
 		}()
 		if err != nil {

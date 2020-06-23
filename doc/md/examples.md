@@ -13,6 +13,19 @@ $ oneshot -U username -W path/to/file.txt
 The `-W` option will cause oneshot to prompt you for a password.
 Oneshot also supports HTTPS, simply pass in the key and certificate using the `--tls-key` and `--tls-cert` flags.
 
+#### Receive a file
+```bash
+$ oneshot -u .
+```
+The `-u` option is used for receiving data from the client. 
+A connecteing browser will be prompted to upload a file which oneshot then save to the current directory.
+
+#### Receive a file to standard out
+```bash
+$ oneshot -u | jq '.first_name'
+```
+If the `-u` option is used and no directory is given, oneshot will write the received file to its standard out.
+
 #### Serve up a first-come-first-serve web page
 ```bash
 $ oneshot -D my/web/page.html

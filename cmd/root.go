@@ -35,6 +35,9 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Determine which mode user wants oneshot to run in
 	mode = downloadMode
+	if upload {
+		mode = uploadMode
+	}
 	if cgi || cgiStrict || shellCommand {
 		mode = cgiMode
 	}
@@ -49,7 +52,7 @@ func run(cmd *cobra.Command, args []string) {
 		srvr.InfoLog = log.New(os.Stdout, "\n", 0)
 	}
 	if !noError {
-		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags)
+		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags|log.Lshortfile)
 	}
 
 	var route *server.Route
@@ -58,6 +61,12 @@ func run(cmd *cobra.Command, args []string) {
 		route = downloadSetup(cmd, args, srvr)
 	case cgiMode:
 		route, err = cgiSetup(cmd, args, srvr)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+	case uploadMode:
+		route, err = uploadSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)

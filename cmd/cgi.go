@@ -10,46 +10,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 )
-
-func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) *server.Route {
-	var filePath string
-	if len(args) >= 1 {
-		filePath = args[0]
-	}
-	if filePath != "" && fileName != "" {
-		fileName = filepath.Base(filePath)
-	}
-	file := &server.File{
-		Path:     filePath,
-		Name:     fileName,
-		Ext:      fileExt,
-		MimeType: fileMime,
-	}
-
-	if !noInfo {
-		file.ProgressWriter = os.Stdout
-	}
-
-	route := &server.Route{
-		Pattern: "/",
-		Methods: []string{"GET"},
-		DoneHandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusGone)
-			w.Write([]byte("gone"))
-		},
-	}
-	if exitOnFail {
-		route.MaxRequests = 1
-	} else {
-		route.MaxOK = 1
-	}
-	route.HandlerFunc = handlers.HandleSend(file, !noDownload, srvr.InfoLog)
-
-	return route
-}
 
 func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.Route, error) {
 	var err error
