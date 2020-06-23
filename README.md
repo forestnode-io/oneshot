@@ -151,6 +151,7 @@ oneshot [flags]... [file|dir]
   -D, --no-download            Don't trigger browser download client side.
                                If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.
   -P, --password string        Password for basic authentication.
+                               If an empty password ("") is set then a random secure will be used.
                                If a username is not also provided using the -U, --username flag then the client may enter any username.
                                If either the -W, --hidden-password or -w, --password-file flags are set, this flag will be ignored.
   -w, --password-file string   File containing password for basic authentication.
@@ -194,7 +195,8 @@ oneshot [flags]... [file|dir]
                                Example: Running "curl -d 'Hello World!' localhost:8080" will send 'Hello World!' to oneshot.
                                
   -U, --username string        Username for basic authentication.
-                               If a password is not also provided using either the -P, --password;
+                               If an empty username ("") is set then a random, easy to remember username will be used.
+                               If a password is not also provided using either the -P, --password flag , then the client may enter any password;
                                -W, --hidden-password; or -w, --password-file flags then the client may enter any password.
   -v, --version                Version for oneshot.
 ```
