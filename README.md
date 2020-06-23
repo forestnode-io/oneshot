@@ -1,11 +1,15 @@
 ## oneshot
 
-A single-fire HTTP server.
+A single-fire first-come-first-serve HTTP server.
 
 
 ### Installation
 
 There are multiple ways of obtaining oneshot:
+
+##### Download binary
+Check out the [releases](https://github.com/raphaelreyna/oneshot/releases) page.
+
 
 ##### Brew
 ```bash
@@ -40,6 +44,19 @@ $ oneshot -U username -W path/to/file.txt
 ```
 The `-W` option will cause oneshot to prompt you for a password.
 Oneshot also supports HTTPS, simply pass in the key and certificate using the `--tls-key` and `--tls-cert` flags.
+
+#### Receive a file
+```bash
+$ oneshot -u .
+```
+The `-u` option is used for receiving data from the client. 
+A connecteing browser will be prompted to upload a file which oneshot then save to the current directory.
+
+#### Receive a file to standard out
+```bash
+$ oneshot -u | jq '.first_name'
+```
+If the `-u` option is used and no directory is given, oneshot will write the received file to its standard out.
 
 #### Serve up a first-come-first-serve web page
 ```bash
@@ -77,14 +94,12 @@ In this scenario, Alice runs oneshot, Bob connects to Alice's machine and his br
 ### Synopsis
 
 
-Start an HTTP server which will only serve files once.
-The first client to connect is given the file, all others receive an HTTP 410 Gone response code.
-
-If no file is given, oneshot will instead serve from stdin and hold the clients connection until receiving the EOF character.
+Transfer files and data easily between your computer and any browser or HTTP client.
+The first client to connect is given the file or uploads a file, all others receive an HTTP 410 Gone response code.
 
 
 ```
-oneshot [flags]... [file]
+oneshot [flags]... [file|dir]
 ```
 
 ### Options
