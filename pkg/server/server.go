@@ -12,6 +12,7 @@ import (
 )
 
 var OKDoneErr = errors.New("route done")
+var OKNotDoneErr = errors.New("not done")
 
 type Server struct {
 	Port string
@@ -48,96 +49,6 @@ func NewServer() *Server {
 	s.server = &http.Server{Handler: s}
 
 	return s
-}
-
-func (s *Server) AddRoute(route *Route) {
-	if s.wg == nil {
-		s.wg = &sync.WaitGroup{}
-		s.wg.Add(1)
-		go func() {
-			s.wg.Wait()
-			s.Done <- s.finishedRoutes
-			close(s.Done)
-		}()
-	}
-
-	okMetric := true
-	if route.MaxRequests != 0 {
-		okMetric = false
-	} else if route.MaxOK == 0 {
-		route.MaxOK = 1
-	}
-
-	rr := s.router.HandleFunc(route.Pattern, func(w http.ResponseWriter, r *http.Request) {
-		var rc int64
-		var err error
-		route.Lock()
-		route.reqCount++
-
-		if okMetric {
-			switch {
-			case route.okCount >= route.MaxOK:
-				route.DoneHandlerFunc(w, r)
-			case route.okCount < route.MaxOK:
-				if s.InfoLog != nil {
-					s.InfoLog.Printf("client connected: %s\n", r.RemoteAddr)
-				}
-				err = route.HandlerFunc(w, r)
-
-				if err == nil {
-					route.okCount++
-				} else if s.ErrorLog != nil {
-					s.ErrorLog.Println(err)
-				}
-
-				if route.okCount == route.MaxOK {
-					if err == nil {
-						err = OKDoneErr
-					}
-					s.Lock()
-					s.finishedRoutes[route] = err
-					s.Unlock()
-					s.wg.Done()
-				}
-			}
-			route.Unlock()
-			return
-		}
-
-		rc = route.reqCount
-		route.Unlock()
-		switch {
-		case rc > route.MaxRequests:
-			route.DoneHandlerFunc(w, r)
-		case rc <= route.MaxRequests:
-			if s.InfoLog != nil {
-				s.InfoLog.Printf("client connected: %s\n", r.RemoteAddr)
-			}
-			err = route.HandlerFunc(w, r)
-
-			if err == nil {
-				route.Lock()
-				route.okCount++
-				route.Unlock()
-			} else if s.ErrorLog != nil {
-				s.ErrorLog.Println(err)
-			}
-
-			if rc == route.MaxRequests {
-				if err == nil {
-					err = OKDoneErr
-				}
-				s.Lock()
-				s.finishedRoutes[route] = err
-				s.Unlock()
-				s.wg.Done()
-			}
-		}
-	})
-
-	if len(route.Methods) > 0 {
-		rr.Methods(route.Methods...)
-	}
 }
 
 func (s *Server) Serve() error {

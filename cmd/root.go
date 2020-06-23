@@ -37,6 +37,8 @@ func run(cmd *cobra.Command, args []string) {
 	mode = downloadMode
 	if cgi || cgiStrict || shellCommand {
 		mode = cgiMode
+	} else if upload {
+		mode = uploadMode
 	}
 
 	srvr := server.NewServer()
@@ -49,7 +51,7 @@ func run(cmd *cobra.Command, args []string) {
 		srvr.InfoLog = log.New(os.Stdout, "\n", 0)
 	}
 	if !noError {
-		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags)
+		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags|log.Lshortfile)
 	}
 
 	var route *server.Route
@@ -58,6 +60,12 @@ func run(cmd *cobra.Command, args []string) {
 		route = downloadSetup(cmd, args, srvr)
 	case cgiMode:
 		route, err = cgiSetup(cmd, args, srvr)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+	case uploadMode:
+		route, err = uploadSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)

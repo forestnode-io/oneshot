@@ -101,4 +101,6 @@ Defaults to where oneshot was called.
 Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
 	)
+
+	RootCmd.Flags().BoolVarP(&upload, "upload", "u", false, `Receive a file from the client.`)
 }

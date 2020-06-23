@@ -8,6 +8,7 @@ import (
 
 const (
 	downloadMode uint8 = iota
+	uploadMode
 	cgiMode
 )
 
@@ -23,6 +24,8 @@ var (
 	port       string
 	timeout    time.Duration
 	noDownload bool
+
+	upload bool
 
 	exitOnFail bool
 

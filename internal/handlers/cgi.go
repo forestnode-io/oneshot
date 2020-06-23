@@ -36,6 +36,7 @@ func HandleCGI(handler *ezcgi.Handler, name, mime string, infoLog *log.Logger) f
 		}
 	}
 	return func(w http.ResponseWriter, r *http.Request) error {
+		iLog("client connected: %s\n", r.RemoteAddr)
 		before := time.Now()
 		handler.ServeHTTP(w, r)
 		duration := time.Since(before)

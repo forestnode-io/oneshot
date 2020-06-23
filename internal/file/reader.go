@@ -1,4 +1,4 @@
-package server
+package file
 
 import (
 	"bytes"
