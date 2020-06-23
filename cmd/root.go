@@ -35,10 +35,11 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Determine which mode user wants oneshot to run in
 	mode = downloadMode
+	if upload {
+		mode = uploadMode
+	}
 	if cgi || cgiStrict || shellCommand {
 		mode = cgiMode
-	} else if upload {
-		mode = uploadMode
 	}
 
 	srvr := server.NewServer()

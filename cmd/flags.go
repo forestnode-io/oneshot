@@ -71,6 +71,7 @@ Takes precedence over the -w, --password-file flag`,
 	)
 
 	RootCmd.Flags().BoolVarP(&cgi, "cgi", "c", false, `Run the given file in a forgiving CGI environment.
+Setting this flag will override the -u, --upload flag.
 See also: -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
@@ -79,12 +80,14 @@ Setting this flag overrides the -c, --cgi flag and acts as a modifier to the -S,
 If this flag is set, the file passed to oneshot will be run in a strict CGI environment; i.e. if the executable attempts to send invalid headers, oneshot will exit with an error.
 If you instead wish to simply send an executables stdout without worrying about setting headers, use the -c, --cgi flag.
 If the -S, --shell-command flag is used to pass a command, this flag has no effect.
+Setting this flag will override the -u, --upload flag.
 See also: -c, --cgi ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
 	RootCmd.Flags().BoolVarP(&shellCommand, "shell-command", "S", false, `Run a shell command in a flexible CGI environment.
 If you wish to run the command in a strict CGI environment where oneshot exits upon detecting invalid headers, use the -C, --strict-cgi flag as well.
 If this flag is used to pass a shell command, then any file passed to oneshot will be ignored.
+Setting this flag will override the -u, --upload flag.
 See also: -c, --cgi ; -C, --cgi-strict ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
@@ -113,9 +116,11 @@ Must be in the form 'KEY=VALUE'.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
 	)
 
-	RootCmd.Flags().StringVar(&cgiStderr, "cgi-stderr", "", `Where to redirect executable's stderr when running in CGI mode.`)
+	RootCmd.Flags().StringVar(&cgiStderr, "cgi-stderr", "", `Where to redirect executable's stderr when running in CGI mode.
+See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
+	)
 
-	RootCmd.Flags().StringVarP(&dir, "dir", "d", "", `Working directory for the executable.
+	RootCmd.Flags().StringVarP(&dir, "dir", "d", "", `Working directory for the executable or when saving files.
 Defaults to where oneshot was called.
 Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
