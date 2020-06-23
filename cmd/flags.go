@@ -20,7 +20,7 @@ A value of zero will cause oneshot to wait indefinitely.`,
 Use -Q, --silent instead to suppress error messages as well.`,
 	)
 
-	RootCmd.Flags().BoolVarP(&noInfo, "silent", "Q", false, `Don't show info and error messages.
+	RootCmd.Flags().BoolVarP(&noError, "silent", "Q", false, `Don't show info and error messages.
 Use -q, --quiet instead to suppress info messages only.`,
 	)
 
@@ -52,11 +52,13 @@ Cert file must also be provided using the --tls-cert flag.`,
 	)
 
 	RootCmd.Flags().StringVarP(&username, "username", "U", "", `Username for basic authentication.
-If a password is not also provided using either the -P, --password;
+If an empty username ("") is set then a random, easy to remember username will be used.
+If a password is not also provided using either the -P, --password flag , then the client may enter any password;
 -W, --hidden-password; or -w, --password-file flags then the client may enter any password.`,
 	)
 
 	RootCmd.Flags().StringVarP(&password, "password", "P", "", `Password for basic authentication.
+If an empty password ("") is set then a random secure will be used.
 If a username is not also provided using the -U, --username flag then the client may enter any username.
 If either the -W, --hidden-password or -w, --password-file flags are set, this flag will be ignored.`,
 	)

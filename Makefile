@@ -8,7 +8,7 @@ PREFIX=/usr/local
 HERE=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 oneshot:
-	go build -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" .
+	go build -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG} -s -w" .
 
 README.md:
 	cd doc/md && go run -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" \

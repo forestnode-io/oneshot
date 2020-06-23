@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
@@ -52,7 +53,7 @@ func run(cmd *cobra.Command, args []string) {
 		srvr.InfoLog = log.New(os.Stdout, "\n", 0)
 	}
 	if !noError {
-		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags|log.Lshortfile)
+		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags)
 	}
 
 	var route *server.Route
@@ -73,12 +74,58 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	fs := cmd.Flags()
+	var randUser bool
+	var randPass bool
+	if fs.Changed("username") && username == "" {
+		username = randomUsername()
+		randUser = true
+	}
+	if fs.Changed("password") && password == "" {
+		password = randomPassword()
+		randPass = true
+	}
+
 	if password != "" || username != "" {
 		route.HandlerFunc = handlers.Authenticate(username, password,
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("WWW-Authenticate", "Basic")
 				w.WriteHeader(http.StatusUnauthorized)
 			}, route.HandlerFunc)
+		if randPass || randUser {
+			msg := ""
+			if randUser {
+				msg += fmt.Sprintf("generated random username: %s\n", username)
+			}
+			if randPass {
+				msg += fmt.Sprintf("generated random password: %s\n", password)
+			}
+			// Are we allowed to print to stdout?
+			if upload && len(args) == 0 && dir == "" && fileName == "" {
+				// oneshot will only print received file to stdout
+				// print to stderr or a file instead
+				if srvr.ErrorLog == nil {
+					f, err := os.Create("./oneshot-credentials.txt")
+					if err != nil {
+						log.Println(err)
+						f.Close()
+						os.Exit(1)
+					}
+					msg += "\n" + time.Now().Format("15:04:05.000 MST 2 Jan 2006")
+					_, err = f.WriteString(msg)
+					if err != nil {
+						f.Close()
+						log.Println(err)
+						os.Exit(1)
+					}
+					f.Close()
+				} else {
+					srvr.ErrorLog.Printf(msg)
+				}
+			} else {
+				srvr.InfoLog.Printf(msg)
+			}
+		}
 	}
 
 	srvr.AddRoute(route)
@@ -137,4 +184,34 @@ func setupUsernamePassword() error {
 		password = strings.TrimSpace(password)
 	}
 	return nil
+}
+
+func randomPassword() string {
+	const lowerChars = "abcdefghijklmnopqrstuvwxyz"
+	const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	const numericChars = "1234567890"
+
+	var defSeperator = "-"
+
+	runes := []rune(lowerChars + upperChars + numericChars)
+	l := len(runes)
+	password := ""
+	for i := 1; i < 15; i++ {
+		if i%5 == 0 {
+			password += defSeperator
+			continue
+		}
+		password += string(runes[rand.Intn(l)])
+	}
+	return password
+}
+
+func randomUsername() string {
+	adjs := [...]string{"bulky", "fake", "artistic", "plush", "ornate", "kind", "nutty", "miniature", "huge", "evergreen", "several", "writhing", "scary", "equatorial", "obvious", "rich", "beneficial", "actual", "comfortable", "well-lit"}
+
+	nouns := [...]string{"representative", "prompt", "respond", "safety", "blood", "fault", "lady", "routine", "position", "friend", "uncle", "savings", "ambition", "advice", "responsibility", "consist", "nobody", "film", "attitude", "heart"}
+
+	l := len(adjs)
+
+	return adjs[rand.Intn(l)] + "_" + nouns[rand.Intn(l)]
 }
