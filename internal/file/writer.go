@@ -109,7 +109,6 @@ func (f *FileWriter) Write(p []byte) (n int, err error) {
 	}
 
 	if f.progress == 0 {
-		f.newline()
 		f.writeProgress()
 	}
 
@@ -137,12 +136,6 @@ func (f *FileWriter) Reset() error {
 	}
 	f.location = ""
 	return nil
-}
-
-func (f *FileWriter) newline() {
-	if f.ProgressWriter != nil {
-		f.ProgressWriter.Write([]byte("\n"))
-	}
 }
 
 func (f *FileWriter) writeProgress() {

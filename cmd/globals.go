@@ -29,6 +29,8 @@ var (
 
 	exitOnFail bool
 
+	archiveMethod string
+
 	fileName string
 	fileExt  string
 	fileMime string
@@ -59,6 +61,7 @@ var RootCmd = &cobra.Command{
 	Short:   "A single-fire first-come-first-serve HTTP server.",
 	Long: `Transfer files and data easily between your computer and any browser or HTTP client.
 The first client to connect is given the file or uploads a file, all others receive an HTTP 410 Gone response code.
+Directories will automatically be archived before being sent (see -a, --archive-method for more information).
 `,
 	Run: run,
 }

@@ -15,14 +15,18 @@ func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) *serv
 	if len(args) >= 1 {
 		filePath = args[0]
 	}
-	if filePath != "" && fileName != "" {
+	if filePath != "" && fileName == "" {
 		fileName = filepath.Base(filePath)
 	}
+	if archiveMethod != "zip" && archiveMethod != "tar.gz" {
+		archiveMethod = "tar.gz"
+	}
 	file := &file.FileReader{
-		Path:     filePath,
-		Name:     fileName,
-		Ext:      fileExt,
-		MimeType: fileMime,
+		Path:          filePath,
+		Name:          fileName,
+		Ext:           fileExt,
+		MimeType:      fileMime,
+		ArchiveMethod: archiveMethod,
 	}
 
 	if !noInfo {

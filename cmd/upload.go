@@ -101,11 +101,11 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 			_, skip := dontLog[r.RemoteAddr]
 			dlm.Unlock()
 			if !skip {
-				infoLog("connected: %s\n", r.RemoteAddr)
+				infoLog("connected: %s", r.RemoteAddr)
 			}
 			return postHandler(w, r)
 		case "GET":
-			infoLog("connected: %s\n", r.RemoteAddr)
+			infoLog("connected: %s", r.RemoteAddr)
 			err := getHandler(w, r)
 			if err == server.OKNotDoneErr {
 				dlm.Lock()

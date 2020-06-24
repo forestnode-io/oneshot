@@ -79,7 +79,7 @@ func HandleDownload(file *file.FileReader, download bool,
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) error {
-		iLog("connected: %s\n", r.RemoteAddr)
+		iLog("connected: %s", r.RemoteAddr)
 		err := file.Open()
 		defer func() {
 			file.Reset()

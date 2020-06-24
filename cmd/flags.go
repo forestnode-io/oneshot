@@ -142,4 +142,8 @@ Oneshot will save either the entire body, or first file part (if the Content-Typ
 Example: Running "curl -d 'Hello World!' localhost:8080" will send 'Hello World!' to oneshot.
 `,
 	)
+
+	RootCmd.Flags().StringVarP(&archiveMethod, "archive-method", "a", "tar.gz", `Which archive method to use when sending directories.
+Recognized values are "zip" and "tar.gz", any unrecognized values will default to "tar.gz".`,
+	)
 }

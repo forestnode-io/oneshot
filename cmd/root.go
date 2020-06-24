@@ -50,10 +50,10 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.KeyFile = keyFile
 
 	if !noInfo && !noError {
-		srvr.InfoLog = log.New(os.Stdout, "\n", 0)
+		srvr.InfoLog = log.New(os.Stdout, "", 0)
 	}
 	if !noError {
-		srvr.ErrorLog = log.New(os.Stderr, "\nerror :: ", log.LstdFlags)
+		srvr.ErrorLog = log.New(os.Stderr, "error :: ", log.LstdFlags)
 	}
 
 	var route *server.Route

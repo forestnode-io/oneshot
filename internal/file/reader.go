@@ -32,12 +32,16 @@ type FileReader struct {
 	// whenever this File structs Read() method is called.
 	ProgressWriter io.Writer
 
+	ArchiveMethod string
+
 	file        *os.File
-	buffer      *bytes.Reader
+	buffer      *bytes.Buffer
 	bufferBytes []byte
 	size        int64
 	progress    int64
 	mutex       *sync.Mutex
+
+	open bool
 
 	requestCount int
 	readCount    int
@@ -61,6 +65,7 @@ func (f *FileReader) Close() error {
 	if f.file == nil {
 		return nil
 	}
+	f.open = false
 	return f.file.Close()
 }
 
@@ -101,21 +106,54 @@ func (f *FileReader) Open() error {
 		if err != nil {
 			return err
 		}
-		f.buffer = bytes.NewReader(f.bufferBytes)
-		f.size = f.buffer.Size()
+		f.buffer = bytes.NewBuffer(f.bufferBytes)
+		f.size = int64(f.buffer.Len())
 	default:
 		var err error
-		f.file, err = os.Open(f.Path)
+		info, err := os.Stat(f.Path)
 		if err != nil {
 			return err
 		}
-		info, err := f.file.Stat()
-		if err != nil {
-			return err
-		}
-		f.size = info.Size()
-		if f.Name == "" {
-			f.Name = info.Name()
+		if !info.IsDir() {
+			f.file, err = os.Open(f.Path)
+			if err != nil {
+				return err
+			}
+			f.size = info.Size()
+			if f.Name == "" {
+				f.Name = info.Name()
+			}
+		} else {
+			f.bufferBytes = []byte{}
+			f.buffer = bytes.NewBuffer(f.bufferBytes)
+			f.buffer.Grow(int(info.Size()))
+
+			switch f.ArchiveMethod {
+			case "zip":
+				zip(f.Path, f.buffer)
+				f.size = int64(f.buffer.Len())
+				if f.MimeType == "" {
+					f.MimeType = "application/zip"
+				}
+				if f.Name == "" {
+					f.Name = info.Name()
+				}
+				if filepath.Ext(f.Name) == "" {
+					f.Name += ".zip"
+				}
+			case "tar.gz":
+				tarball(f.Path, f.buffer)
+				f.size = int64(f.buffer.Len())
+				if f.MimeType == "" {
+					f.MimeType = "application/gzip"
+				}
+				if f.Name == "" {
+					f.Name = info.Name()
+				}
+				if filepath.Ext(f.Name) == "" {
+					f.Name += ".tar.gz"
+				}
+			}
 		}
 	}
 
@@ -132,16 +170,17 @@ func (f *FileReader) Open() error {
 		f.MimeType = "text/plain"
 	}
 
+	f.open = true
+
 	return nil
 }
 
 func (f *FileReader) Read(p []byte) (n int, err error) {
-	if f.file == nil {
+	if !f.open {
 		return 0, UnopenedReadErr
 	}
 
 	if f.progress == 0 {
-		f.ProgressWriter.Write([]byte("\n"))
 		f.writeProgress()
 	}
 
@@ -173,13 +212,8 @@ func (f *FileReader) Reset() error {
 	}
 	f.file = nil
 	f.progress = 0
+	f.open = false
 	return err
-}
-
-func (f *FileReader) newline() {
-	if f.ProgressWriter != nil {
-		f.ProgressWriter.Write([]byte("\n"))
-	}
 }
 
 func (f *FileReader) writeProgress() {
