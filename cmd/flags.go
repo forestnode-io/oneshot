@@ -132,7 +132,7 @@ Setting this flag does nothing unless either the -c, --cgi or -S, --shell-comman
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
 	)
 
-	RootCmd.Flags().BoolVarP(&upload, "upload", "u", false, `Receive a file from the client.
+	RootCmd.Flags().BoolVarP(&upload, "upload", "u", false, `Receive a file, allow client to upload a file to your computer.
 Setting this flag will cause oneshot to serve up a minimalistic web-page that prompts the client to upload a file.
 By default if no path argument is given, the file will be sent to standard out (nothing else will be printed to standard out, this is useful for when you wish to pipe or redirect the file uploaded by the client).
 If a path to a directory is given as an argument (or the -d, --dir flag is set), oneshot will save the file to that directory using either the files original name or the one set by the -n, --name flag.
