@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -26,13 +24,28 @@ func Execute() {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	returnCode := 0
+	defer func() { os.Exit(returnCode) }()
+
 	rand.Seed(time.Now().UTC().UnixNano())
 	err := setupUsernamePassword()
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		returnCode = 1
+		return
 	}
+
 	port = strings.ReplaceAll(port, ":", "")
+
+	tlsLoc, err := setupCertAndKey(cmd)
+	if err != nil {
+		log.Println(err)
+		returnCode = 1
+		return
+	}
+	if tlsLoc != "" {
+		defer os.RemoveAll(tlsLoc)
+	}
 
 	// Determine which mode user wants oneshot to run in
 	mode = downloadMode
@@ -64,13 +77,15 @@ func run(cmd *cobra.Command, args []string) {
 		route, err = cgiSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
-			os.Exit(1)
+			returnCode = 1
+			return
 		}
 	case uploadMode:
 		route, err = uploadSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
-			os.Exit(1)
+			returnCode = 1
+			return
 		}
 	}
 
@@ -101,7 +116,7 @@ func run(cmd *cobra.Command, args []string) {
 				msg += fmt.Sprintf("generated random password: %s\n", password)
 			}
 			// Are we allowed to print to stdout?
-			if upload && len(args) == 0 && dir == "" && fileName == "" {
+			if (upload && len(args) == 0 && dir == "" && fileName == "") || srvr.InfoLog == nil {
 				// oneshot will only print received file to stdout
 				// print to stderr or a file instead
 				if srvr.ErrorLog == nil {
@@ -109,16 +124,21 @@ func run(cmd *cobra.Command, args []string) {
 					if err != nil {
 						log.Println(err)
 						f.Close()
-						os.Exit(1)
+
+						returnCode = 1
+						return
 					}
 					msg += "\n" + time.Now().Format("15:04:05.000 MST 2 Jan 2006")
 					_, err = f.WriteString(msg)
 					if err != nil {
 						f.Close()
 						log.Println(err)
-						os.Exit(1)
+
+						returnCode = 1
+						return
 					}
 					f.Close()
+					defer os.Remove(f.Name())
 				} else {
 					srvr.ErrorLog.Printf(msg)
 				}
@@ -140,11 +160,11 @@ func run(cmd *cobra.Command, args []string) {
 			if sigCount < 1 {
 				go func() {
 					srvr.Shutdown(cmd.Context())
-					os.Exit(0)
+					srvr.Done <- nil
 				}()
 			} else {
 				srvr.Close()
-				os.Exit(0)
+				return
 			}
 			sigCount++
 		}
@@ -154,64 +174,11 @@ func run(cmd *cobra.Command, args []string) {
 	if timeout != 0 {
 		_ = time.AfterFunc(timeout, func() {
 			srvr.Shutdown(cmd.Context())
-			os.Exit(0)
+			srvr.Done <- nil
 		})
 	}
 
 	go srvr.Serve()
 	<-srvr.Done
 	srvr.Shutdown(cmd.Context())
-	os.Exit(0)
-}
-
-func setupUsernamePassword() error {
-	if passwordHidden {
-		os.Stdout.WriteString("password: ")
-		passreader := bufio.NewReader(os.Stdin)
-		passwordBytes, err := passreader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
-		os.Stdout.WriteString("\n")
-	} else if passwordFile != "" {
-		passwordBytes, err := ioutil.ReadFile(passwordFile)
-		if err != nil {
-			return err
-		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
-	}
-	return nil
-}
-
-func randomPassword() string {
-	const lowerChars = "abcdefghijklmnopqrstuvwxyz"
-	const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	const numericChars = "1234567890"
-
-	var defSeperator = "-"
-
-	runes := []rune(lowerChars + upperChars + numericChars)
-	l := len(runes)
-	password := ""
-	for i := 1; i < 15; i++ {
-		if i%5 == 0 {
-			password += defSeperator
-			continue
-		}
-		password += string(runes[rand.Intn(l)])
-	}
-	return password
-}
-
-func randomUsername() string {
-	adjs := [...]string{"bulky", "fake", "artistic", "plush", "ornate", "kind", "nutty", "miniature", "huge", "evergreen", "several", "writhing", "scary", "equatorial", "obvious", "rich", "beneficial", "actual", "comfortable", "well-lit"}
-
-	nouns := [...]string{"representative", "prompt", "respond", "safety", "blood", "fault", "lady", "routine", "position", "friend", "uncle", "savings", "ambition", "advice", "responsibility", "consist", "nobody", "film", "attitude", "heart"}
-
-	l := len(adjs)
-
-	return adjs[rand.Intn(l)] + "_" + nouns[rand.Intn(l)]
 }

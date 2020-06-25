@@ -44,11 +44,15 @@ depending on of a file was given.`,
 	)
 
 	RootCmd.Flags().StringVar(&certFile, "tls-cert", "", `Certificate file to use for HTTPS.
-Key file must also be provided using the --tls-key flag.`,
+If the empty string ("") is passed to both this flag and --tls-key, then oneshot will generate, self-sign and use a TLS certificate/key pair.
+Key file must also be provided using the --tls-key flag.
+See also: --tls-key ; -T, --ss-tls`,
 	)
 
 	RootCmd.Flags().StringVar(&keyFile, "tls-key", "", `Key file to use for HTTPS.
-Cert file must also be provided using the --tls-cert flag.`,
+If the empty string ("") is passed to both this flag and --tls-cert, then oneshot will generate, self-sign and use a TLS certificate/key pair.
+Cert file must also be provided using the --tls-cert flag.
+See also: --tls-cert ; -T, --ss-tls`,
 	)
 
 	RootCmd.Flags().StringVarP(&username, "username", "U", "", `Username for basic authentication.
@@ -145,5 +149,11 @@ Example: Running "curl -d 'Hello World!' localhost:8080" will send 'Hello World!
 
 	RootCmd.Flags().StringVarP(&archiveMethod, "archive-method", "a", "tar.gz", `Which archive method to use when sending directories.
 Recognized values are "zip" and "tar.gz", any unrecognized values will default to "tar.gz".`,
+	)
+
+	RootCmd.Flags().BoolVarP(&sstls, "ss-tls", "T", false, `Generate and use a self-signed TLS certificate/key pair for HTTPS.
+A new certificate/key pair is generated for each running instance of oneshot.
+To use your own certificate/key pair, use the --tls-cert and --tls-key flags.
+See also: --tls-key ; -T, --ss-tls`,
 	)
 }

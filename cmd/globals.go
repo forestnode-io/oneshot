@@ -37,6 +37,7 @@ var (
 
 	certFile string
 	keyFile  string
+	sstls    bool
 
 	username       string
 	password       string
