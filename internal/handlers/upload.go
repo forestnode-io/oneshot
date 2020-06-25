@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -96,8 +97,9 @@ func HandleUpload(file *file.FileWriter, infoLog *log.Logger) func(w http.Respon
 			err error
 		)
 
-		switch rct := r.Header.Get("Content-Type"); rct {
-		case "multipart/form-data":
+		rct := r.Header.Get("Content-Type")
+		switch {
+		case strings.Contains(rct, "multipart/form-data"):
 			reader, err := r.MultipartReader()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -119,7 +121,12 @@ func HandleUpload(file *file.FileWriter, infoLog *log.Logger) func(w http.Respon
 				}
 			}
 
+			src = part
+
 			cl, err = strconv.ParseInt(part.Header.Get("Content-Length"), 10, 64)
+			if err != nil {
+				cl = 0
+			}
 		default:
 			cd := r.Header.Get("Content-Disposition")
 			if file.Path != "" && file.Name() == "" {
@@ -133,10 +140,13 @@ func HandleUpload(file *file.FileWriter, infoLog *log.Logger) func(w http.Respon
 			file.MIMEType = rct
 			src = r.Body
 			cl, err = strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
+			if err != nil {
+				cl = 0
+			}
 		}
 
 		file.Lock()
-		if err == nil {
+		if err == nil && cl != 0 {
 			file.SetSize(cl)
 		}
 		err = file.Open()

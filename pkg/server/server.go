@@ -30,6 +30,8 @@ type Server struct {
 	ErrorLog *log.Logger
 	InfoLog  *log.Logger
 
+	MDNSAddress string
+
 	router *mux.Router
 	server *http.Server
 
@@ -70,6 +72,9 @@ func (s *Server) Serve() error {
 			s.internalError(err.Error())
 			return err
 		}
+		if s.MDNSAddress != "" {
+			ips = append([]string{s.MDNSAddress}, ips...)
+		}
 		msg := "listening:\n"
 		for _, ip := range ips {
 			msg += "\t" + ip + "\n"
@@ -83,6 +88,9 @@ func (s *Server) Serve() error {
 	if err != nil {
 		s.internalError(err.Error())
 		return err
+	}
+	if s.MDNSAddress != "" {
+		ips = append([]string{s.MDNSAddress}, ips...)
 	}
 	msg := "listening:\n"
 	for _, ip := range ips {

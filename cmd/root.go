@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/grandcat/zeroconf"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -27,6 +29,8 @@ func run(cmd *cobra.Command, args []string) {
 	returnCode := 0
 	defer func() { os.Exit(returnCode) }()
 
+	port = strings.ReplaceAll(port, ":", "")
+
 	rand.Seed(time.Now().UTC().UnixNano())
 	err := setupUsernamePassword()
 	if err != nil {
@@ -34,8 +38,6 @@ func run(cmd *cobra.Command, args []string) {
 		returnCode = 1
 		return
 	}
-
-	port = strings.ReplaceAll(port, ":", "")
 
 	tlsLoc, err := setupCertAndKey(cmd)
 	if err != nil {
@@ -61,6 +63,42 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.Port = port
 	srvr.CertFile = certFile
 	srvr.KeyFile = keyFile
+
+	if mdns {
+		portN, err := strconv.ParseInt(port, 10, 32)
+		if err != nil {
+			log.Println(err)
+			returnCode = 1
+			return
+		}
+		if err != nil {
+			log.Println(err)
+			returnCode = 1
+			return
+		}
+		mdnsSrvr, err := zeroconf.Register(
+			"oneshot",
+			"_http._tcp",
+			"local.",
+			int(portN),
+			[]string{"version=" + version},
+			nil,
+		)
+		defer mdnsSrvr.Shutdown()
+
+		host, err := os.Hostname()
+		if err != nil {
+			log.Println(err)
+			returnCode = 1
+			return
+		}
+		if certFile != "" && keyFile != "" {
+			srvr.MDNSAddress = "https://"
+		} else {
+			srvr.MDNSAddress = "http://"
+		}
+		srvr.MDNSAddress += host + ".local" + ":" + port
+	}
 
 	if !noInfo && !noError {
 		srvr.InfoLog = log.New(os.Stdout, "", 0)

@@ -156,4 +156,6 @@ A new certificate/key pair is generated for each running instance of oneshot.
 To use your own certificate/key pair, use the --tls-cert and --tls-key flags.
 See also: --tls-key ; -T, --ss-tls`,
 	)
+
+	RootCmd.Flags().BoolVarP(&mdns, "mdns", "M", false, `Register oneshot as an mDNS (bonjour/avahi) service.`)
 }

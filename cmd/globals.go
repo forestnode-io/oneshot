@@ -31,6 +31,8 @@ var (
 
 	archiveMethod string
 
+	mdns bool
+
 	fileName string
 	fileExt  string
 	fileMime string
