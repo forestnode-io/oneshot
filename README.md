@@ -145,6 +145,7 @@ oneshot [flags]... [file|dir]
   -W, --hidden-password         Prompt for password for basic authentication.
                                 If a username is not also provided using the -U, --username flag then the client may enter any username.
                                 Takes precedence over the -w, --password-file flag
+  -M, --mdns                    Register oneshot as an mDNS (bonjour/avahi) service.
   -m, --mime string             MIME type of file presented to client.
                                 If not set, either no MIME type or the mime/type of the file will be user,
                                 depending on of a file was given.
@@ -192,7 +193,7 @@ oneshot [flags]... [file|dir]
                                 If the empty string ("") is passed to both this flag and --tls-cert, then oneshot will generate, self-sign and use a TLS certificate/key pair.
                                 Cert file must also be provided using the --tls-cert flag.
                                 See also: --tls-cert ; -T, --ss-tls
-  -u, --upload                  Receive a file from the client.
+  -u, --upload                  Receive a file, allow client to upload a file to your computer.
                                 Setting this flag will cause oneshot to serve up a minimalistic web-page that prompts the client to upload a file.
                                 By default if no path argument is given, the file will be sent to standard out (nothing else will be printed to standard out, this is useful for when you wish to pipe or redirect the file uploaded by the client).
                                 If a path to a directory is given as an argument (or the -d, --dir flag is set), oneshot will save the file to that directory using either the files original name or the one set by the -n, --name flag.
