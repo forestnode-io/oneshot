@@ -73,8 +73,9 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 <body>
 
 <form action="/" method="post" enctype="multipart/form-data">
-  Select file to upload:
+  <h5>Select a file to upload:</h5>
   <input type="file" name="oneshot">
+  <br>
   <input type="submit" value="Upload">
 </form>
 
