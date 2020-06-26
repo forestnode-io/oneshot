@@ -7,9 +7,14 @@ A single-fire first-come-first-serve HTTP server.
 
 There are multiple ways of obtaining oneshot:
 
-##### Download binary
-Check out the [releases](https://github.com/raphaelreyna/oneshot/releases) page.
+#### Linux / macOS
+Copy and paste any of these commands into your terminal to install oneshot.
+For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/raphaelreyna/oneshot/releases).
 
+##### Download binary (easiest)
+```bash
+curl -L https://github.com/raphaelreyna/oneshot/raw/master/install.sh | sudo bash
+```
 
 ##### Brew
 ```bash
@@ -27,6 +32,16 @@ go get -u -v github.com/raphaelreyna/oneshot
 git clone github.com/raphaelreyna/oneshot
 cd oneshot
 sudo make install
+```
+
+#### Windows
+
+##### Download executable
+Head over to the [release page](https://github.com/raphaelreyna/oneshot/releases) and download the windows .zip file.
+
+##### Go get
+```powershell
+go get -u -v github.com/raphaelreyna/oneshot
 ```
 
 
