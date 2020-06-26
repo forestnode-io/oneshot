@@ -4,8 +4,6 @@ env_files:
 before:
   hooks:
     - go mod download
-    - rm README.md
-    - make README.md
 
 builds:
 - id: linux
@@ -48,7 +46,7 @@ builds:
 
 archives:
 - id: brew
-  name_template: "oneshot_{{ .Version }}.{{ .Os }}_{{ .Arch }}"
+  name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
   builds:
     - macos
     - linux
@@ -61,7 +59,7 @@ archives:
     - README.md
 
 - id: windows-zip
-  name_template: "oneshot_{{ .Version }}.{{ .Os }}_{{ .Arch }}"
+  name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
   builds:
     - windows
   replacements:
@@ -73,7 +71,7 @@ archives:
     - README.md
       
 - id: binary
-  name_template: "oneshot_{{ .Version }}.{{ .Os }}_{{ .Arch }}"
+  name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
   builds:
     - linux
     - macos
@@ -84,11 +82,14 @@ archives:
     amd64: x86_64
   format: binary
 
+
 checksum:
   name_template: 'checksums.txt'
-  
+
+
 snapshot:
   name_template: "{{ .Tag }}"
+
 
 brews:
   - name: oneshot
@@ -99,6 +100,22 @@ brews:
       name: homebrew-repo
     homepage: "https://github.com/raphaelreyna/oneshot"
     description: "A single fire HTTP server."
+
+
+nfpms:
+  - package_name: oneshot
+    file_name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
+    builds:
+      - linux
+    replacements:
+      386: i386
+      amd64: x86_64
+    description: A first-come-first-serve single-fire HTTP server. Easily transfer files to and from your terminal and any browser.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+
 
 release:
   ids:
