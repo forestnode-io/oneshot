@@ -10,7 +10,7 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/raphaelreyna/oneshot/cmd.version=v{{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd.version={{.Version}}
     - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
   goos:
     - linux
@@ -24,7 +24,7 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version=v{{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
     - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
   goos:
     - darwin
@@ -35,7 +35,7 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version=v{{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
     - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
   goos:
     - windows
@@ -46,7 +46,7 @@ builds:
 
 archives:
 - id: brew
-  name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
+  name_template: "oneshot_{{ .Version }}.{{ .Os }}-{{ .Arch }}"
   builds:
     - macos
     - linux
@@ -59,7 +59,7 @@ archives:
     - README.md
 
 - id: windows-zip
-  name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
+  name_template: "oneshot_{{ .Version }}.{{ .Os }}-{{ .Arch }}"
   builds:
     - windows
   replacements:
@@ -71,7 +71,7 @@ archives:
     - README.md
       
 - id: binary
-  name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
+  name_template: "oneshot_{{ .Version }}.{{ .Os }}-{{ .Arch }}"
   builds:
     - linux
     - macos
@@ -104,7 +104,7 @@ brews:
 
 nfpms:
   - package_name: oneshot
-    file_name_template: "oneshot_v{{ .Version }}.{{ .Os }}-{{ .Arch }}"
+    file_name_template: "oneshot_{{ .Version }}.{{ .Os }}-{{ .Arch }}"
     builds:
       - linux
     replacements:

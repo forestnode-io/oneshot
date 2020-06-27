@@ -60,7 +60,7 @@ var (
 
 var RootCmd = &cobra.Command{
 	Use:     "oneshot [flags]... [file|dir]",
-	Version: fmt.Sprintf(": %s\ndate: %s\nauthor: Raphael Reyna\n", version, date),
+	Version: fmt.Sprintf(": %s\ndate : %s\nauthor : Raphael Reyna", version, date),
 	Short:   "A single-fire first-come-first-serve HTTP server.",
 	Long: `Transfer files and data easily between your computer and any browser or HTTP client.
 The first client to connect is given the file or uploads a file, all others receive an HTTP 410 Gone response code.
