@@ -18,6 +18,7 @@ import (
 )
 
 func Execute() {
+	cobra.MousetrapHelpText = ""
 	SetFlags()
 	if err := RootCmd.Execute(); err != nil {
 		log.Println(err)
