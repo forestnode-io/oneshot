@@ -1,4 +1,4 @@
-<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot.png" height="300px">
+<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
 
 ## oneshot
 
