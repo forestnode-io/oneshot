@@ -30,6 +30,17 @@ func run(cmd *cobra.Command, args []string) {
 	returnCode := 0
 	defer func() { os.Exit(returnCode) }()
 
+	if msg := os.Getenv("ONESHOT_DONT_EXIT"); msg != "" {
+		defer func() {
+			d := make(chan struct{})
+			if msg != "T" && msg != "t" {
+				os.Stdout.WriteString("\n\n")
+				os.Stdout.WriteString(msg)
+			}
+			<-d
+		}()
+	}
+
 	port = strings.ReplaceAll(port, ":", "")
 
 	rand.Seed(time.Now().UTC().UnixNano())
