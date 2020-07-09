@@ -15,6 +15,8 @@ func tarball(path string, w io.Writer) error {
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
+	dir := filepath.Dir(path)
+
 	return filepath.Walk(path, func(fp string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -23,8 +25,15 @@ func tarball(path string, w io.Writer) error {
 			return err
 		}
 
+		// needed for windows
+		name := strings.TrimPrefix(fp, dir)
+		if string(name[0]) == `\` {
+			name = name[1:]
+		}
+		name = strings.ReplaceAll(name, `\`, `/`)
+
 		header := tar.Header{
-			Name:    strings.TrimPrefix(fp, filepath.Dir(path)),
+			Name:    name,
 			Size:    info.Size(),
 			Mode:    int64(info.Mode()),
 			ModTime: info.ModTime(),
