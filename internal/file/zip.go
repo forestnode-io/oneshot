@@ -12,6 +12,8 @@ func zip(path string, w io.Writer) error {
 	zw := z.NewWriter(w)
 	defer zw.Close()
 
+	dir := filepath.Dir(path)
+
 	return filepath.Walk(path, func(fp string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -20,7 +22,13 @@ func zip(path string, w io.Writer) error {
 			return err
 		}
 
-		relPath := strings.TrimPrefix(fp, filepath.Dir(path))
+		relPath := strings.TrimPrefix(fp, dir)
+		// Needed for windows
+		if string(relPath[0]) == `\` {
+			relPath = relPath[1:]
+		}
+		relPath = strings.ReplaceAll(relPath, `\`, `/`)
+
 		zFile, err := zw.Create(relPath)
 		if err != nil {
 			return err
@@ -29,6 +37,7 @@ func zip(path string, w io.Writer) error {
 		if err != nil {
 			return err
 		}
+
 		_, err = io.Copy(zFile, currFile)
 		currFile.Close()
 		if err != nil {
