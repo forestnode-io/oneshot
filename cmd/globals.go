@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -48,10 +49,13 @@ var (
 
 	rawHeaders []string
 
-	cgi            bool
-	cgiStrict      bool // only valid if cgi is true
-	shellCommand   bool
-	shell          string   // only used if shellCommand != ""
+	cgi          bool
+	cgiStrict    bool // only valid if cgi is true
+	shellCommand bool
+	shell        string // only used if shellCommand != ""
+
+	defaultShell = "/bin/sh"
+
 	replaceHeaders bool     // only valid if cgi is true or shellCommand != ""
 	envVars        []string // only used if cgi is true or shellCommand != ""
 	cgiStderr      string   // only used if cgi is true or shellCommand != ""

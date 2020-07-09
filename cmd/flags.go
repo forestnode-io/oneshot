@@ -97,7 +97,7 @@ Setting this flag will override the -u, --upload flag.
 See also: -c, --cgi ; -C, --cgi-strict ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
-	RootCmd.Flags().StringVarP(&shell, "shell", "s", "/bin/sh", `Shell that should be used when running a shell command.
+	RootCmd.Flags().StringVarP(&shell, "shell", "s", defaultShell, `Shell that should be used when running a shell command.
 Setting this flag does nothing if the -S, --shell-command flag is not set.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)

@@ -2,10 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/grandcat/zeroconf"
-	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
-	"github.com/spf13/cobra"
 	"log"
 	"math/rand"
 	"net/http"
@@ -15,6 +11,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/grandcat/zeroconf"
+	"github.com/raphaelreyna/oneshot/internal/handlers"
+	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/spf13/cobra"
 )
 
 func Execute() {
