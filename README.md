@@ -1,5 +1,3 @@
-<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
-
 ## oneshot
 
 A single-fire first-come-first-serve HTTP server.
@@ -53,7 +51,7 @@ go get -u -v github.com/raphaelreyna/oneshot
 ```bash
 $ oneshot path/to/file.txt
 ```
-Then, from a browser (or any HTTP client) go to your computers I.P. address and the file download will be triggered.
+Then, from a browser (or any HTTP client) simply go to your computers I.P. address and the file download will be triggered.
 
 #### Send a file securely
 ```bash
@@ -67,7 +65,7 @@ Oneshot also supports HTTPS, simply pass in the key and certificate using the `-
 $ oneshot -u .
 ```
 The `-u` option is used for receiving data from the client. 
-The browser will be prompted to upload a file which oneshot will then save to the current directory.
+A connecteing browser will be prompted to upload a file which oneshot then save to the current directory.
 
 #### Receive a file to standard out
 ```bash
@@ -92,7 +90,7 @@ The optional flag `-n` sets the name of the file.
 ```bash
 $ oneshot -U username -P password -c my_non-cgi_script.sh
 ```
-Oneshot can run your scripts and programs in a flexible CGI environment.
+Oneshot can run your scripts and programs in a CGI flexible CGI environment.
 Even non-CGI executables may be used; oneshot will provide its own default headers or you can set your own using the `-H` flag.
 
 #### Create a single-fire api in a single line
@@ -171,8 +169,12 @@ oneshot [flags]... [file|dir]
                                 depending on if a file was given.
   -D, --no-download             Don't trigger browser download client side.
                                 If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.
+  -L, --no-unix-eol-norm        Don't normalize end-of-line chars to unix style on user input.
+                                Most browsers send DOS style (CR+LF) end-of-line characters when submitting user form input; setting this flag to true prevents oneshot from doing the replacement CR+LF -> LF.
+                                This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+                                See also: -u, --upload; --upload-input
   -P, --password string         Password for basic authentication.
-                                If an empty password ("") is set then a random password will be used.
+                                If an empty password ("") is set then a random secure will be used.
                                 If a username is not also provided using the -U, --username flag then the client may enter any username.
                                 If either the -W, --hidden-password or -w, --password-file flags are set, this flag will be ignored.
   -w, --password-file string    File containing password for basic authentication.
@@ -210,11 +212,13 @@ oneshot [flags]... [file|dir]
                                 If the empty string ("") is passed to both this flag and --tls-cert, then oneshot will generate, self-sign and use a TLS certificate/key pair.
                                 Cert file must also be provided using the --tls-cert flag.
                                 See also: --tls-cert ; -T, --ss-tls
-  -u, --upload                  Receive a file, allow client to upload a file to your computer.
-                                Setting this flag will cause oneshot to serve up a minimalistic web-page that prompts the client to upload a file.
+  -u, --upload                  Receive a file, allow client to send text or upload a file to your computer.
+                                Setting this flag will cause oneshot to serve up a minimalistic web-page that prompts the client to either upload a file or enter text.
+                                To only allow for a file or user input and not both, see the --upload-file and --upload-input flags.
                                 By default if no path argument is given, the file will be sent to standard out (nothing else will be printed to standard out, this is useful for when you wish to pipe or redirect the file uploaded by the client).
                                 If a path to a directory is given as an argument (or the -d, --dir flag is set), oneshot will save the file to that directory using either the files original name or the one set by the -n, --name flag.
                                 If both the -d, --dir flag is set and a path is given as an argument, then the path from -d, --dir is prepended to the one from the argument.
+                                See also: --upload-file; --upload-input; -L, --no-unix-eol-norm
                                 
                                 Example: Running "oneshot -u -d /foo ./bar/baz" will result in the clients uploaded file being saved to directory /foo/bar/baz.
                                 
@@ -223,11 +227,19 @@ oneshot [flags]... [file|dir]
                                 
                                 Example: Running "curl -d 'Hello World!' localhost:8080" will send 'Hello World!' to oneshot.
                                 
+      --upload-file             Receive a file, allow client to upload a file to your computer.
+                                Setting both this flag and --upload-input is equivalent to setting the -u, --upload flag.
+                                For more information see the -u, --upload flag documentation.
+                                See also: --upload-input; -u, --upload
+      --upload-input            Receive text from a browser.
+                                Setting both this flag and --upload-file is equivalent to setting the -u, --upload flag.
+                                For more information see the -u, --upload flag documentation.
+                                See also: --upload-file; -u, --upload; -L, --no-unix-eol-norm
   -U, --username string         Username for basic authentication.
                                 If an empty username ("") is set then a random, easy to remember username will be used.
                                 If a password is not also provided using either the -P, --password flag , then the client may enter any password;
                                 -W, --hidden-password; or -w, --password-file flags then the client may enter any password.
-  -v, --version                 Version for oneshot.
+  -v, --version                 Version and other info.
 ```
 
-###### Auto generated by spf13/cobra on 27-Jun-2020
+###### Auto generated by spf13/cobra on 11-Jul-2020
