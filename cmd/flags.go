@@ -1,7 +1,7 @@
 package cmd
 
 func SetFlags() {
-	RootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, `Version for oneshot.`)
+	RootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, `Version and other info.`)
 
 	RootCmd.Flags().BoolVarP(&exitOnFail, "exit-on-fail", "F", false, `Exit as soon as client disconnects regardless if file was transferred succesfully.
 By default, oneshot will exit once the client has downloaded the entire file.
@@ -97,7 +97,7 @@ Setting this flag will override the -u, --upload flag.
 See also: -c, --cgi ; -C, --cgi-strict ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
-	RootCmd.Flags().StringVarP(&shell, "shell", "s", "/bin/sh", `Shell that should be used when running a shell command.
+	RootCmd.Flags().StringVarP(&shell, "shell", "s", shellDefault, `Shell that should be used when running a shell command.
 Setting this flag does nothing if the -S, --shell-command flag is not set.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
@@ -132,11 +132,13 @@ Setting this flag does nothing unless either the -c, --cgi or -S, --shell-comman
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; --cgi-stderr`,
 	)
 
-	RootCmd.Flags().BoolVarP(&upload, "upload", "u", false, `Receive a file, allow client to upload a file to your computer.
-Setting this flag will cause oneshot to serve up a minimalistic web-page that prompts the client to upload a file.
+	RootCmd.Flags().BoolVarP(&upload, "upload", "u", false, `Receive a file, allow client to send text or upload a file to your computer.
+Setting this flag will cause oneshot to serve up a minimalistic web-page that prompts the client to either upload a file or enter text.
+To only allow for a file or user input and not both, see the --upload-file and --upload-input flags.
 By default if no path argument is given, the file will be sent to standard out (nothing else will be printed to standard out, this is useful for when you wish to pipe or redirect the file uploaded by the client).
 If a path to a directory is given as an argument (or the -d, --dir flag is set), oneshot will save the file to that directory using either the files original name or the one set by the -n, --name flag.
 If both the -d, --dir flag is set and a path is given as an argument, then the path from -d, --dir is prepended to the one from the argument.
+See also: --upload-file; --upload-input; -L, --no-unix-eol-norm
 
 Example: Running "oneshot -u -d /foo ./bar/baz" will result in the clients uploaded file being saved to directory /foo/bar/baz.
 
@@ -147,7 +149,7 @@ Example: Running "curl -d 'Hello World!' localhost:8080" will send 'Hello World!
 `,
 	)
 
-	RootCmd.Flags().StringVarP(&archiveMethod, "archive-method", "a", "tar.gz", `Which archive method to use when sending directories.
+	RootCmd.Flags().StringVarP(&archiveMethod, "archive-method", "a", archiveMethodDefault, `Which archive method to use when sending directories.
 Recognized values are "zip" and "tar.gz", any unrecognized values will default to "tar.gz".`,
 	)
 
@@ -158,4 +160,21 @@ See also: --tls-key ; -T, --ss-tls`,
 	)
 
 	RootCmd.Flags().BoolVarP(&mdns, "mdns", "M", false, `Register oneshot as an mDNS (bonjour/avahi) service.`)
+
+	RootCmd.Flags().BoolVarP(&noUnixNorm, "no-unix-eol-norm", "L", noUnixNormDefault, `Don't normalize end-of-line chars to unix style on user input.
+Most browsers send DOS style (CR+LF) end-of-line characters when submitting user form input; setting this flag to true prevents oneshot from doing the replacement CR+LF -> LF.
+This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+See also: -u, --upload; --upload-input`,
+	)
+
+	RootCmd.Flags().BoolVar(&uploadFile, "upload-file", false, `Receive a file, allow client to upload a file to your computer.
+Setting both this flag and --upload-input is equivalent to setting the -u, --upload flag.
+For more information see the -u, --upload flag documentation.
+See also: --upload-input; -u, --upload`,
+	)
+	RootCmd.Flags().BoolVar(&uploadInput, "upload-input", false, `Receive text from a browser.
+Setting both this flag and --upload-file is equivalent to setting the -u, --upload flag.
+For more information see the -u, --upload flag documentation.
+See also: --upload-file; -u, --upload; -L, --no-unix-eol-norm`,
+	)
 }

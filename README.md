@@ -1,3 +1,5 @@
+<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+
 ## oneshot
 
 A single-fire first-come-first-serve HTTP server.
@@ -51,7 +53,7 @@ go get -u -v github.com/raphaelreyna/oneshot
 ```bash
 $ oneshot path/to/file.txt
 ```
-Then, from a browser (or any HTTP client) simply go to your computers I.P. address and the file download will be triggered.
+Then, from a browser (or any HTTP client) go to your computers I.P. address and the file download will be triggered.
 
 #### Send a file securely
 ```bash
@@ -65,7 +67,7 @@ Oneshot also supports HTTPS, simply pass in the key and certificate using the `-
 $ oneshot -u .
 ```
 The `-u` option is used for receiving data from the client. 
-A connecteing browser will be prompted to upload a file which oneshot then save to the current directory.
+The browser will be prompted to upload a file which oneshot will then save to the current directory.
 
 #### Receive a file to standard out
 ```bash
@@ -90,7 +92,7 @@ The optional flag `-n` sets the name of the file.
 ```bash
 $ oneshot -U username -P password -c my_non-cgi_script.sh
 ```
-Oneshot can run your scripts and programs in a CGI flexible CGI environment.
+Oneshot can run your scripts and programs in a flexible CGI environment.
 Even non-CGI executables may be used; oneshot will provide its own default headers or you can set your own using the `-H` flag.
 
 #### Create a single-fire api in a single line
@@ -170,7 +172,7 @@ oneshot [flags]... [file|dir]
   -D, --no-download             Don't trigger browser download client side.
                                 If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.
   -P, --password string         Password for basic authentication.
-                                If an empty password ("") is set then a random secure will be used.
+                                If an empty password ("") is set then a random password will be used.
                                 If a username is not also provided using the -U, --username flag then the client may enter any username.
                                 If either the -W, --hidden-password or -w, --password-file flags are set, this flag will be ignored.
   -w, --password-file string    File containing password for basic authentication.

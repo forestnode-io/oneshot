@@ -2,10 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/grandcat/zeroconf"
-	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
-	"github.com/spf13/cobra"
 	"log"
 	"math/rand"
 	"net/http"
@@ -15,9 +11,15 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/grandcat/zeroconf"
+	"github.com/raphaelreyna/oneshot/internal/handlers"
+	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/spf13/cobra"
 )
 
 func Execute() {
+	cobra.MousetrapHelpText = ""
 	SetFlags()
 	if err := RootCmd.Execute(); err != nil {
 		log.Println(err)
@@ -28,6 +30,17 @@ func Execute() {
 func run(cmd *cobra.Command, args []string) {
 	returnCode := 0
 	defer func() { os.Exit(returnCode) }()
+
+	if msg := os.Getenv("ONESHOT_DONT_EXIT"); msg != "" {
+		defer func() {
+			d := make(chan struct{})
+			if msg != "T" && msg != "t" {
+				os.Stdout.WriteString("\n\n")
+				os.Stdout.WriteString(msg)
+			}
+			<-d
+		}()
+	}
 
 	port = strings.ReplaceAll(port, ":", "")
 
@@ -51,7 +64,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Determine which mode user wants oneshot to run in
 	mode = downloadMode
-	if upload {
+	if upload || uploadFile || uploadInput {
 		mode = uploadMode
 	}
 	if cgi || cgiStrict || shellCommand {
