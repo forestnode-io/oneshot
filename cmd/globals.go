@@ -1,3 +1,4 @@
+// https://i.pinimg.com/originals/b4/c7/df/b4c7dffc53f77d7002c626a376b2bcb2.jpg
 package cmd
 
 import (
@@ -25,7 +26,9 @@ var (
 	timeout    time.Duration
 	noDownload bool
 
-	upload bool
+	upload      bool
+	uploadFile  bool
+	uploadInput bool
 
 	exitOnFail bool
 
@@ -56,6 +59,9 @@ var (
 	envVars        []string // only used if cgi is true or shellCommand != ""
 	cgiStderr      string   // only used if cgi is true or shellCommand != ""
 	dir            string   // only used if cgi is true or shellCommand != ""
+
+	noUnixNorm        bool
+	noUnixNormDefault bool
 )
 
 var RootCmd = &cobra.Command{

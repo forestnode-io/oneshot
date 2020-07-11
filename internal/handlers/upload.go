@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/jf-tech/iohelper"
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"io"
 	"log"
@@ -12,7 +13,12 @@ import (
 	"time"
 )
 
-func HandleUpload(file *file.FileWriter, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+	var (
+		lf   = []byte{10}
+		crlf = []byte{13, 10}
+	)
+
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
 	msg += "\tlocation: %s\n"
@@ -126,6 +132,16 @@ func HandleUpload(file *file.FileWriter, infoLog *log.Logger) func(w http.Respon
 			cl, err = strconv.ParseInt(part.Header.Get("Content-Length"), 10, 64)
 			if err != nil {
 				cl = 0
+			}
+		case strings.Contains(rct, "application/x-www-form-urlencoded"):
+			err := r.ParseForm()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return err
+			}
+			src = strings.NewReader(r.PostForm.Get("oneshotTextUpload"))
+			if unixEOLNormalization {
+				src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 			}
 		default:
 			cd := r.Header.Get("Content-Disposition")
