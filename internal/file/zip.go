@@ -24,10 +24,11 @@ func zip(path string, w io.Writer) error {
 
 		relPath := strings.TrimPrefix(fp, dir)
 		// Needed for windows
-		if string(relPath[0]) == `\` {
+		relPath = strings.ReplaceAll(relPath, `\`, `/`)
+
+		if string(relPath[0]) == `/` {
 			relPath = relPath[1:]
 		}
-		relPath = strings.ReplaceAll(relPath, `\`, `/`)
 
 		zFile, err := zw.Create(relPath)
 		if err != nil {

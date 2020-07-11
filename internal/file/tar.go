@@ -27,10 +27,11 @@ func tarball(path string, w io.Writer) error {
 
 		// needed for windows
 		name := strings.TrimPrefix(fp, dir)
-		if string(name[0]) == `\` {
+		name = strings.ReplaceAll(name, `\`, `/`)
+
+		if string(name[0]) == `/` {
 			name = name[1:]
 		}
-		name = strings.ReplaceAll(name, `\`, `/`)
 
 		header := tar.Header{
 			Name:    name,
