@@ -1,3 +1,4 @@
+// https://i.pinimg.com/originals/b4/c7/df/b4c7dffc53f77d7002c626a376b2bcb2.jpg
 package cmd
 
 import (
@@ -26,7 +27,9 @@ var (
 	timeout    time.Duration
 	noDownload bool
 
-	upload bool
+	upload      bool
+	uploadFile  bool
+	uploadInput bool
 
 	exitOnFail bool
 
@@ -60,11 +63,14 @@ var (
 	envVars        []string // only used if cgi is true or shellCommand != ""
 	cgiStderr      string   // only used if cgi is true or shellCommand != ""
 	dir            string   // only used if cgi is true or shellCommand != ""
+
+	noUnixNorm        bool
+	noUnixNormDefault bool
 )
 
 var RootCmd = &cobra.Command{
 	Use:     "oneshot [flags]... [file|dir]",
-	Version: fmt.Sprintf(": %s\ndate: %s\nauthor: Raphael Reyna\n", version, date),
+	Version: fmt.Sprintf(": %s\ndate : %s\nauthor : Raphael Reyna", version, date),
 	Short:   "A single-fire first-come-first-serve HTTP server.",
 	Long: `Transfer files and data easily between your computer and any browser or HTTP client.
 The first client to connect is given the file or uploads a file, all others receive an HTTP 410 Gone response code.

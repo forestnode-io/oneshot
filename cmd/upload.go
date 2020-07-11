@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"text/template"
 )
 
 func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.Route, error) {
@@ -68,24 +69,62 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 		route.MaxOK = 1
 	}
 
-	html := []byte(`<!DOCTYPE html>
+	base := `<!DOCTYPE html>
 <html>
+<head>
+</head>
 <body>
+{{ .FileSection }}
+{{ if .InputSection }}
+{{ if .FileSection }}
+<br/>OR<br/>
+{{ end }}
+{{ .InputSection }}
+{{ end }}
+</body>
+</html>
+`
 
-<form action="/" method="post" enctype="multipart/form-data">
+	fileSection := `<form action="/" method="post" enctype="multipart/form-data">
   <h5>Select a file to upload:</h5>
   <input type="file" name="oneshot">
   <br>
   <input type="submit" value="Upload">
-</form>
+</form>`
 
-</body>
-</html>`)
+	inputSection := `<form action="/" method="post">
+  <h5>Enter text to send: </h5>
+  <textarea name="oneshotTextUpload"></textarea>
+  <br/>
+  <input type="submit" value="Upload">
+</form>`
+
+	tmpl, err := template.New("upload").Parse(base)
+	if err != nil {
+		return nil, err
+	}
+
+	sections := struct {
+		FileSection  string
+		InputSection string
+	}{}
+
+	if upload {
+		uploadFile = true
+		uploadInput = true
+	}
+	if uploadFile {
+		sections.FileSection = fileSection
+	}
+	if uploadInput {
+		sections.InputSection = inputSection
+	}
+
 	getHandler := func(w http.ResponseWriter, r *http.Request) error {
-		w.Write(html)
+		tmpl.Execute(w, &sections)
 		return server.OKNotDoneErr
 	}
-	postHandler := handlers.HandleUpload(file, srvr.InfoLog)
+	postHandler := handlers.HandleUpload(file, !noUnixNorm, srvr.InfoLog)
 
 	infoLog := func(format string, v ...interface{}) {
 		if srvr.InfoLog != nil {
