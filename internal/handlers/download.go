@@ -2,14 +2,15 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/raphaelreyna/oneshot/internal/file"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/raphaelreyna/oneshot/internal/file"
 )
 
-func HandleDownload(file *file.FileReader, download bool,
+func HandleDownload(file *file.FileReader, download bool, header http.Header,
 	infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
@@ -72,8 +73,13 @@ func HandleDownload(file *file.FileReader, download bool,
 			rateString = fmt.Sprintf("%.3f GB/s", rate)
 		}
 
+		mimeType := file.MimeType
+		if ct := header.Get("Content-Type"); ct != "" {
+			mimeType = ct
+		}
+
 		iLog(msg,
-			file.Name, file.MimeType, sizeString,
+			file.Name, mimeType, sizeString,
 			startTime, durationTime,
 			rateString, client)
 	}
@@ -97,6 +103,10 @@ func HandleDownload(file *file.FileReader, download bool,
 		}
 		w.Header().Set("Content-Type", file.MimeType)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size()))
+
+		for key := range header {
+			w.Header().Set(key, header.Get(key))
+		}
 
 		before := time.Now()
 		_, err = io.Copy(w, file)
