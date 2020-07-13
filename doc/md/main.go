@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 func main() {
@@ -26,6 +27,7 @@ func main() {
 		panic(err)
 	}
 	files, _ := here.Readdirnames(0)
+	sort.Strings(files)
 	var file *os.File
 	for _, fName := range files {
 		if filepath.Ext(fName) == ".md" {

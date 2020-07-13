@@ -110,7 +110,7 @@ See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -H,
 	)
 
 	RootCmd.Flags().StringArrayVarP(&rawHeaders, "header", "H", nil, `HTTP header to send to client.
-Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
+Setting a value for 'Content-Type' will override the -M, --mime flag.
 To allow executable to override header see the -R, --replace-headers flag.
 Must be in the form 'KEY: VALUE'.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -E, --env ; --cgi-stderr`,

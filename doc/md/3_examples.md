@@ -41,10 +41,11 @@ The optional flag `-n` sets the name of the file.
 
 #### Wait until someone provides credentials to start a process, then send its output
 ```bash
-$ oneshot -U username -P password -c my_non-cgi_script.sh
+$ oneshot -U "" -P password -c my_non-cgi_script.sh
 ```
 Oneshot can run your scripts and programs in a CGI flexible CGI environment.
 Even non-CGI executables may be used; oneshot will provide its own default headers or you can set your own using the `-H` flag.
+Passing in an empty value (`""`) for `-U, --username` or `-P, --password` will result in a randomly generate username or password.
 
 #### Create a single-fire api in a single line
 ```bash

@@ -1,0 +1,54 @@
+#!/bin/bash
+# Prepare oneshot release.
+# Covers things I don't know how to do using goreleaser.
+
+CURRENT_VERSION=`git describe --tag --abbrev=0`
+NEW_VERSION=""
+
+# Create README.md
+rm README.md
+make README.md
+## Add banner image to top of README.md
+sed -i '1i <img src="https://github.com/raphaelreyna/goneshot/raw/master/goneshot_banner.png" width="744px" height="384px">' README.md
+git add README.md
+
+
+function updateVersion {
+	read -p "new version (curently at ${CURRENT_VERSION}): " NEW_VERSION
+	## Make sure new version has valid format
+	if [[ $NEW_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+	then
+		echo "${NEW_VERSION}" > version.txt
+		git add version.txt
+	else
+		echo "invalid version format. try again."
+		updateVersion
+	fi
+}
+
+updateVersion
+
+# Remove old builds
+rm -rf dist
+
+# Show status and ask to commit
+git status
+read -p "commit and tag? [y/n]: " COMMIT
+if [[ $COMMIT == [nN] ]]
+then
+	exit 0
+fi
+read -p "reuse message for commit and tag? [y/n]: " REUSE
+if [[ $REUSE == [yY] ]]
+then
+	read -p "message: " MESSAGE
+	git commit -m "${MESSAGE}"
+	git tag -a "${NEW_VERSION}" -m "${MESSAGE}"
+else 
+	git commit
+	git tag -a "${NEW_VERSION}"
+fi
+
+# Release
+read -p "release? [y/n]: " RELEASE && [[ $RELEASE == [nN] ]] && exit 0
+goreleaser
