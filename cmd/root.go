@@ -123,7 +123,12 @@ func run(cmd *cobra.Command, args []string) {
 	var route *server.Route
 	switch mode {
 	case downloadMode:
-		route = downloadSetup(cmd, args, srvr)
+		route, err = downloadSetup(cmd, args, srvr)
+		if err != nil {
+			log.Println(err)
+			returnCode = 1
+			return
+		}
 	case cgiMode:
 		route, err = cgiSetup(cmd, args, srvr)
 		if err != nil {
@@ -207,7 +212,7 @@ func run(cmd *cobra.Command, args []string) {
 	var sigCount int
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		for _ = range sigChan {
+		for range sigChan {
 			if sigCount < 1 {
 				go func() {
 					srvr.Shutdown(cmd.Context())

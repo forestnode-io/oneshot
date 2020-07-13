@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"errors"
-	"github.com/gorilla/mux"
 	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/gorilla/mux"
 )
 
 var OKDoneErr = errors.New("route done")

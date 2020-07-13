@@ -1,16 +1,19 @@
 package cmd
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
-	"net/http"
-	"os"
-	"path/filepath"
 )
 
-func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) *server.Route {
+func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.Route, error) {
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]
@@ -46,7 +49,20 @@ func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) *serv
 	} else {
 		route.MaxOK = 1
 	}
-	route.HandlerFunc = handlers.HandleDownload(file, !noDownload, srvr.InfoLog)
 
-	return route
+	header := http.Header{}
+	for _, rh := range rawHeaders {
+		parts := strings.SplitN(rh, ":", 2)
+		if len(parts) < 2 {
+			err := fmt.Errorf("invalid header: %s", rh)
+			return nil, err
+		}
+		k := strings.TrimSpace(parts[0])
+		v := strings.TrimSpace(parts[1])
+		header.Set(k, v)
+	}
+
+	route.HandlerFunc = handlers.HandleDownload(file, !noDownload, header, srvr.InfoLog)
+
+	return route, nil
 }
