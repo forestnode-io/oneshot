@@ -2,8 +2,10 @@ package handlers
 
 import (
 	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
+	"github.com/raphaelreyna/oneshot/pkg/server"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -36,6 +38,22 @@ func HandleCGI(handler *ezcgi.Handler, name, mime string, infoLog *log.Logger) f
 		}
 	}
 	return func(w http.ResponseWriter, r *http.Request) error {
+		// Filter out requests from bots, iMessage, etc.
+		if headers, exists := r.Header["User-Agent"]; exists {
+			for _, header := range headers {
+				isBot := strings.Contains(header, "bot")
+				if !isBot {
+					isBot = strings.Contains(header, "Bot")
+				}
+				if !isBot {
+					isBot = strings.Contains(header, "facebookexternalhit")
+				}
+				if isBot {
+					w.WriteHeader(http.StatusOK)
+					return server.OKNotDoneErr
+				}
+			}
+		}
 		iLog("connected: %s", r.RemoteAddr)
 		before := time.Now()
 		handler.ServeHTTP(w, r)
