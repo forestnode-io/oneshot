@@ -57,8 +57,7 @@ See also: --tls-cert ; -T, --ss-tls`,
 
 	RootCmd.Flags().StringVarP(&username, "username", "U", "", `Username for basic authentication.
 If an empty username ("") is set then a random, easy to remember username will be used.
-If a password is not also provided using either the -P, --password flag , then the client may enter any password;
--W, --hidden-password; or -w, --password-file flags then the client may enter any password.`,
+If a password is not also provided using either the -P, --password flag ; -W, --hidden-password; or -w, --password-file flags then the client may enter any password.`,
 	)
 
 	RootCmd.Flags().StringVarP(&password, "password", "P", "", `Password for basic authentication.

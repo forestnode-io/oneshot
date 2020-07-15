@@ -5,9 +5,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/raphaelreyna/oneshot/internal/file"
+	"github.com/raphaelreyna/oneshot/pkg/server"
 )
 
 func HandleDownload(file *file.FileReader, download bool, header http.Header,
@@ -85,6 +87,22 @@ func HandleDownload(file *file.FileReader, download bool, header http.Header,
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) error {
+		// Filter out requests from bots, iMessage, etc.
+		if headers, exists := r.Header["User-Agent"]; exists {
+			for _, header := range headers {
+				isBot := strings.Contains(header, "bot")
+				if !isBot {
+					isBot = strings.Contains(header, "Bot")
+				}
+				if !isBot {
+					isBot = strings.Contains(header, "facebookexternalhit")
+				}
+				if isBot {
+					w.WriteHeader(http.StatusOK)
+					return server.OKNotDoneErr
+				}
+			}
+		}
 		iLog("connected: %s", r.RemoteAddr)
 		err := file.Open()
 		defer func() {

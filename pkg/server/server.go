@@ -50,7 +50,6 @@ func NewServer() *Server {
 		finishedRoutes: make(map[*Route]error),
 	}
 	s.server = &http.Server{Handler: s}
-
 	return s
 }
 
