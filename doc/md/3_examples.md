@@ -18,7 +18,7 @@ Oneshot also supports HTTPS, simply pass in the key and certificate using the `-
 $ oneshot -u .
 ```
 The `-u` option is used for receiving data from the client. 
-A connecteing browser will be prompted to upload a file which oneshot then save to the current directory.
+A connecting browser will be prompted to upload a file which oneshot then save to the current directory.
 
 #### Receive a file to standard out
 ```bash
