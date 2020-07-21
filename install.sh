@@ -15,7 +15,7 @@ tmp_dir=`mktemp -d 2>/dev/null || mktemp -d -t 'oneshot-install.XXXXXXXXXX'`; cd
 
 #check installed version of oneshot to determine if update is necessary
 version=`oneshot -v 2>>errors | head -n 1 | awk '{print $4}'`
-current_version=`curl -s -L https://github.com/raphaelreyna/oneshot/raw/master/version.txt`
+current_version=`curl -s -L https://github.com/raphaelreyna/oneshot/raw/master/version.txt | tr -d "v"`
 if [ "$version" = "$current_version" ]; then
     printf "\nThe latest version of oneshot ${version} is already installed.\n\n"
     exit 3
@@ -28,7 +28,7 @@ case $OS in
     OS='linux'
     ;;
   Darwin)
-    OS='osx'
+    OS='macos'
     ;;
   *)
     echo 'OS not supported'
@@ -57,7 +57,7 @@ case $ARCH_TYPE in
 esac
 
 #download and untar
-download_link="https://github.com/raphaelreyna/oneshot/releases/download/${current_version}/oneshot_${current_version}.${OS}-${ARCH_TYPE}.tar.gz"
+download_link="https://github.com/raphaelreyna/oneshot/releases/download/v${current_version}/oneshot_${current_version}.${OS}-${ARCH_TYPE}.tar.gz"
 oneshot_tarball="oneshot_${current_version}.${OS}-${ARCH_TYPE}.tar.gz"
 
 curl -s -O -L $download_link
@@ -69,15 +69,13 @@ cd $untar_dir
 #install oneshot
 case $OS in
   'linux')
-    cp oneshot /usr/bin/oneshot.new
-    chmod 755 /usr/bin/oneshot.new
-    chown root:root /usr/bin/oneshot.new
-    mv /usr/bin/oneshot.new /usr/bin/oneshot
+    cp oneshot /usr/bin/oneshot
+    chmod 755 /usr/bin/oneshot
+    chown root:root /usr/bin/oneshot
     ;;
-  'osx')
+  'macos')
     mkdir -p /usr/local/bin
-    cp oneshot /usr/local/bin/oneshot.new
-    mv /usr/local/bin/oneshot.new /usr/local/bin/oneshot
+    cp oneshot /usr/local/bin/oneshot
     ;;
   *)
     echo 'OS not supported'
@@ -88,7 +86,7 @@ esac
 # Let user know oneshot was installed
 version=`oneshot --version 2>>errors | head -n 1 | awk '{print $4}'`
 
-printf "\n${version} has successfully installed.\n"
+printf "\noneshot v${version} has successfully installed.\n"
 printf 'You may now run "oneshot -h" for help with using oneshot.\n'
 printf 'Visit https://github.com/raphaelreyna/oneshot for more information.\n\n'
 exit 0
