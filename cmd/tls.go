@@ -81,6 +81,7 @@ func genCertAndKey(port string) (location string, err error) {
 	return tempDir, nil
 }
 
+// setupCertAndKey checks to see if we need to self-sign any certificates, and if so it returns their location
 func setupCertAndKey(cmd *cobra.Command) (location string, err error) {
 	fs := cmd.Flags()
 

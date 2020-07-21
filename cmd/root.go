@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,8 +20,11 @@ import (
 )
 
 func Execute() {
+	// Allow for execution on Windows by double clicking oneshot.exe
 	cobra.MousetrapHelpText = ""
+
 	SetFlags()
+
 	if err := RootCmd.Execute(); err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -28,34 +32,38 @@ func Execute() {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	returnCode := 0
+	returnCode := 1
 	defer func() { os.Exit(returnCode) }()
 
 	if msg := os.Getenv("ONESHOT_DONT_EXIT"); msg != "" {
+		// If we're asked to not exit then just wait on a channel
 		defer func() {
 			d := make(chan struct{})
+
+			// Did the user supply a message to display?
 			if msg != "T" && msg != "t" {
 				os.Stdout.WriteString("\n\n")
 				os.Stdout.WriteString(msg)
 			}
+
+			// Wait for an empty struct that will never come
 			<-d
 		}()
 	}
 
+	// Clean up the port string
 	port = strings.ReplaceAll(port, ":", "")
 
 	rand.Seed(time.Now().UTC().UnixNano())
 	err := setupUsernamePassword()
 	if err != nil {
 		log.Println(err)
-		returnCode = 1
 		return
 	}
 
 	tlsLoc, err := setupCertAndKey(cmd)
 	if err != nil {
 		log.Println(err)
-		returnCode = 1
 		return
 	}
 	if tlsLoc != "" {
@@ -71,24 +79,29 @@ func run(cmd *cobra.Command, args []string) {
 		mode = cgiMode
 	}
 
+	// Create the server and start configuring it
 	srvr := server.NewServer()
 	srvr.Done = make(chan map[*server.Route]error)
 	srvr.Port = port
 	srvr.CertFile = certFile
 	srvr.KeyFile = keyFile
 
+	// Grab all of the machines ip addresses to present to the user
+	srvr.HostAddresses, err = getHostIPs(srvr.Port)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// If we are using mdns, the zeroconf server needs to be started up,
+	// and the human readable address needs to be prepended to the list of ip addresses.
 	if mdns {
 		portN, err := strconv.ParseInt(port, 10, 32)
 		if err != nil {
 			log.Println(err)
-			returnCode = 1
 			return
 		}
-		if err != nil {
-			log.Println(err)
-			returnCode = 1
-			return
-		}
+
 		mdnsSrvr, err := zeroconf.Register(
 			"oneshot",
 			"_http._tcp",
@@ -98,21 +111,21 @@ func run(cmd *cobra.Command, args []string) {
 			nil,
 		)
 		defer mdnsSrvr.Shutdown()
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
 		host, err := os.Hostname()
 		if err != nil {
 			log.Println(err)
-			returnCode = 1
 			return
 		}
-		if certFile != "" && keyFile != "" {
-			srvr.MDNSAddress = "https://"
-		} else {
-			srvr.MDNSAddress = "http://"
-		}
-		srvr.MDNSAddress += host + ".local" + ":" + port
+
+		srvr.HostAddresses = append([]string{host + ".local" + ":" + port}, srvr.HostAddresses...)
 	}
 
+	// Add the loggers to the server based on users preference
 	if !noInfo && !noError {
 		srvr.InfoLog = log.New(os.Stdout, "", 0)
 	}
@@ -120,34 +133,33 @@ func run(cmd *cobra.Command, args []string) {
 		srvr.ErrorLog = log.New(os.Stderr, "error :: ", log.LstdFlags)
 	}
 
+	// Create route handler depending on what the user wants to do
 	var route *server.Route
 	switch mode {
 	case downloadMode:
 		route, err = downloadSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
-			returnCode = 1
 			return
 		}
 	case cgiMode:
 		route, err = cgiSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
-			returnCode = 1
 			return
 		}
 	case uploadMode:
 		route, err = uploadSetup(cmd, args, srvr)
 		if err != nil {
 			log.Println(err)
-			returnCode = 1
 			return
 		}
 	}
 
+	// Did the user set the username or password flags with empty values?
+	// If so, generate a random value
 	fs := cmd.Flags()
-	var randUser bool
-	var randPass bool
+	var randUser, randPass bool
 	if fs.Changed("username") && username == "" {
 		username = randomUsername()
 		randUser = true
@@ -157,12 +169,16 @@ func run(cmd *cobra.Command, args []string) {
 		randPass = true
 	}
 
+	// Are we doing basic web auth?
 	if password != "" || username != "" {
+		// Wrap the route handler with authentication middle-ware
 		route.HandlerFunc = handlers.Authenticate(username, password,
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("WWW-Authenticate", "Basic")
 				w.WriteHeader(http.StatusUnauthorized)
 			}, route.HandlerFunc)
+
+		// Do we need to show any generated credentials?
 		if randPass || randUser {
 			msg := ""
 			if randUser {
@@ -171,17 +187,15 @@ func run(cmd *cobra.Command, args []string) {
 			if randPass {
 				msg += fmt.Sprintf("generated random password: %s\n", password)
 			}
-			// Are we allowed to print to stdout?
+
+			// Are we allowed to print to stdout? If not, then what about stderr?
 			if (upload && len(args) == 0 && dir == "" && fileName == "") || srvr.InfoLog == nil {
-				// oneshot will only print received file to stdout
-				// print to stderr or a file instead
+				// oneshot will only print received file to stdout so we print to stderr or a file instead
 				if srvr.ErrorLog == nil {
 					f, err := os.Create("./oneshot-credentials.txt")
 					if err != nil {
 						log.Println(err)
 						f.Close()
-
-						returnCode = 1
 						return
 					}
 					msg += "\n" + time.Now().Format("15:04:05.000 MST 2 Jan 2006")
@@ -189,8 +203,6 @@ func run(cmd *cobra.Command, args []string) {
 					if err != nil {
 						f.Close()
 						log.Println(err)
-
-						returnCode = 1
 						return
 					}
 					f.Close()
@@ -203,7 +215,6 @@ func run(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
-
 	srvr.AddRoute(route)
 
 	// Handle signals from os.
@@ -234,7 +245,50 @@ func run(cmd *cobra.Command, args []string) {
 		})
 	}
 
+	// Start the server on another goroutine and wait for it to be done
 	go srvr.Serve()
 	<-srvr.Done
-	srvr.Shutdown(cmd.Context())
+	err = srvr.Shutdown(cmd.Context())
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// Everything went okay
+	returnCode = 0
+}
+
+func getHostIPs(port string) ([]string, error) {
+	ips := []string{}
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	var home string
+	for _, addr := range addrs {
+		saddr := addr.String()
+
+		if strings.Contains(saddr, "::") {
+			continue
+		}
+
+		parts := strings.Split(saddr, "/")
+		ip := parts[0] + ":" + port
+
+		// Remove localhost since whats the point in sharing with yourself? (usually)
+		if parts[0] == "127.0.0.1" || parts[0] == "localhost" {
+			home = ip
+			continue
+		}
+
+		ips = append(ips, ip)
+	}
+
+	if len(ips) == 0 {
+		ips = append(ips, home)
+	}
+
+	return ips, nil
 }

@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net"
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -31,7 +29,7 @@ type Server struct {
 	ErrorLog *log.Logger
 	InfoLog  *log.Logger
 
-	MDNSAddress string
+	HostAddresses []string
 
 	router *mux.Router
 	server *http.Server
@@ -56,49 +54,40 @@ func NewServer() *Server {
 func (s *Server) Serve() error {
 	s.server.Addr = ":" + s.Port
 
-	if s.CertFile != "" && s.KeyFile != "" {
+	scheme := "http://"
+	listenAndServe := func() error {
+		return s.server.ListenAndServe()
+	}
+
+	// Are we using HTTPS?
+	if s.CertFile != "" || s.KeyFile != "" {
+		// Error out if only cert or key is given
+		var err error
 		switch {
 		case s.CertFile == "":
-			err := errors.New("given cert file for HTTPS but no key file. exit")
-			s.internalError(err.Error())
-			return err
+			err = errors.New("given cert file for HTTPS but no key file. exit")
 		case s.KeyFile == "":
-			err := errors.New("given key file for HTTPS but no cert file. exit")
-			s.internalError(err.Error())
-			return err
+			err = errors.New("given key file for HTTPS but no cert file. exit")
 		}
-		ips, err := s.getHostIPs(true)
 		if err != nil {
 			s.internalError(err.Error())
 			return err
 		}
-		if s.MDNSAddress != "" {
-			ips = append([]string{s.MDNSAddress}, ips...)
+
+		scheme = "https://"
+		listenAndServe = func() error {
+			return s.server.ListenAndServeTLS(s.CertFile, s.KeyFile)
 		}
-		msg := "listening:\n"
-		for _, ip := range ips {
-			msg += "\t" + ip + "\n"
-		}
-		s.infoLog(msg)
-		s.serving = true
-		return s.server.ListenAndServeTLS(s.CertFile, s.KeyFile)
 	}
 
-	ips, err := s.getHostIPs(false)
-	if err != nil {
-		s.internalError(err.Error())
-		return err
+	var addresses string
+	for _, ip := range s.HostAddresses {
+		addresses += "\t - " + scheme + ip + "\n"
 	}
-	if s.MDNSAddress != "" {
-		ips = append([]string{s.MDNSAddress}, ips...)
-	}
-	msg := "listening:\n"
-	for _, ip := range ips {
-		msg += "\t - " + ip + "\n"
-	}
-	s.infoLog(msg)
+
+	s.infoLog("listening:\n" + addresses)
 	s.serving = true
-	return s.server.ListenAndServe()
+	return listenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
@@ -135,45 +124,4 @@ func (s *Server) infoLog(format string, v ...interface{}) {
 	if s.InfoLog != nil {
 		s.InfoLog.Printf(format, v...)
 	}
-}
-
-func (s *Server) getHostIPs(tls bool) ([]string, error) {
-	ips := []string{}
-
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil, err
-	}
-
-	var home string
-	for _, addr := range addrs {
-		saddr := addr.String()
-
-		if strings.Contains(saddr, "::") {
-			continue
-		}
-
-		parts := strings.Split(saddr, "/")
-		ip := parts[0] + ":" + s.Port
-
-		if tls {
-			ip = "https://" + ip
-		} else {
-			ip = "http://" + ip
-		}
-
-		// Remove localhost since whats the point in sharing with yourself? (usually)
-		if parts[0] == "127.0.0.1" || parts[0] == "localhost" {
-			home = ip
-			continue
-		}
-
-		ips = append(ips, ip)
-	}
-
-	if len(ips) == 0 {
-		ips = append(ips, home)
-	}
-
-	return ips, nil
 }
