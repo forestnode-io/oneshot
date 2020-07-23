@@ -234,7 +234,23 @@ func run(cmd *cobra.Command, args []string) {
 		})
 	}
 
-	go srvr.Serve()
+	// Check to see if the port is already running, exit if so
+	shouldExitChan := make(chan bool)
+	go func() {
+		err := srvr.Serve()
+		if err != nil {
+			log.Println(err)
+			returnCode = 1
+			shouldExitChan <- true
+		} else {
+			shouldExitChan <- false
+		}
+	}()
+
+	if shouldExit := <- shouldExitChan; shouldExit {
+		return
+	}
+
 	<-srvr.Done
 	srvr.Shutdown(cmd.Context())
 }
