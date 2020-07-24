@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"github.com/raphaelreyna/oneshot/pkg/server"
 	"time"
 )
 
-//var archiveMethodDefault = "tar.gz"
-//var shellDefault = "/bin/sh"
+var archiveMethodDefault = "tar.gz"
+var shellDefault = "/bin/sh"
 
 type conf struct {
 	noInfo     *bool
@@ -58,10 +57,8 @@ func newConf() *conf {
 	c := &conf{
 		archiveMethod: &archiveMethodDefault,
 		shell:         &shellDefault,
+		rawHeaders:    []string{},
+		envVars:       []string{},
 	}
 	return c
-}
-
-func (c *conf) newServer() (*server.Server, error) {
-	srvr := server.NewServer()
 }

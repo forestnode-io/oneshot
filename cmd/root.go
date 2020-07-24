@@ -19,6 +19,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	downloadMode uint8 = iota
+	uploadMode
+	cgiMode
+)
+
+var mode uint8
+
+var version string
+var versionFlag bool
+var date string
+
 func Execute() {
 	// Allow for execution on Windows by double clicking oneshot.exe
 	cobra.MousetrapHelpText = ""
@@ -87,7 +99,7 @@ func run(cmd *cobra.Command, args []string) {
 	srvr.KeyFile = keyFile
 
 	// Grab all of the machines ip addresses to present to the user
-	srvr.HostAddresses, err = getHostIPs(srvr.Port)
+	srvr.HostAddresses, err = getHostIPs()
 	if err != nil {
 		log.Println(err)
 		return
@@ -245,8 +257,23 @@ func run(cmd *cobra.Command, args []string) {
 		})
 	}
 
-	// Start the server on another goroutine and wait for it to be done
-	go srvr.Serve()
+	// Check to see if the port is already running, exit if so
+	shouldExitChan := make(chan bool)
+	go func() {
+		err := srvr.Serve()
+		if err != nil {
+			log.Println(err)
+			returnCode = 1
+			shouldExitChan <- true
+		} else {
+			shouldExitChan <- false
+		}
+	}()
+
+	if shouldExit := <-shouldExitChan; shouldExit {
+		return
+	}
+
 	<-srvr.Done
 	err = srvr.Shutdown(cmd.Context())
 	if err != nil {
@@ -258,7 +285,7 @@ func run(cmd *cobra.Command, args []string) {
 	returnCode = 0
 }
 
-func getHostIPs(port string) ([]string, error) {
+func getHostIPs() ([]string, error) {
 	ips := []string{}
 
 	addrs, err := net.InterfaceAddrs()
@@ -275,7 +302,7 @@ func getHostIPs(port string) ([]string, error) {
 		}
 
 		parts := strings.Split(saddr, "/")
-		ip := parts[0] + ":" + port
+		ip := parts[0]
 
 		// Remove localhost since whats the point in sharing with yourself? (usually)
 		if parts[0] == "127.0.0.1" || parts[0] == "localhost" {
