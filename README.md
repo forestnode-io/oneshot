@@ -1,9 +1,16 @@
-<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+<a href="https://raphaelreyna.works/oneshot-site">
+  <img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+</a>
 
 ## oneshot
 
 A single-fire first-come-first-serve HTTP server.
 
+
+#### A video overview of oneshot (thanks to Brodie Robertson)
+<a href="https://www.youtube.com/watch?v=ZOHvdMgplz4">
+  <img src="https://img.youtube.com/vi/ZOHvdMgplz4/maxresdefault.jpg" height="150px"/>
+</a>
 
 ### Installation
 
@@ -35,6 +42,9 @@ git clone github.com/raphaelreyna/oneshot
 cd oneshot
 sudo make install
 ```
+#### Arch Linux users
+<a href="https://aur.archlinux.org/packages/oneshot/">Oneshot AUR page.</a>
+
 
 #### Windows
 
