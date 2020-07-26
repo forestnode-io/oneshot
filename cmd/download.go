@@ -7,32 +7,32 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/raphaelreyna/oneshot/cmd/conf"
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
-	"github.com/spf13/cobra"
 )
 
-func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.Route, error) {
+func downloadSetup(args []string, srvr *server.Server, c *conf.Conf) (*server.Route, error) {
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]
 	}
-	if filePath != "" && fileName == "" {
-		fileName = filepath.Base(filePath)
+	if filePath != "" && c.FileName == "" {
+		c.FileName = filepath.Base(filePath)
 	}
-	if archiveMethod != "zip" && archiveMethod != "tar.gz" {
-		archiveMethod = "tar.gz"
+	if c.ArchiveMethod != "zip" && c.ArchiveMethod != "tar.gz" {
+		c.ArchiveMethod = "tar.gz"
 	}
 	file := &file.FileReader{
 		Path:          filePath,
-		Name:          fileName,
-		Ext:           fileExt,
-		MimeType:      fileMime,
-		ArchiveMethod: archiveMethod,
+		Name:          c.FileName,
+		Ext:           c.FileExt,
+		MimeType:      c.FileMime,
+		ArchiveMethod: c.ArchiveMethod,
 	}
 
-	if !noInfo {
+	if !c.NoInfo {
 		file.ProgressWriter = os.Stdout
 	}
 
@@ -44,14 +44,14 @@ func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*ser
 			w.Write([]byte("gone"))
 		},
 	}
-	if exitOnFail {
+	if c.ExitOnFail {
 		route.MaxRequests = 1
 	} else {
 		route.MaxOK = 1
 	}
 
 	header := http.Header{}
-	for _, rh := range rawHeaders {
+	for _, rh := range c.RawHeaders {
 		parts := strings.SplitN(rh, ":", 2)
 		if len(parts) < 2 {
 			err := fmt.Errorf("invalid header: %s", rh)
@@ -62,7 +62,7 @@ func downloadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*ser
 		header.Set(k, v)
 	}
 
-	route.HandlerFunc = handlers.HandleDownload(file, !noDownload, header, srvr.InfoLog)
+	route.HandlerFunc = handlers.HandleDownload(file, !c.NoDownload, header, srvr.InfoLog)
 
 	return route, nil
 }

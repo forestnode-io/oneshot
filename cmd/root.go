@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/grandcat/zeroconf"
+	"github.com/raphaelreyna/oneshot/cmd/conf"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"github.com/spf13/cobra"
@@ -28,22 +29,9 @@ const (
 var mode uint8
 
 var version string
-var versionFlag bool
 var date string
 
-func Execute() {
-	// Allow for execution on Windows by double clicking oneshot.exe
-	cobra.MousetrapHelpText = ""
-
-	SetFlags()
-
-	if err := RootCmd.Execute(); err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-}
-
-func run(cmd *cobra.Command, args []string) {
+func (a *App) Run(cmd *cobra.Command, args []string) {
 	returnCode := 1
 	defer func() { os.Exit(returnCode) }()
 
@@ -63,17 +51,18 @@ func run(cmd *cobra.Command, args []string) {
 		}()
 	}
 
-	// Clean up the port string
-	port = strings.ReplaceAll(port, ":", "")
-
+	c := a.conf
 	rand.Seed(time.Now().UTC().UnixNano())
-	err := setupUsernamePassword()
+	err := c.SetupUsernamePassword()
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	tlsLoc, err := setupCertAndKey(cmd)
+	// Clean up the port string
+	c.Port = strings.ReplaceAll(c.Port, ":", "")
+
+	tlsLoc, err := c.SetupCertAndKey(cmd.Flags())
 	if err != nil {
 		log.Println(err)
 		return
@@ -84,19 +73,19 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Determine which mode user wants oneshot to run in
 	mode = downloadMode
-	if upload || uploadFile || uploadInput {
+	if c.Upload || c.UploadFile || c.UploadInput {
 		mode = uploadMode
 	}
-	if cgi || cgiStrict || shellCommand {
+	if c.Cgi || c.CgiStrict || c.ShellCommand {
 		mode = cgiMode
 	}
 
 	// Create the server and start configuring it
 	srvr := server.NewServer()
 	srvr.Done = make(chan map[*server.Route]error)
-	srvr.Port = port
-	srvr.CertFile = certFile
-	srvr.KeyFile = keyFile
+	srvr.Port = c.Port
+	srvr.CertFile = c.CertFile
+	srvr.KeyFile = c.KeyFile
 
 	// Grab all of the machines ip addresses to present to the user
 	srvr.HostAddresses, err = getHostIPs()
@@ -107,8 +96,8 @@ func run(cmd *cobra.Command, args []string) {
 
 	// If we are using mdns, the zeroconf server needs to be started up,
 	// and the human readable address needs to be prepended to the list of ip addresses.
-	if mdns {
-		portN, err := strconv.ParseInt(port, 10, 32)
+	if c.Mdns {
+		portN, err := strconv.ParseInt(c.Port, 10, 32)
 		if err != nil {
 			log.Println(err)
 			return
@@ -134,14 +123,17 @@ func run(cmd *cobra.Command, args []string) {
 			return
 		}
 
-		srvr.HostAddresses = append([]string{host + ".local" + ":" + port}, srvr.HostAddresses...)
+		srvr.HostAddresses = append(
+			[]string{host + ".local" + ":" + c.Port},
+			srvr.HostAddresses...,
+		)
 	}
 
 	// Add the loggers to the server based on users preference
-	if !noInfo && !noError {
+	if !c.NoInfo && !c.NoError {
 		srvr.InfoLog = log.New(os.Stdout, "", 0)
 	}
-	if !noError {
+	if !c.NoError {
 		srvr.ErrorLog = log.New(os.Stderr, "error :: ", log.LstdFlags)
 	}
 
@@ -149,19 +141,19 @@ func run(cmd *cobra.Command, args []string) {
 	var route *server.Route
 	switch mode {
 	case downloadMode:
-		route, err = downloadSetup(cmd, args, srvr)
+		route, err = downloadSetup(args, srvr, c)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 	case cgiMode:
-		route, err = cgiSetup(cmd, args, srvr)
+		route, err = cgiSetup(args, srvr, c)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 	case uploadMode:
-		route, err = uploadSetup(cmd, args, srvr)
+		route, err = uploadSetup(args, srvr, c)
 		if err != nil {
 			log.Println(err)
 			return
@@ -172,19 +164,19 @@ func run(cmd *cobra.Command, args []string) {
 	// If so, generate a random value
 	fs := cmd.Flags()
 	var randUser, randPass bool
-	if fs.Changed("username") && username == "" {
-		username = randomUsername()
+	if fs.Changed("username") && c.Username == "" {
+		c.Username = conf.RandomUsername()
 		randUser = true
 	}
-	if fs.Changed("password") && password == "" {
-		password = randomPassword()
+	if fs.Changed("password") && c.Password == "" {
+		c.Password = conf.RandomPassword()
 		randPass = true
 	}
 
 	// Are we doing basic web auth?
-	if password != "" || username != "" {
+	if c.Password != "" || c.Username != "" {
 		// Wrap the route handler with authentication middle-ware
-		route.HandlerFunc = handlers.Authenticate(username, password,
+		route.HandlerFunc = handlers.Authenticate(c.Username, c.Password,
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("WWW-Authenticate", "Basic")
 				w.WriteHeader(http.StatusUnauthorized)
@@ -194,14 +186,21 @@ func run(cmd *cobra.Command, args []string) {
 		if randPass || randUser {
 			msg := ""
 			if randUser {
-				msg += fmt.Sprintf("generated random username: %s\n", username)
+				msg += fmt.Sprintf(
+					"generated random username: %s\n",
+					c.Username,
+				)
 			}
 			if randPass {
-				msg += fmt.Sprintf("generated random password: %s\n", password)
+				msg += fmt.Sprintf(
+					"generated random password: %s\n",
+					c.Password,
+				)
 			}
 
-			// Are we allowed to print to stdout? If not, then what about stderr?
-			if (upload && len(args) == 0 && dir == "" && fileName == "") || srvr.InfoLog == nil {
+			// Are we uploading to stdout? If so, we cannot print info messages to stdout
+			uploadToStdout := c.Upload && len(args) == 0 && c.Dir == "" && c.FileName == ""
+			if uploadToStdout || srvr.InfoLog == nil {
 				// oneshot will only print received file to stdout so we print to stderr or a file instead
 				if srvr.ErrorLog == nil {
 					f, err := os.Create("./oneshot-credentials.txt")
@@ -250,8 +249,8 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 
 	// Handle timer if user gave timeout duration
-	if timeout != 0 {
-		_ = time.AfterFunc(timeout, func() {
+	if c.Timeout != 0 {
+		_ = time.AfterFunc(c.Timeout, func() {
 			srvr.Shutdown(cmd.Context())
 			srvr.Done <- nil
 		})
@@ -262,19 +261,25 @@ func run(cmd *cobra.Command, args []string) {
 	go func() {
 		err := srvr.Serve()
 		if err != nil {
-			log.Println(err)
-			returnCode = 1
+			if srvr.ErrorLog != nil {
+				srvr.ErrorLog.Println(err)
+			}
 			shouldExitChan <- true
 		} else {
 			shouldExitChan <- false
 		}
 	}()
 
-	if shouldExit := <-shouldExitChan; shouldExit {
-		return
+	// Wait for either the server to complain about its port or to be done
+	select {
+	case shouldExit := <-shouldExitChan:
+		if shouldExit {
+			returnCode = 1
+			return
+		}
+	case <-srvr.Done:
 	}
 
-	<-srvr.Done
 	err = srvr.Shutdown(cmd.Context())
 	if err != nil {
 		log.Println(err)

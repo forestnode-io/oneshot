@@ -1,4 +1,4 @@
-package cmd
+package conf
 
 import (
 	"bufio"
@@ -8,29 +8,29 @@ import (
 	"strings"
 )
 
-func setupUsernamePassword() error {
-	if passwordHidden {
+func (c *Conf) SetupUsernamePassword() error {
+	if c.PasswordHidden {
 		os.Stdout.WriteString("password: ")
 		passreader := bufio.NewReader(os.Stdin)
 		passwordBytes, err := passreader.ReadString('\n')
 		if err != nil {
 			return err
 		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
+		c.Password = string(passwordBytes)
+		c.Password = strings.TrimSpace(c.Password)
 		os.Stdout.WriteString("\n")
-	} else if passwordFile != "" {
-		passwordBytes, err := ioutil.ReadFile(passwordFile)
+	} else if c.PasswordFile != "" {
+		passwordBytes, err := ioutil.ReadFile(c.PasswordFile)
 		if err != nil {
 			return err
 		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
+		c.Password = string(passwordBytes)
+		c.Password = strings.TrimSpace(c.Password)
 	}
 	return nil
 }
 
-func randomPassword() string {
+func RandomPassword() string {
 	const lowerChars = "abcdefghijklmnopqrstuvwxyz"
 	const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	const numericChars = "1234567890"
@@ -50,7 +50,7 @@ func randomPassword() string {
 	return password
 }
 
-func randomUsername() string {
+func RandomUsername() string {
 	adjs := [...]string{"bulky", "fake", "artistic", "plush", "ornate", "kind", "nutty", "miniature", "huge", "evergreen", "several", "writhing", "scary", "equatorial", "obvious", "rich", "beneficial", "actual", "comfortable", "well-lit"}
 
 	nouns := [...]string{"representative", "prompt", "respond", "safety", "blood", "fault", "lady", "routine", "position", "friend", "uncle", "savings", "ambition", "advice", "responsibility", "consist", "nobody", "film", "attitude", "heart"}
