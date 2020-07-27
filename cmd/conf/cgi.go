@@ -1,9 +1,8 @@
-package cmd
+package conf
 
 import (
 	"fmt"
 	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
-	"github.com/raphaelreyna/oneshot/cmd/conf"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
 	"io"
@@ -13,7 +12,7 @@ import (
 	"strings"
 )
 
-func cgiSetup(args []string, srvr *server.Server, c *conf.Conf) (*server.Route, error) {
+func (c *Conf) cgiSetup(args []string, srvr *server.Server) (*server.Route, error) {
 	var err error
 
 	handler := &ezcgi.Handler{

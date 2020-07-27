@@ -8,8 +8,9 @@ import (
 	"strings"
 )
 
-func (c *Conf) SetupUsernamePassword() error {
+func (c *Conf) SetupCredentials() error {
 	if c.PasswordHidden {
+		// Read password from standard in
 		os.Stdout.WriteString("password: ")
 		passreader := bufio.NewReader(os.Stdin)
 		passwordBytes, err := passreader.ReadString('\n')
@@ -20,6 +21,7 @@ func (c *Conf) SetupUsernamePassword() error {
 		c.Password = strings.TrimSpace(c.Password)
 		os.Stdout.WriteString("\n")
 	} else if c.PasswordFile != "" {
+		// Read password from file
 		passwordBytes, err := ioutil.ReadFile(c.PasswordFile)
 		if err != nil {
 			return err
@@ -27,10 +29,20 @@ func (c *Conf) SetupUsernamePassword() error {
 		c.Password = string(passwordBytes)
 		c.Password = strings.TrimSpace(c.Password)
 	}
+
+	if c.cmdFlagSet.Changed("username") && c.Username == "" {
+		c.Username = randomUsername()
+		c.randUser = true
+	}
+	if c.cmdFlagSet.Changed("password") && c.Password == "" {
+		c.Password = randomPassword()
+		c.randPass = true
+	}
+
 	return nil
 }
 
-func RandomPassword() string {
+func randomPassword() string {
 	const lowerChars = "abcdefghijklmnopqrstuvwxyz"
 	const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	const numericChars = "1234567890"
@@ -50,7 +62,7 @@ func RandomPassword() string {
 	return password
 }
 
-func RandomUsername() string {
+func randomUsername() string {
 	adjs := [...]string{"bulky", "fake", "artistic", "plush", "ornate", "kind", "nutty", "miniature", "huge", "evergreen", "several", "writhing", "scary", "equatorial", "obvious", "rich", "beneficial", "actual", "comfortable", "well-lit"}
 
 	nouns := [...]string{"representative", "prompt", "respond", "safety", "blood", "fault", "lady", "routine", "position", "friend", "uncle", "savings", "ambition", "advice", "responsibility", "consist", "nobody", "film", "attitude", "heart"}

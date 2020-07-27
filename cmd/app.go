@@ -8,7 +8,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 type App struct {
@@ -70,7 +72,7 @@ func NewApp() (*App, error) {
 	// Create the cobra command
 	app.cmd = &cobra.Command{
 		Use:     "oneshot [flags]... [file|dir]",
-		Version: fmt.Sprintf(": %s\ndate : %s\nauthor : Raphael Reyna", version, date),
+		Version: fmt.Sprintf(": %s\nbuild date : %s\nauthor : Raphael Reyna", version, date),
 		Short:   "A single-fire first-come-first-serve HTTP server.",
 		Long: `Transfer files and data easily between your computer and any browser or HTTP client.
 The first client to connect is given the file or uploads a file, all others receive an HTTP 410 Gone response code.
@@ -80,7 +82,7 @@ Directories will automatically be archived before being sent (see -a, --archive-
 	}
 
 	// Create configuration
-	app.conf = conf.NewConf()
+	app.conf = conf.NewConf(app.cmd)
 
 	return app, nil
 }
@@ -94,4 +96,36 @@ func (a *App) Start() {
 		log.Println(err)
 		os.Exit(1)
 	}
+}
+
+func (a *App) handleSignal(srvr *server.Server, sigChan chan os.Signal, c chan struct{}) {
+	// User must send signal twice to exit oneshot if data is being transferred
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+
+	var sigCount int
+	go func() {
+		for range sigChan {
+			if sigCount < 1 {
+				c <- struct{}{}
+			} else {
+				srvr.Close()
+				close(sigChan)
+				return
+			}
+			sigCount++
+		}
+	}()
+}
+
+func (a *App) blockExit(msg string) {
+	d := make(chan struct{})
+
+	// Did the user supply a message to display?
+	if msg != "T" && msg != "t" {
+		os.Stdout.WriteString("\n\n")
+		os.Stdout.WriteString(msg)
+	}
+
+	// Wait for an empty struct that will never come
+	<-d
 }

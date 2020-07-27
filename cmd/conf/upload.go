@@ -1,7 +1,6 @@
-package cmd
+package conf
 
 import (
-	"github.com/raphaelreyna/oneshot/cmd/conf"
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/pkg/server"
@@ -12,7 +11,7 @@ import (
 	"text/template"
 )
 
-func uploadSetup(args []string, srvr *server.Server, c *conf.Conf) (*server.Route, error) {
+func (c *Conf) uploadSetup(args []string, srvr *server.Server) (*server.Route, error) {
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]
