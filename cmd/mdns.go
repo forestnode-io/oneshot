@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/grandcat/zeroconf"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"os"
 	"strconv"
 )

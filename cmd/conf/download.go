@@ -9,10 +9,10 @@ import (
 
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 )
 
-func (c *Conf) downloadSetup(args []string, srvr *server.Server) (*server.Route, error) {
+func (c *Conf) setuDownloadRoute(args []string, srvr *server.Server) (*server.Route, error) {
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]

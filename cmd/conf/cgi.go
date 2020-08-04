@@ -4,7 +4,7 @@ import (
 	"fmt"
 	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"io"
 	"math/rand"
 	"net/http"
@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func (c *Conf) cgiSetup(args []string, srvr *server.Server) (*server.Route, error) {
+func (c *Conf) setupCGIRoute(args []string, srvr *server.Server) (*server.Route, error) {
 	var err error
 
 	handler := &ezcgi.Handler{

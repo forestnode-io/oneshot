@@ -3,7 +3,7 @@ package conf
 import (
 	"fmt"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"log"
 	"net/http"
 	"os"
@@ -35,11 +35,11 @@ func (c *Conf) SetupServer(srvr *server.Server, args []string, ips []string) err
 	var route *server.Route
 	switch c.Mode() {
 	case DownloadMode:
-		route, err = c.downloadSetup(args, srvr)
+		route, err = c.setuDownloadRoute(args, srvr)
 	case CGIMode:
-		route, err = c.cgiSetup(args, srvr)
+		route, err = c.setupCGIRoute(args, srvr)
 	case UploadMode:
-		route, err = c.uploadSetup(args, srvr)
+		route, err = c.setupUploadRoute(args, srvr)
 	}
 	if err != nil {
 		return err

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/raphaelreyna/oneshot/cmd/conf"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"github.com/spf13/cobra"
 	"log"
 	"net"

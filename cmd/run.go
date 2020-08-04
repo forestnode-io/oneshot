@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"github.com/spf13/cobra"
 	"strings"
 )
