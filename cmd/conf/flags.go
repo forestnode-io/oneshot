@@ -184,4 +184,9 @@ Setting both this flag and --upload-file is equivalent to setting the -u, --uplo
 For more information see the -u, --upload flag documentation.
 See also: --upload-file; -u, --upload; -L, --no-unix-eol-norm`,
 	)
+
+	flags.BoolVarP(&c.WaitForEOF, "wait-for-eof", "J", false, `Wait for EOF before starting HTTP(S) server if serving from stdin.
+This flag does noting if not serving from stdin.
+`,
+	)
 }

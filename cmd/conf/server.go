@@ -35,7 +35,7 @@ func (c *Conf) SetupServer(srvr *server.Server, args []string, ips []string) err
 	var route *server.Route
 	switch c.Mode() {
 	case DownloadMode:
-		route, err = c.setuDownloadRoute(args, srvr)
+		route, err = c.setupDownloadRoute(args, srvr)
 	case CGIMode:
 		route, err = c.setupCGIRoute(args, srvr)
 	case UploadMode:

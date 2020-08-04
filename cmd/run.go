@@ -7,11 +7,15 @@ import (
 
 	"github.com/raphaelreyna/oneshot/internal/server"
 	"github.com/spf13/cobra"
+	"io"
+	"path/filepath"
 	"strings"
 )
 
 var version string
 var date string
+
+const stdinBufferSize = 1024
 
 func (a *App) Run(cmd *cobra.Command, args []string) {
 	returnCode := 1
@@ -64,6 +68,35 @@ func (a *App) Run(cmd *cobra.Command, args []string) {
 	// Handle signals from os.
 	shouldExitChan := make(chan struct{})
 	a.handleSignal(srvr, make(chan os.Signal), shouldExitChan)
+
+	// Should we wait until we get an EOF on stdin to start serving HTTP?
+	if loc := c.StdinBufferLocation(); loc != "" {
+		sf, err := os.Create(loc)
+
+		// Clean up on exit
+		defer os.RemoveAll(filepath.Dir(loc))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// Read in from stdin into temp file
+		si := os.Stdin
+		b := make([]byte, stdinBufferSize)
+		for n, e := si.Read(b); e == nil; n, e = si.Read(b) {
+			sf.Write(b[0:n])
+		}
+		if err != nil && err != io.EOF {
+			log.Println(err)
+			return
+		}
+
+		err = sf.Close()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
 
 	// Start the HTTP(S) server
 	go func() {

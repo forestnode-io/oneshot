@@ -10,9 +10,11 @@ import (
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/internal/server"
+	"io/ioutil"
+	"math/rand"
 )
 
-func (c *Conf) setuDownloadRoute(args []string, srvr *server.Server) (*server.Route, error) {
+func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.Route, error) {
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]
@@ -23,6 +25,20 @@ func (c *Conf) setuDownloadRoute(args []string, srvr *server.Server) (*server.Ro
 	if c.ArchiveMethod != "zip" && c.ArchiveMethod != "tar.gz" {
 		c.ArchiveMethod = "tar.gz"
 	}
+
+	if filePath == "" && c.WaitForEOF {
+		tdir, err := ioutil.TempDir("", "oneshot")
+		if err != nil {
+			return nil, err
+		}
+
+		if c.FileName == "" {
+			c.FileName = fmt.Sprintf("%0-x", rand.Int31())
+		}
+		filePath = filepath.Join(tdir, c.FileName, c.FileExt)
+		c.stdinBufLoc = filePath
+	}
+
 	file := &file.FileReader{
 		Path:          filePath,
 		Name:          c.FileName,

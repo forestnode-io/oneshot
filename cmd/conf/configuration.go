@@ -61,6 +61,8 @@ type Conf struct {
 
 	NoUnixNorm bool
 
+	WaitForEOF bool
+
 	cmdFlagSet *pflag.FlagSet
 
 	sstlsLoc    string
@@ -68,6 +70,8 @@ type Conf struct {
 
 	randUser bool
 	randPass bool
+
+	stdinBufLoc string //location of tempfile
 }
 
 func NewConf(cmd *cobra.Command) *Conf {
@@ -122,4 +126,8 @@ func (c *Conf) Mode() uint8 {
 		return CGIMode
 	}
 	return DownloadMode
+}
+
+func (c *Conf) StdinBufferLocation() string {
+	return c.stdinBufLoc
 }
