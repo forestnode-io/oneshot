@@ -1,10 +1,9 @@
-package cmd
+package conf
 
 import (
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
-	"github.com/spf13/cobra"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,17 +11,17 @@ import (
 	"text/template"
 )
 
-func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.Route, error) {
+func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Route, error) {
 	var filePath string
 	if len(args) >= 1 {
 		filePath = args[0]
 	}
 
-	if dir != "" {
-		filePath = filepath.Join(dir, filePath)
+	if c.Dir != "" {
+		filePath = filepath.Join(c.Dir, filePath)
 	}
 
-	if fileName != "" && filePath == "" {
+	if c.FileName != "" && filePath == "" {
 		filePath = "."
 	}
 
@@ -42,11 +41,11 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 	file := &file.FileWriter{
 		Path: filePath,
 	}
-	if fileName != "" {
-		file.SetName(fileName, false)
+	if c.FileName != "" {
+		file.SetName(c.FileName, false)
 	}
 
-	if !noInfo {
+	if !c.NoInfo {
 		file.ProgressWriter = os.Stdout
 	}
 
@@ -63,7 +62,7 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 			w.Write([]byte("gone"))
 		},
 	}
-	if exitOnFail {
+	if c.ExitOnFail {
 		route.MaxRequests = 1
 	} else {
 		route.MaxOK = 1
@@ -109,14 +108,14 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 		InputSection string
 	}{}
 
-	if upload {
-		uploadFile = true
-		uploadInput = true
+	if c.Upload {
+		c.UploadFile = true
+		c.UploadInput = true
 	}
-	if uploadFile {
+	if c.UploadFile {
 		sections.FileSection = fileSection
 	}
-	if uploadInput {
+	if c.UploadInput {
 		sections.InputSection = inputSection
 	}
 
@@ -124,7 +123,7 @@ func uploadSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*serve
 		tmpl.Execute(w, &sections)
 		return server.OKNotDoneErr
 	}
-	postHandler := handlers.HandleUpload(file, !noUnixNorm, srvr.InfoLog)
+	postHandler := handlers.HandleUpload(file, !c.NoUnixNorm, srvr.InfoLog)
 
 	infoLog := func(format string, v ...interface{}) {
 		if srvr.InfoLog != nil {

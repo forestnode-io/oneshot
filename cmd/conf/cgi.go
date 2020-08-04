@@ -1,11 +1,10 @@
-package cmd
+package conf
 
 import (
 	"fmt"
 	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/pkg/server"
-	"github.com/spf13/cobra"
+	"github.com/raphaelreyna/oneshot/internal/server"
 	"io"
 	"math/rand"
 	"net/http"
@@ -13,22 +12,22 @@ import (
 	"strings"
 )
 
-func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.Route, error) {
+func (c *Conf) setupCGIRoute(args []string, srvr *server.Server) (*server.Route, error) {
 	var err error
 
 	handler := &ezcgi.Handler{
-		InheritEnv: envVars,
+		InheritEnv: c.EnvVars,
 	}
 
 	argLen := len(args)
 	if argLen < 1 {
-		if shellCommand {
+		if c.ShellCommand {
 			return nil, fmt.Errorf("no shell command given\n exit")
 		}
 		return nil, fmt.Errorf("path to executable not given\n exit")
 	}
-	if shellCommand {
-		handler.Path = shell
+	if c.ShellCommand {
+		handler.Path = c.Shell
 		handler.Args = []string{"-c", args[0]}
 	} else {
 		handler.Path = args[0]
@@ -37,8 +36,8 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 		}
 	}
 
-	if cgiStderr != "" {
-		handler.Stderr, err = os.Open(cgiStderr)
+	if c.CgiStderr != "" {
+		handler.Stderr, err = os.Open(c.CgiStderr)
 		defer handler.Stderr.(io.WriteCloser).Close()
 		if err != nil {
 			return nil, err
@@ -46,7 +45,7 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 	}
 
 	header := http.Header{}
-	for _, rh := range rawHeaders {
+	for _, rh := range c.RawHeaders {
 		parts := strings.SplitN(rh, ":", 2)
 		if len(parts) < 2 {
 			err = fmt.Errorf("invalid header: %s", rh)
@@ -56,19 +55,19 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 		v := strings.TrimSpace(parts[1])
 		header.Set(k, v)
 	}
-	if fileMime != "" {
-		header.Set("Content-Type", fileMime)
+	if c.FileMime != "" {
+		header.Set("Content-Type", c.FileMime)
 	}
 	var fn string
-	if fileName == "" {
+	if c.FileName == "" {
 		fn = fmt.Sprintf("%0-x", rand.Int31())
-		if fileExt != "" {
-			fn += strings.ReplaceAll(fileExt, ".", "")
+		if c.FileExt != "" {
+			fn += strings.ReplaceAll(c.FileExt, ".", "")
 		}
 	} else {
-		fn = fileName
+		fn = c.FileName
 	}
-	if !noDownload {
+	if !c.NoDownload {
 		header.Set("Content-Disposition",
 			fmt.Sprintf("attachment;filename=%s", fn))
 	}
@@ -76,8 +75,8 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 		handler.Header = header
 	}
 
-	if dir != "" {
-		handler.Dir = dir
+	if c.Dir != "" {
+		handler.Dir = c.Dir
 	} else {
 		handler.Dir, err = os.Getwd()
 		if err != nil {
@@ -85,15 +84,15 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 		}
 	}
 
-	if !noError {
+	if !c.NoError {
 		handler.Logger = srvr.ErrorLog
 	}
 
-	if replaceHeaders {
+	if c.ReplaceHeaders {
 		handler.OutputHandler = ezcgi.EZOutputHandlerReplacer
 	}
 
-	if cgiStrict {
+	if c.CgiStrict {
 		handler.OutputHandler = ezcgi.DefaultOutputHandler
 	}
 
@@ -109,12 +108,12 @@ func cgiSetup(cmd *cobra.Command, args []string, srvr *server.Server) (*server.R
 			w.Write([]byte("gone"))
 		},
 	}
-	if exitOnFail {
+	if c.ExitOnFail {
 		route.MaxRequests = 1
 	} else {
 		route.MaxOK = 1
 	}
-	route.HandlerFunc = handlers.HandleCGI(handler, fn, fileMime, srvr.InfoLog)
+	route.HandlerFunc = handlers.HandleCGI(handler, fn, c.FileMime, srvr.InfoLog)
 
 	return route, nil
 }

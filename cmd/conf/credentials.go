@@ -1,4 +1,4 @@
-package cmd
+package conf
 
 import (
 	"bufio"
@@ -8,25 +8,37 @@ import (
 	"strings"
 )
 
-func setupUsernamePassword() error {
-	if passwordHidden {
+func (c *Conf) SetupCredentials() error {
+	if c.PasswordHidden {
+		// Read password from standard in
 		os.Stdout.WriteString("password: ")
 		passreader := bufio.NewReader(os.Stdin)
 		passwordBytes, err := passreader.ReadString('\n')
 		if err != nil {
 			return err
 		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
+		c.Password = string(passwordBytes)
+		c.Password = strings.TrimSpace(c.Password)
 		os.Stdout.WriteString("\n")
-	} else if passwordFile != "" {
-		passwordBytes, err := ioutil.ReadFile(passwordFile)
+	} else if c.PasswordFile != "" {
+		// Read password from file
+		passwordBytes, err := ioutil.ReadFile(c.PasswordFile)
 		if err != nil {
 			return err
 		}
-		password = string(passwordBytes)
-		password = strings.TrimSpace(password)
+		c.Password = string(passwordBytes)
+		c.Password = strings.TrimSpace(c.Password)
 	}
+
+	if c.cmdFlagSet.Changed("username") && c.Username == "" {
+		c.Username = randomUsername()
+		c.randUser = true
+	}
+	if c.cmdFlagSet.Changed("password") && c.Password == "" {
+		c.Password = randomPassword()
+		c.randPass = true
+	}
+
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package cmd
+package conf
 
 import (
 	"crypto/rand"
@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -81,18 +81,18 @@ func genCertAndKey(port string) (location string, err error) {
 	return tempDir, nil
 }
 
-func setupCertAndKey(cmd *cobra.Command) (location string, err error) {
-	fs := cmd.Flags()
+// setupCertAndKey checks to see if we need to self-sign any certificates, and if so it returns their location
+func (c *Conf) SetupCertAndKey(fs *pflag.FlagSet) (location string, err error) {
 
 	if (fs.Changed("tls-key") && fs.Changed("tls-cert") &&
-		certFile == "" && keyFile == "") || sstls {
-		location, err := genCertAndKey(port)
+		c.CertFile == "" && c.KeyFile == "") || c.Sstls {
+		location, err := genCertAndKey(c.Port)
 		if err != nil {
 			return "", err
 		}
 
-		certFile = filepath.Join(location, "cert.pem")
-		keyFile = filepath.Join(location, "key.pem")
+		c.CertFile = filepath.Join(location, "cert.pem")
+		c.KeyFile = filepath.Join(location, "key.pem")
 
 		return location, nil
 	}

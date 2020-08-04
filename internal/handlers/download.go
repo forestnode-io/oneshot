@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/internal/file"
-	"github.com/raphaelreyna/oneshot/pkg/server"
+	"github.com/raphaelreyna/oneshot/internal/server"
 )
 
 func HandleDownload(file *file.FileReader, download bool, header http.Header,
