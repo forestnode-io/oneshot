@@ -15,18 +15,17 @@ import (
 )
 
 func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.Route, error) {
-	var filePath string
-	if len(args) >= 1 {
-		filePath = args[0]
-	}
-	if filePath != "" && c.FileName == "" {
-		c.FileName = filepath.Base(filePath)
+	paths := args
+
+	if len(paths) == 1 && c.FileName == "" {
+		c.FileName = filepath.Base(paths[0])
+
 	}
 	if c.ArchiveMethod != "zip" && c.ArchiveMethod != "tar.gz" {
 		c.ArchiveMethod = "tar.gz"
 	}
 
-	if filePath == "" && c.WaitForEOF {
+	if len(paths) == 0 && c.WaitForEOF {
 		tdir, err := ioutil.TempDir("", "oneshot")
 		if err != nil {
 			return nil, err
@@ -35,12 +34,12 @@ func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.R
 		if c.FileName == "" {
 			c.FileName = fmt.Sprintf("%0-x", rand.Int31())
 		}
-		filePath = filepath.Join(tdir, c.FileName, c.FileExt)
-		c.stdinBufLoc = filePath
+		paths = append(paths, filepath.Join(tdir, c.FileName, c.FileExt))
+		c.stdinBufLoc = paths[0]
 	}
 
 	file := &file.FileReader{
-		Path:          filePath,
+		Paths:         paths,
 		Name:          c.FileName,
 		Ext:           c.FileExt,
 		MimeType:      c.FileMime,

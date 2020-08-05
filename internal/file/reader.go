@@ -18,8 +18,9 @@ var UnopenedReadErr = errors.New("attempted to read unopened file")
 // FileReader represents the file being sent, whether its from an
 // actual file or stdin. FileReader also holds the files metadata.
 type FileReader struct {
-	// Path is optional if Name, Ext and MimeType are provided
-	Path string
+	// Paths is optional if Name, Ext and MimeType are provided
+	// If more than one path is given, then all paths will be archived
+	Paths []string
 
 	// Name is optional if Path is provided
 	Name string
@@ -96,63 +97,83 @@ func (f *FileReader) Open() error {
 		return nil
 	}
 
-	switch f.Path {
-	case "":
-		f.file = os.Stdin
-		if f.Name == "" {
-			f.Name = fmt.Sprintf("%0-x", rand.Int31())
-		}
-		f.bufferBytes, err = ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			return err
-		}
-		f.buffer = bytes.NewBuffer(f.bufferBytes)
-		f.size = int64(f.buffer.Len())
-	default:
-		var err error
-		info, err := os.Stat(f.Path)
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			f.file, err = os.Open(f.Path)
+	archiving := len(f.Paths) > 1
+archiveBlock:
+	if !archiving {
+		switch len(f.Paths) {
+		case 0: // Serving from stdin
+			f.file = os.Stdin
+			if f.Name == "" {
+				f.Name = fmt.Sprintf("%0-x", rand.Int31())
+			}
+			f.bufferBytes, err = ioutil.ReadAll(os.Stdin)
 			if err != nil {
 				return err
 			}
-			f.size = info.Size()
-			if f.Name == "" {
-				f.Name = info.Name()
-			}
-		} else {
-			f.bufferBytes = []byte{}
 			f.buffer = bytes.NewBuffer(f.bufferBytes)
-			f.buffer.Grow(int(info.Size()))
+			f.size = int64(f.buffer.Len())
+		default:
+			var err error
+			path := f.Paths[0]
+			info, err := os.Stat(path)
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				f.file, err = os.Open(path)
+				if err != nil {
+					return err
+				}
+				f.size = info.Size()
+				if f.Name == "" {
+					f.Name = info.Name()
+				}
+			} else {
+				archiving = true
+				goto archiveBlock
+			}
+		}
+	} else {
+		f.bufferBytes = []byte{}
+		f.buffer = bytes.NewBuffer(f.bufferBytes)
 
-			switch f.ArchiveMethod {
-			case "zip":
-				zip(f.Path, f.buffer)
-				f.size = int64(f.buffer.Len())
-				if f.MimeType == "" {
-					f.MimeType = "application/zip"
-				}
-				if f.Name == "" {
-					f.Name = info.Name()
-				}
-				if filepath.Ext(f.Name) == "" {
-					f.Name += ".zip"
-				}
-			case "tar.gz":
-				tarball(f.Path, f.buffer)
-				f.size = int64(f.buffer.Len())
-				if f.MimeType == "" {
-					f.MimeType = "application/gzip"
-				}
-				if f.Name == "" {
-					f.Name = info.Name()
-				}
-				if filepath.Ext(f.Name) == "" {
-					f.Name += ".tar.gz"
-				}
+		for _, path := range f.Paths {
+			info, err := os.Stat(path)
+			if err != nil {
+				return err
+			}
+			f.buffer.Grow(int(info.Size()))
+		}
+
+		if f.Name == "" {
+			switch len(f.Paths) {
+			case 1:
+				f.Name = filepath.Base(f.Paths[0])
+			default:
+				f.Name = fmt.Sprintf("%0-x", rand.Int31())
+			}
+		}
+
+		switch f.ArchiveMethod {
+		case "zip":
+			zip(f.Paths, f.buffer)
+			f.size = int64(f.buffer.Len())
+			if f.MimeType == "" {
+				f.MimeType = "application/zip"
+			}
+
+			if filepath.Ext(f.Name) == "" {
+				f.Name += ".zip"
+			}
+		case "tar.gz":
+			tarball(f.Paths, f.buffer)
+			f.size = int64(f.buffer.Len())
+			if f.MimeType == "" {
+				f.MimeType = "application/gzip"
+			}
+
+			if filepath.Ext(f.Name) == "" {
+				f.Name += ".tar.gz"
 			}
 		}
 	}
