@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func HandleCGI(handler *ezcgi.Handler, name, mime string, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+func HandleCGI(handler *ezcgi.Handler, name, mime string, noBots bool, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
 	if mime != "" {
@@ -39,7 +39,7 @@ func HandleCGI(handler *ezcgi.Handler, name, mime string, infoLog *log.Logger) f
 	}
 	return func(w http.ResponseWriter, r *http.Request) error {
 		// Filter out requests from bots, iMessage, etc.
-		if headers, exists := r.Header["User-Agent"]; exists {
+		if headers, exists := r.Header["User-Agent"]; exists && noBots {
 			for _, header := range headers {
 				isBot := strings.Contains(header, "bot")
 				if !isBot {

@@ -113,7 +113,7 @@ func (c *Conf) setupCGIRoute(args []string, srvr *server.Server) (*server.Route,
 	} else {
 		route.MaxOK = 1
 	}
-	route.HandlerFunc = handlers.HandleCGI(handler, fn, c.FileMime, srvr.InfoLog)
+	route.HandlerFunc = handlers.HandleCGI(handler, fn, c.FileMime, !c.AllowBots, srvr.InfoLog)
 
 	return route, nil
 }
