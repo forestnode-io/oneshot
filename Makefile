@@ -14,9 +14,11 @@ README.md:
 	cd doc/md && go run -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" \
 	       	. > $(HERE)/README.md
 
-install-man-page:
-	cd doc/man && go run -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" \
-	       	doc/man/main.go > $(HERE)/oneshot.1
+oneshot.1:
+	go run -ldflags "-X ${VERSION_FLAG} -X ${DATE_FLAG}" \
+	       	./doc/man/main.go > $(HERE)/oneshot.1
+
+install-man-page: oneshot.1
 	mv oneshot.1 $(MANPATH)/man1
 	mandb
 

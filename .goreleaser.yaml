@@ -57,6 +57,7 @@ archives:
   files:
     - LICENSE
     - README.md
+    - oneshot.1
 
 - id: windows-zip
   name_template: "oneshot_{{ .Version }}.{{ .Os }}-{{ .Arch }}"

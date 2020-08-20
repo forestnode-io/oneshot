@@ -6,10 +6,14 @@ CURRENT_VERSION=`git describe --tag --abbrev=0`
 NEW_VERSION=""
 
 # Create README.md
-rm README.md
+rm -f README.md
 make README.md
 git add README.md
 
+# Create man page
+rm -f oneshot.1
+make oneshot.1
+git add oneshot.1
 
 function updateVersion {
 	read -p "new version (curently at ${CURRENT_VERSION}): " NEW_VERSION
