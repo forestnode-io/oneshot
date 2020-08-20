@@ -24,7 +24,7 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd.version={{.Version}}
     - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
   goos:
     - darwin
@@ -35,7 +35,7 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/raphaelreyna/oneshot/cmd/cmd.version={{.Version}}
+    - -X github.com/raphaelreyna/oneshot/cmd.version={{.Version}}
     - -X github.com/raphaelreyna/oneshot/cmd.date={{.Date}}
   goos:
     - windows

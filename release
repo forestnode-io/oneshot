@@ -8,9 +8,6 @@ NEW_VERSION=""
 # Create README.md
 rm README.md
 make README.md
-## Add banner image to top of README.md
-sed -i '1i <img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">\
-' README.md
 git add README.md
 
 

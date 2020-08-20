@@ -12,9 +12,6 @@ import (
 	"strings"
 )
 
-var version string
-var date string
-
 const stdinBufferSize = 1024
 
 func (a *App) Run(cmd *cobra.Command, args []string) {

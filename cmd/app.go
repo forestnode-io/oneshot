@@ -13,6 +13,9 @@ import (
 	"syscall"
 )
 
+var version string
+var date string
+
 type App struct {
 	hostname string
 	ips      []string
@@ -87,10 +90,18 @@ Directories will automatically be archived before being sent (see -a, --archive-
 	return app, nil
 }
 
+func (a *App) SetFlags() {
+	a.conf.SetFlags(a.cmd)
+}
+
+func (a *App) Cmd() *cobra.Command {
+	return a.cmd
+}
+
 func (a *App) Start() {
 	cobra.MousetrapHelpText = ""
 
-	a.conf.SetFlags(a.cmd)
+	a.SetFlags()
 
 	if err := a.cmd.Execute(); err != nil {
 		log.Println(err)
