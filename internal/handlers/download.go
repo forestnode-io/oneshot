@@ -12,7 +12,7 @@ import (
 	"github.com/raphaelreyna/oneshot/internal/server"
 )
 
-func HandleDownload(file *file.FileReader, download bool, header http.Header,
+func HandleDownload(file *file.FileReader, download, noBots bool, header http.Header,
 	infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
@@ -88,7 +88,7 @@ func HandleDownload(file *file.FileReader, download bool, header http.Header,
 
 	return func(w http.ResponseWriter, r *http.Request) error {
 		// Filter out requests from bots, iMessage, etc.
-		if headers, exists := r.Header["User-Agent"]; exists {
+		if headers, exists := r.Header["User-Agent"]; exists && noBots {
 			for _, header := range headers {
 				isBot := strings.Contains(header, "bot")
 				if !isBot {

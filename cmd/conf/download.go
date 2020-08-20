@@ -76,7 +76,7 @@ func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.R
 		header.Set(k, v)
 	}
 
-	route.HandlerFunc = handlers.HandleDownload(file, !c.NoDownload, header, srvr.InfoLog)
+	route.HandlerFunc = handlers.HandleDownload(file, !c.NoDownload, !c.AllowBots, header, srvr.InfoLog)
 
 	return route, nil
 }

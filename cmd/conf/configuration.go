@@ -63,6 +63,8 @@ type Conf struct {
 
 	WaitForEOF bool
 
+	AllowBots bool
+
 	cmdFlagSet *pflag.FlagSet
 
 	sstlsLoc    string

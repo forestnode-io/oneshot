@@ -189,4 +189,10 @@ See also: --upload-file; -u, --upload; -L, --no-unix-eol-norm`,
 This flag does noting if not serving from stdin.
 `,
 	)
+
+	flags.BoolVarP(&c.AllowBots, "allow-bots", "B", false, `Allow bots to attempt download.
+By default, bots are prevented from attempting the download; this is required to allow links to be sent over services that provide previews such as Apple iMessage.
+A client is considered to be a bot if the 'User-Agent' header contains either 'bot', 'Bot' or 'facebookexternalhit'.
+`,
+	)
 }
