@@ -58,3 +58,12 @@ Here, the `-S` flag tells oneshot to run its input as a shell command in a flexi
 $ oneshot -D -S 'oneshot -p 8081 some_asset.mp3' 
 ```
 In this scenario, Alice runs oneshot, Bob connects to Alice's machine and his browser hangs until Carol also connects; Bob then receives the mp3 file.
+
+#### Receive a file, do work on it locally and send back the results
+```bash
+$ oneshot -u | gofmt | oneshot -J
+```
+The `-J` flag we are using here tells oneshot to only start serving HTTP once it has received an EOF from its stdin.
+This allows us to create unix pipelines without needing to specify a different port for each instance of oneshot.
+In this scenario, the user would upload or type in some Go code and upon hitting the back button (refresh wont work !) or going back to the original URL, the user will receive their formatted Go code.
+

@@ -5,18 +5,32 @@ import (
 	"github.com/raphaelreyna/oneshot/cmd"
 	"github.com/spf13/cobra/doc"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
 )
 
+const logo = `<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+
+`
+
 func main() {
-	cmd.SetFlags()
+	app, err := cmd.NewApp()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	app.SetFlags()
+
 	mdBuffer := &bytes.Buffer{}
-	err := doc.GenMarkdown(cmd.RootCmd, mdBuffer)
+	err = doc.GenMarkdown(app.Cmd(), mdBuffer)
 	if err != nil {
 		panic(err)
 	}
+
+	// Logo
+	os.Stdout.Write([]byte(logo))
 
 	parts := bytes.Split(mdBuffer.Bytes(), []byte(`### Synopsis`))
 	os.Stdout.Write(parts[0])

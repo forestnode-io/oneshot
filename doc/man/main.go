@@ -8,13 +8,18 @@ import (
 )
 
 func main() {
-	cmd.SetFlags()
+	app, err := cmd.NewApp()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	app.SetFlags()
 	header := doc.GenManHeader{
 		Title:   "ONESHOT",
 		Section: "1",
 		Source:  "https://github.com/raphaelreyna/oneshot",
 	}
-	err := doc.GenMan(cmd.RootCmd, &header, os.Stdout)
+	err = doc.GenMan(app.Cmd(), &header, os.Stdout)
 	if err != nil {
 		log.Print(err)
 	}

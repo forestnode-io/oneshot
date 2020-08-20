@@ -29,6 +29,10 @@ cd oneshot
 sudo make install
 ```
 
+#### Arch Linux users
+<a href="https://aur.archlinux.org/packages/oneshot/">Oneshot AUR page.</a>
+
+
 #### Windows
 
 ##### Download executable
