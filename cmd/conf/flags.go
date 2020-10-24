@@ -109,10 +109,8 @@ Setting this flag does nothing if the -S, --shell-command flag is not set.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
-	flags.BoolVarP(&c.ReplaceHeaders, "replace-header", "R", false, `HTTP header to send to client.
-To allow executable to override header see the --replace flag.
+	flags.BoolVarP(&c.ReplaceHeaders, "replace-header", "R", false, `Allow executable to override headers set by  the -H, --header flag.
 Setting this flag does nothing unless either the -c, --cgi or -S, --shell-command flag is set.
-Must be in the form 'KEY: VALUE'.
 See also: -c, --cgi ; -C, --cgi-strict ; -s, --shell-command ; -S, --shell ; -H, --header ; -E, --env ; --cgi-stderr`,
 	)
 
@@ -194,5 +192,14 @@ This flag does noting if not serving from stdin.
 By default, bots are prevented from attempting the download; this is required to allow links to be sent over services that provide previews such as Apple iMessage.
 A client is considered to be a bot if the 'User-Agent' header contains either 'bot', 'Bot' or 'facebookexternalhit'.
 `,
+	)
+
+	flags.BoolVarP(&c.Redirect, "redirect", "r", false, `Redirect the first client to connect to the URL given as the first argument to oneshot.
+See also: --status-code`,
+	)
+
+	flags.IntVar(&c.RedirectStatus, "status-code", 303, `Sets the HTTP response status code when performing a redirect.
+This flag does nothing if not redirecting to a different URL.
+See also: -r, --redirect`,
 	)
 }

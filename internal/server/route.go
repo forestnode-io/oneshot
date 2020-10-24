@@ -6,10 +6,14 @@ import (
 	"sync/atomic"
 )
 
+// FailableHandler is an http.HandlerFunc that returns an error.
+// oneshot uses this error to determine when to exit.
+type FailableHandler func(w http.ResponseWriter, r *http.Request) error
+
 type Route struct {
 	Pattern         string
 	Methods         []string
-	HandlerFunc     func(w http.ResponseWriter, r *http.Request) error
+	HandlerFunc     FailableHandler
 	DoneHandlerFunc http.HandlerFunc
 	MaxOK           int64
 	MaxRequests     int64

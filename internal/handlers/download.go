@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/internal/file"
-	"github.com/raphaelreyna/oneshot/internal/server"
+	srvr "github.com/raphaelreyna/oneshot/internal/server"
 )
 
-func HandleDownload(file *file.FileReader, download, noBots bool, header http.Header, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+func HandleDownload(file *file.FileReader, download, noBots bool, header http.Header, infoLog *log.Logger) srvr.FailableHandler {
 	// Creating logging messages and functions
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
@@ -93,7 +93,7 @@ func HandleDownload(file *file.FileReader, download, noBots bool, header http.He
 		if headers, exists := r.Header["User-Agent"]; exists && noBots {
 			if isBot(headers) {
 				w.WriteHeader(http.StatusOK)
-				return server.OKNotDoneErr
+				return srvr.OKNotDoneErr
 			}
 		}
 

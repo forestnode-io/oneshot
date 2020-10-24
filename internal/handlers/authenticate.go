@@ -3,12 +3,10 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	srvr "github.com/raphaelreyna/oneshot/internal/server"
 )
 
-func Authenticate(username, password string,
-	unauthenticated http.HandlerFunc,
-	authenticated func(w http.ResponseWriter, r *http.Request) error,
-) func(w http.ResponseWriter, r *http.Request) error {
+func Authenticate(username, password string, unauthenticated http.HandlerFunc, authenticated srvr.FailableHandler) srvr.FailableHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		u, p, ok := r.BasicAuth()
 		if !ok {

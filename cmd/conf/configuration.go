@@ -11,6 +11,7 @@ const (
 	DownloadMode uint8 = iota
 	UploadMode
 	CGIMode
+	RedirectMode
 )
 
 var archiveMethodDefault = "tar.gz"
@@ -53,6 +54,9 @@ type Conf struct {
 	CgiStrict    bool // only valid if cgi is true
 	ShellCommand bool
 	Shell        string // only used if shellCommand != ""
+
+	Redirect bool
+	RedirectStatus int
 
 	ReplaceHeaders bool     // only valid if cgi is true or shellCommand != ""
 	EnvVars        []string // only used if cgi is true or shellCommand != ""
@@ -122,6 +126,8 @@ func (c *Conf) RandCredentials() (user, password bool) {
 
 func (c *Conf) Mode() uint8 {
 	switch {
+	case c.Redirect:
+		return RedirectMode
 	case c.Upload || c.UploadFile || c.UploadInput:
 		return UploadMode
 	case c.Cgi || c.CgiStrict || c.ShellCommand:

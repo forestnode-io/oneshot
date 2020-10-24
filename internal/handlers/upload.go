@@ -11,9 +11,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	srvr "github.com/raphaelreyna/oneshot/internal/server"
 )
 
-func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log.Logger) srvr.FailableHandler {
 	// bytes encoding linefeed and carriage-return linefeed
 	// used for converting between DOS and UNIX file types
 	var (
@@ -43,9 +44,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		}
 	}
 
-	var printSummary = func(start time.Time,
-		duration time.Duration, fileSize float64,
-		client string) {
+	var printSummary = func(start time.Time, duration time.Duration, fileSize float64, client string) {
 
 		var sizeString string
 		var size float64

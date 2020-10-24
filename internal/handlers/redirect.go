@@ -1,23 +1,19 @@
 package handlers
 
 import (
-	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
 	srvr "github.com/raphaelreyna/oneshot/internal/server"
 	"log"
 	"net/http"
 	"time"
 )
 
-func HandleCGI(handler *ezcgi.Handler, name, mime string, noBots bool, infoLog *log.Logger) srvr.FailableHandler {
+func HandleRedirect(url string, statCode int, noBots bool, header http.Header, infoLog *log.Logger) srvr.FailableHandler {
 	// Creating logging messages and functions
-	msg := "transfer complete:\n"
-	msg += "\tname: %s\n"
-	if mime != "" {
-		msg += "\tMIME type: %s\n"
-	}
+	msg := "redirect complete:\n"
 	msg += "\tstart time: %s\n"
-	msg += "\tduration: %s\n"
-	msg += "\tdestination: %s\n"
+	msg += "\tclient I.P. address: %s\n"
+	msg += "\tredirected to: %s\n"
+	msg += "\tHTTP status: %d - %s\n"
 
 	var iLog = func(format string, v ...interface{}) {
 		if infoLog != nil {
@@ -25,17 +21,11 @@ func HandleCGI(handler *ezcgi.Handler, name, mime string, noBots bool, infoLog *
 		}
 	}
 
-	var printSummary = func(start time.Time,
-		duration time.Duration, client string) {
+	var printSummary = func(start time.Time, client string, rt string) {
 
 		startTime := start.Format("15:04:05.000 MST 2 Jan 2006")
-		durationTime := duration.Truncate(time.Millisecond).String()
 
-		if mime != "" {
-			iLog(msg, name, mime, startTime, durationTime, client)
-		} else {
-			iLog(msg, name, startTime, durationTime, client)
-		}
+		iLog(msg, startTime, client, rt, statCode, http.StatusText(statCode))
 	}
 
 	// Define and return the actual handler
@@ -47,11 +37,14 @@ func HandleCGI(handler *ezcgi.Handler, name, mime string, noBots bool, infoLog *
 				return srvr.OKNotDoneErr
 			}
 		}
+
 		iLog("connected: %s", r.RemoteAddr)
-		before := time.Now()
-		handler.ServeHTTP(w, r)
-		duration := time.Since(before)
-		printSummary(before, duration, r.RemoteAddr)
+		// Set any headers added by the user via flags before redirecting
+		for key := range header {
+			w.Header().Set(key, header.Get(key))
+		}
+		http.Redirect(w, r, url, statCode)
+		printSummary(time.Now(), r.RemoteAddr, url)
 		return nil
 	}
 }

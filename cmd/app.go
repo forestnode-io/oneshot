@@ -74,7 +74,7 @@ func NewApp() (*App, error) {
 
 	// Create the cobra command
 	app.cmd = &cobra.Command{
-		Use:     "oneshot [flags]... [file|dir]",
+		Use:     "oneshot [flags]... [file|dir|url]",
 		Version: fmt.Sprintf(": %s\nbuild date : %s\nauthor : Raphael Reyna", version, date),
 		Short:   "A single-fire first-come-first-serve HTTP server.",
 		Long: `Transfer files and data easily between your computer and any browser or HTTP client.

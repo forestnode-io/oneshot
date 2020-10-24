@@ -40,6 +40,8 @@ func (c *Conf) SetupServer(srvr *server.Server, args []string, ips []string) err
 		route, err = c.setupCGIRoute(args, srvr)
 	case UploadMode:
 		route, err = c.setupUploadRoute(args, srvr)
+	case RedirectMode:
+		route, err = c.setupRedirectRoute(args, srvr)
 	}
 	if err != nil {
 		return err
