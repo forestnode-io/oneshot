@@ -5,11 +5,11 @@ import (
 	"github.com/raphaelreyna/oneshot/internal/server"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 )
 
 func HandleCGI(handler *ezcgi.Handler, name, mime string, noBots bool, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+	// Creating logging messages and functions
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
 	if mime != "" {
@@ -37,21 +37,14 @@ func HandleCGI(handler *ezcgi.Handler, name, mime string, noBots bool, infoLog *
 			iLog(msg, name, startTime, durationTime, client)
 		}
 	}
+
+	// Define and return the actual handler
 	return func(w http.ResponseWriter, r *http.Request) error {
-		// Filter out requests from bots, iMessage, etc.
+		// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
 		if headers, exists := r.Header["User-Agent"]; exists && noBots {
-			for _, header := range headers {
-				isBot := strings.Contains(header, "bot")
-				if !isBot {
-					isBot = strings.Contains(header, "Bot")
-				}
-				if !isBot {
-					isBot = strings.Contains(header, "facebookexternalhit")
-				}
-				if isBot {
-					w.WriteHeader(http.StatusOK)
-					return server.OKNotDoneErr
-				}
+			if isBot(headers) {
+				w.WriteHeader(http.StatusOK)
+				return server.OKNotDoneErr
 			}
 		}
 		iLog("connected: %s", r.RemoteAddr)

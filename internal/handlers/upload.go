@@ -14,11 +14,14 @@ import (
 )
 
 func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log.Logger) func(w http.ResponseWriter, r *http.Request) error {
+	// bytes encoding linefeed and carriage-return linefeed
+	// used for converting between DOS and UNIX file types
 	var (
 		lf   = []byte{10}
 		crlf = []byte{13, 10}
 	)
 
+	// Creating logging messages and functions
 	msg := "transfer complete:\n"
 	msg += "\tname: %s\n"
 	msg += "\tlocation: %s\n"
@@ -96,16 +99,19 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		return ""
 	}
 
+	// Define and return the actual handler
 	return func(w http.ResponseWriter, r *http.Request) error {
 		var (
 			src io.Reader
-			cl  int64
+			cl  int64 // content-length
 			err error
 		)
 
+		// Switch on the type of upload to obtain the appropriate src io.Reader to read data from.
+		// Uploads may happen by uploading a file, uploading text from an HTML text box, or straight from the request body
 		rct := r.Header.Get("Content-Type")
 		switch {
-		case strings.Contains(rct, "multipart/form-data"):
+		case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
 			reader, err := r.MultipartReader()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -133,7 +139,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			if err != nil {
 				cl = 0
 			}
-		case strings.Contains(rct, "application/x-www-form-urlencoded"):
+		case strings.Contains(rct, "application/x-www-form-urlencoded"): // User uploaded text from HTML text box
 			err := r.ParseForm()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -143,7 +149,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			if unixEOLNormalization {
 				src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 			}
-		default:
+		default: // Could not determine how file upload was initiated, grabbing the request body
 			cd := r.Header.Get("Content-Disposition")
 			if file.Path != "" && file.Name() == "" {
 				if fn := fileName(cd); fn != "" {
@@ -161,6 +167,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			}
 		}
 
+		// Make sure no other potentially connecting clients may upload a file now (oneshot!)
 		file.Lock()
 		if err == nil && cl != 0 {
 			file.SetSize(cl)
@@ -175,6 +182,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			return err
 		}
 
+		// Start writing the incoming data to disc or stdout while timing how long it takes
 		defer r.Body.Close()
 		before := time.Now()
 		_, err = io.Copy(file, src)
