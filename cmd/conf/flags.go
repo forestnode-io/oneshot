@@ -36,9 +36,10 @@ Use -q, --quiet instead to suppress info messages only.`,
 If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.`,
 	)
 
-	flags.StringVarP(&c.FileName, "name", "n", "", `Name of file presented to client.
+	flags.StringVarP(&c.FileName, "name", "n", "", `Name of file presented to client or if uploading, the name of the file saved to this computer.
 If not set, either a random name or the name of the file will be used,
-depending on if a file was given.`,
+depending on if a file was given.
+See also: -u, --upload ; --upload-input ; --upload-file`,
 	)
 
 	flags.StringVarP(&c.FileExt, "ext", "e", "", `Extension of file presented to client.
@@ -146,6 +147,7 @@ If both the -d, --dir flag is set and a path is given as an argument, then the p
 See also: --upload-file; --upload-input; -L, --no-unix-eol-norm
 
 Example: Running "oneshot -u -d /foo ./bar/baz" will result in the clients uploaded file being saved to directory /foo/bar/baz.
+Example: Running "oneshot -u -n baz ./bar" will result in the clients uploaded file being saved to directory ./bar with the name baz (so ./bar/baz).
 
 This flag actually exposes an upload API as well.
 Oneshot will save either the entire body, or first file part (if the Content-Type is set to multipart/form-data) of any POST request sent to "/"
