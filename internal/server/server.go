@@ -82,10 +82,10 @@ func (s *Server) Serve() error {
 
 	var addresses string
 	for _, ip := range s.HostAddresses {
-		addresses += "\t - " + scheme + ip + "\n"
+		addresses += "\t- " + scheme + ip + "\n"
 	}
 
-	s.infoLog("listening:\n" + addresses)
+	s.infoLog("listening at:\n" + addresses)
 	s.serving = true
 	return listenAndServe()
 }

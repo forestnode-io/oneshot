@@ -52,6 +52,10 @@ func (f *FileWriter) SetSize(size int64) {
 	f.size = size
 }
 
+func (f *FileWriter) GetProgress() int64 {
+	return f.progress
+}
+
 func (f *FileWriter) GetLocation() string {
 	return f.location
 }
@@ -151,18 +155,18 @@ func (f *FileWriter) writeProgress() {
 	case f.size == 0:
 		switch {
 		case f.progress < kb:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %d B\r", f.progress)
+			fmt.Fprintf(f.ProgressWriter, "transferred: %8d  B", f.progress)
 		case f.progress < mb:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %.3f KB\r", float64(f.progress)/kb)
+			fmt.Fprintf(f.ProgressWriter, "transferred: %8.3f KB", float64(f.progress)/kb)
 		case f.progress < gb:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %.3f MB\r", float64(f.progress)/mb)
+			fmt.Fprintf(f.ProgressWriter, "transferred: %8.3f MB", float64(f.progress)/mb)
 		default:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %.3f GB\r", float64(f.progress)/gb)
+			fmt.Fprintf(f.ProgressWriter, "transferred: %8.3f GB", float64(f.progress)/gb)
 		}
-		return
 	default:
-		fmt.Fprintf(f.ProgressWriter, "transfer progress: %.2f%%\r",
+		fmt.Fprintf(f.ProgressWriter, "transfer progress: %8.2f%%",
 			100.0*float64(f.progress)/float64(f.size),
 		)
 	}
+	fmt.Fprint(f.ProgressWriter, "\r")
 }

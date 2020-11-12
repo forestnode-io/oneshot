@@ -9,18 +9,29 @@ import (
 
 	"github.com/raphaelreyna/oneshot/internal/file"
 	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	"sync"
 )
 
 func HandleDownload(file *file.FileReader, download, noBots bool, header http.Header, infoLog *log.Logger) srvr.FailableHandler {
 	// Creating logging messages and functions
-	msg := "transfer complete:\n"
-	msg += "\tname: %s\n"
+	msg := "transfer complete\ntransfer summary:\n"
+	msg += "\tfile name: %s\n"
 	msg += "\tMIME type: %s\n"
-	msg += "\tsize: %s\n"
+	msg += "\tfile size: %s\n"
 	msg += "\tstart time: %s\n"
 	msg += "\tduration: %s\n"
 	msg += "\trate: %s\n"
-	msg += "\tdestination: %s\n"
+	msg += "\tclient address: %s\n"
+
+	// record each attempt to show in the summary report
+	type attempt struct {
+		address string
+		transferred int64
+		start time.Time
+		stop time.Time
+	}
+	attempts := []*attempt{}
+	attemptsLock := &sync.Mutex{}
 
 	const (
 		kb = 1000
@@ -81,6 +92,56 @@ func HandleDownload(file *file.FileReader, download, noBots bool, header http.He
 			mimeType = ct
 		}
 
+		if len(attempts) > 0 {
+			failedAttempts := "\t\t- start time: %v\n"
+			failedAttempts += "\t\t  duration: %v\n"
+			failedAttempts += "\t\t  client address: %s\n"
+			failedAttempts += "\t\t  transferred: %v\n"
+			failedAttempts += "\t\t  transfer rate: %v\n"
+
+			// add failed attempts header
+			msg += "\tfailed attempts:\n"
+
+			// loop over failed attempts and them to the msg string
+			for i, a := range attempts {
+				// format transfer
+				aTransferredString := ""
+				switch {
+				case a.transferred < kb:
+					aTransferredString = fmt.Sprintf("%d B", a.transferred)
+				case a.transferred < mb:
+					aTransferredString = fmt.Sprintf("%.3f KB", float64(a.transferred) / kb)
+				case a.transferred < gb:
+					aTransferredString = fmt.Sprintf("%.3f MB", float64(a.transferred) / mb)
+				default:
+					aTransferredString = fmt.Sprintf("%.3f GB", float64(a.transferred) / gb)
+				}
+
+				// compute the transfer rate of the failed attempt
+				aDuration := a.stop.Sub(a.start)
+				aRate := float64(a.transferred) / aDuration.Seconds()
+				var aRateString string
+				switch {
+				case aRate < kb:
+					aRateString = fmt.Sprintf("%.3f B/s", aRate)
+				case aRate < mb:
+					aRateString = fmt.Sprintf("%.3f KB/s", aRate / kb)
+				case aRate < gb:
+					aRateString = fmt.Sprintf("%.3f MB/s", aRate / mb)
+				default:
+					aRateString = fmt.Sprintf("%.3f GB/s", aRate / gb)
+				}
+
+				msg += fmt.Sprintf(failedAttempts, a.start.Format("15:04:05.000 MST 2 Jan 2006"),
+					aDuration.Truncate(time.Microsecond),
+					a.address, aTransferredString, aRateString,
+				)
+
+				if i != len(attempts)-1 {
+					msg += "\n"
+				}
+			}
+		}
 		iLog(msg,
 			file.Name, mimeType, sizeString,
 			startTime, durationTime,
@@ -96,6 +157,17 @@ func HandleDownload(file *file.FileReader, download, noBots bool, header http.He
 				return srvr.OKNotDoneErr
 			}
 		}
+
+		a := &attempt{
+			address: r.RemoteAddr,
+			start: time.Now(),
+		}
+		defer func() {
+			a.stop = time.Now()
+			attemptsLock.Lock()
+			attempts = append(attempts, a)
+			attemptsLock.Unlock()
+		}()
 
 		// Client is not a bot so show request info and open file to get file info for HTTP headers
 		iLog("connected: %s", r.RemoteAddr)
@@ -128,13 +200,15 @@ func HandleDownload(file *file.FileReader, download, noBots bool, header http.He
 		// Start writing the file data to the client while timing how long it takes
 		before := time.Now()
 		_, err = io.Copy(w, file)
-		duration := time.Since(before)
+		stop := time.Now()
+		a.transferred = file.GetProgress()
+		a.stop = stop
 		if err != nil {
 			return err
 		}
 
 		// Let the user know how things went
-		printSummary(before, duration, float64(file.Size()), r.RemoteAddr)
+		printSummary(before, stop.Sub(before), float64(file.Size()), r.RemoteAddr)
 
 		return nil
 	}

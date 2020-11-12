@@ -78,6 +78,10 @@ func (f *FileReader) RequestCount() int {
 	return f.requestCount
 }
 
+func (f *FileReader) GetProgress() int64 {
+	return f.progress
+}
+
 // Requested increases the request count by one
 func (f *FileReader) Requested() {
 	f.requestCount++

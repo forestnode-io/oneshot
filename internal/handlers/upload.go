@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	"sync"
 )
 
 func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log.Logger) srvr.FailableHandler {
@@ -22,15 +23,27 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		crlf = []byte{13, 10}
 	)
 
+	// record each attempt to show in the summary report
+	type attempt struct {
+		address string
+		size int64
+		transferred int64
+		start time.Time
+		stop time.Time
+		filename string
+	}
+	attempts := []*attempt{}
+	attemptsLock := &sync.Mutex{}
+
 	// Creating logging messages and functions
-	msg := "transfer complete:\n"
+	msg := "transfer complete\ntransfer summary:\n"
 	msg += "\tname: %s\n"
 	msg += "\tlocation: %s\n"
 	msg += "\tsize: %s\n"
 	msg += "\tstart time: %s\n"
 	msg += "\tduration: %s\n"
 	msg += "\trate: %s\n"
-	msg += "\tsource: %s\n"
+	msg += "\tclient address: %s\n"
 
 	const (
 		kb = 1000
@@ -82,14 +95,84 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			rateString = fmt.Sprintf("%.3f GB/s", rate)
 		}
 
+		if len(attempts) > 0 {
+			failedAttempts := "\t\t- start time: %v\n"
+			failedAttempts += "\t\t  duration: %v\n"
+			failedAttempts += "\t\t  client address: %s\n"
+			failedAttempts += "\t\t  file name: %s\n"
+			failedAttempts += "\t\t  file size: %v\n"
+			failedAttempts += "\t\t  transferred: %v\n"
+			failedAttempts += "\t\t  transfer rate: %v\n"
+
+			// add failed attempts header
+			msg += "\tfailed attempts:\n"
+
+			// loop over failed attempts and them to the msg string
+			for i, a := range attempts {
+				// format transfer
+				aTransferredString := ""
+				switch {
+				case a.transferred < kb:
+					aTransferredString = fmt.Sprintf("%d B", a.transferred)
+				case a.transferred < mb:
+					aTransferredString = fmt.Sprintf("%.3f KB", float64(a.transferred) / kb)
+				case a.transferred < gb:
+					aTransferredString = fmt.Sprintf("%.3f MB", float64(a.transferred) / mb)
+				default:
+					aTransferredString = fmt.Sprintf("%.3f GB", float64(a.transferred) / gb)
+				}
+
+
+				// format size
+				var aSize interface{} = a.size
+				switch {
+				case a.size == 0:
+					aSize = "not provided by client"
+				case a.size < kb:
+					aSize = fmt.Sprintf("%d B", a.size)
+				case a.size < mb:
+					aSize = fmt.Sprintf("%.3f KB", a.size / kb)
+				case a.size < gb:
+					aSize = fmt.Sprintf("%.3f MB", a.size / mb)
+				default:
+					aSize = fmt.Sprintf("%.3f GB", a.size / gb)
+				}
+
+				// compute the transfer rate of the failed attempt
+				aDuration := a.stop.Sub(a.start)
+				aRate := float64(a.transferred) / aDuration.Seconds()
+				var aRateString string
+				switch {
+				case aRate < kb:
+					aRateString = fmt.Sprintf("%.3f B/s", aRate)
+				case aRate < mb:
+					aRateString = fmt.Sprintf("%.3f KB/s", aRate / kb)
+				case aRate < gb:
+					aRateString = fmt.Sprintf("%.3f MB/s", aRate / mb)
+				default:
+					aRateString = fmt.Sprintf("%.3f GB/s", aRate / gb)
+				}
+
+				msg += fmt.Sprintf(failedAttempts, a.start.Format("15:04:05.000 MST 2 Jan 2006"),
+					aDuration.Truncate(time.Microsecond),
+					a.address, a.filename, aSize,
+					aTransferredString, aRateString,
+				)
+
+				if i != len(attempts)-1 {
+					msg += "\n"
+				}
+			}
+		}
+
 		file.ProgressWriter.Write([]byte("\n"))
 		iLog(msg, file.Name(), file.GetLocation(),
 			sizeString, startTime, durationTime,
 			rateString, client)
 	}
 
+	// We need a way to extract the filename (if its given) from the header data
 	regex := regexp.MustCompile(`filename="(.+)"`)
-
 	fileName := func(s string) string {
 		subs := regex.FindStringSubmatch(s)
 		if len(subs) > 1 {
@@ -105,6 +188,16 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			cl  int64 // content-length
 			err error
 		)
+		a := &attempt{
+			address: r.RemoteAddr,
+			start: time.Now(),
+		}
+		defer func() {
+			a.stop = time.Now()
+			attemptsLock.Lock()
+			attempts = append(attempts, a)
+			attemptsLock.Unlock()
+		}()
 
 		// Switch on the type of upload to obtain the appropriate src io.Reader to read data from.
 		// Uploads may happen by uploading a file, uploading text from an HTML text box, or straight from the request body
@@ -166,10 +259,12 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 			}
 		}
 
+		a.filename = file.Name()
 		// Make sure no other potentially connecting clients may upload a file now (oneshot!)
 		file.Lock()
 		if err == nil && cl != 0 {
 			file.SetSize(cl)
+			a.size = cl
 		}
 		err = file.Open()
 		defer func() {
@@ -185,7 +280,9 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		defer r.Body.Close()
 		before := time.Now()
 		_, err = io.Copy(file, src)
-		duration := time.Since(before)
+		stop := time.Now()
+		a.transferred = file.GetProgress()
+		a.stop = stop
 		if err != nil {
 			file.Reset()
 			file.Unlock()
@@ -194,7 +291,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		file.Unlock()
 
 		if file.Path != "" {
-			printSummary(before, duration, float64(file.GetSize()), r.RemoteAddr)
+			printSummary(before, stop.Sub(before), float64(file.GetSize()), r.RemoteAddr)
 		}
 
 		return nil
