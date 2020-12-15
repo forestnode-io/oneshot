@@ -22,6 +22,7 @@ type Conf struct {
 	NoInfo     bool
 	NoError    bool
 	Port       string
+	Host string
 	Timeout    time.Duration
 	NoDownload bool
 

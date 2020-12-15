@@ -13,6 +13,7 @@ import (
 func (c *Conf) SetupServer(srvr *server.Server, args []string, ips []string) error {
 	var err error
 
+	srvr.Host = c.Host
 	srvr.Port = c.Port
 	srvr.CertFile = c.CertFile
 	srvr.KeyFile = c.KeyFile

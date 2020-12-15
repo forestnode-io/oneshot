@@ -14,6 +14,7 @@ var OKDoneErr = errors.New("route done")
 var OKNotDoneErr = errors.New("not done")
 
 type Server struct {
+	Host string
 	Port string
 
 	// Certfile is the public certificate that should be used for TLS
@@ -52,7 +53,7 @@ func NewServer() *Server {
 }
 
 func (s *Server) Serve() error {
-	s.server.Addr = ":" + s.Port
+	s.server.Addr = s.Host + ":" + s.Port
 
 	scheme := "http://"
 	listenAndServe := func() error {
@@ -81,8 +82,13 @@ func (s *Server) Serve() error {
 	}
 
 	var addresses string
-	for _, ip := range s.HostAddresses {
-		addresses += "\t- " + scheme + ip + "\n"
+	switch s.Host {
+	case "":
+		for _, ip := range s.HostAddresses {
+			addresses += "\t- " + scheme + ip + "\n"
+		}
+	default:
+		addresses += "\t- " + scheme + s.server.Addr + "\n"
 	}
 
 	s.infoLog("listening at:\n" + addresses)

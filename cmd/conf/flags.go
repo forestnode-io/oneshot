@@ -20,6 +20,8 @@ otherwise, client waits in a queue and is served if all previous clients fail or
 
 	flags.StringVarP(&c.Port, "port", "p", "8080", `Port to bind to.`)
 
+	flags.StringVar(&c.Host, "host", "", `Host specifies the TCP address for the server to listen on.`)
+
 	flags.DurationVarP(&c.Timeout, "timeout", "t", 0, `How long to wait for client.
 A value of zero will cause oneshot to wait indefinitely.`,
 	)

@@ -46,9 +46,10 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	// Filter out loopback and ipv6 addresses
-	var home string
-	for _, addr := range addrs {
+	// run the loop backwards so 127.0.0.1 ends up at the bottom of the list
+	for i := len(addrs) - 1; i >= 0 ;  i-- {
+		addr := addrs[i]
+
 		saddr := addr.String()
 
 		if strings.Contains(saddr, "::") {
@@ -56,20 +57,18 @@ func NewApp() (*App, error) {
 		}
 
 		parts := strings.Split(saddr, "/")
-		ip := parts[0]
 
-		// Remove localhost since whats the point in sharing with yourself? (usually)
-		if parts[0] == "127.0.0.1" || parts[0] == "localhost" {
-			home = ip
+		ip := net.ParseIP(parts[0])
+		if ip == nil {
 			continue
 		}
 
-		app.ips = append(app.ips, ip)
-	}
+		// Filter out IPv6 address
+		if ip.To4() == nil {
+			continue
+		}
 
-	// If no addresses other than loopbacks are available, use those
-	if len(app.ips) == 0 {
-		app.ips = append(app.ips, home)
+		app.ips = append(app.ips, ip.String())
 	}
 
 	// Create the cobra command
