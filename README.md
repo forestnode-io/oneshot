@@ -1,5 +1,6 @@
 <img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
 
+![GitHub](https://img.shields.io/github/license/raphaelreyna/oneshot) ![GitHub release (latest by date)](https://img.shields.io/github/v/release/raphaelreyna/oneshot) [![Go Report Card](https://goreportcard.com/badge/github.com/raphaelreyna/oneshot)](https://goreportcard.com/report/github.com/raphaelreyna/oneshot) ![Twitter URL](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Frphlrn.com%2Foneshot-site%2F)
 ## oneshot
 
 A single-fire first-come-first-serve HTTP server.
