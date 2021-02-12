@@ -40,6 +40,7 @@ go get -u -v github.com/raphaelreyna/oneshot
 ```bash
 git clone github.com/raphaelreyna/oneshot
 cd oneshot
+make
 sudo make install
 ```
 
