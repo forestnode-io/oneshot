@@ -68,7 +68,7 @@ If for some reason, you would rather *not* use a command line, [Goneshot](https:
 After connecting to oneshot from a browser on your mobile device you can add it to your homescreen.
 This will essentially add a client app with an icon to transfer files to and from the machine you just connected to.
 For iOS user, simply tap the share button and then tap 'Add to Home Screen'.
-For Android users, you probably have something similar  ¯\_(ツ)_/¯.
+For Android users, you probably have something similar  ¯\\\_(ツ)\_/¯.
 
 ### Use Cases & Examples
 
