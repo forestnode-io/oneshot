@@ -1,6 +1,6 @@
 module github.com/raphaelreyna/oneshot
 
-go 1.14
+go 1.16
 
 require (
 	github.com/gorilla/mux v1.7.4

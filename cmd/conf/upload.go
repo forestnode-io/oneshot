@@ -1,14 +1,15 @@
 package conf
 
 import (
-	"github.com/raphaelreyna/oneshot/internal/file"
-	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/internal/server"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 	"text/template"
+
+	"github.com/raphaelreyna/oneshot/internal/file"
+	"github.com/raphaelreyna/oneshot/internal/handlers"
+	"github.com/raphaelreyna/oneshot/internal/server"
 )
 
 func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Route, error) {
@@ -71,6 +72,8 @@ func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Rou
 	base := `<!DOCTYPE html>
 <html>
 <head>
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="icon" type="image/png" href="/assets/icon.png">
 </head>
 <body>
 {{ .FileSection }}
@@ -87,14 +90,14 @@ func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Rou
 	fileSection := `<form action="/" method="post" enctype="multipart/form-data">
   <h5>Select a file to upload:</h5>
   <input type="file" name="oneshot">
-  <br>
+  <br><br>
   <input type="submit" value="Upload">
 </form>`
 
 	inputSection := `<form action="/" method="post">
   <h5>Enter text to send: </h5>
   <textarea name="oneshotTextUpload"></textarea>
-  <br/>
+  <br><br>
   <input type="submit" value="Upload">
 </form>`
 

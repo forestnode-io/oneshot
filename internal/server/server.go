@@ -49,6 +49,9 @@ func NewServer() *Server {
 		finishedRoutes: make(map[*Route]error),
 	}
 	s.server = &http.Server{Handler: s}
+
+	s.router.HandleFunc("/assets/icon.png", s.HandleIcon)
+
 	return s
 }
 
