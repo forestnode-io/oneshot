@@ -96,7 +96,7 @@ brews:
   - name: oneshot
     ids:
       - brew
-    github:
+    tap:
       owner: raphaelreyna
       name: homebrew-repo
     homepage: "https://github.com/raphaelreyna/oneshot"
