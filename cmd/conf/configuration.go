@@ -74,6 +74,8 @@ type Conf struct {
 	NoCSRFToken     bool
 	CustomCSRFToken string
 
+	UploadHTML string
+
 	cmdFlagSet *pflag.FlagSet
 
 	sstlsLoc    string

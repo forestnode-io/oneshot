@@ -77,7 +77,6 @@ func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Rou
 <link rel="icon" type="image/png" href="/assets/icon.png">
 </head>
 <body>
-poop
 {{ if .FileSection }}
   {{ template "file-section" .CSRFToken }}
 {{ end }}
@@ -103,22 +102,34 @@ poop
 	inputSection := `{{ define "input-section" }}<form action="/" method="post">
   <input type="hidden" name="csrf-token" value="{{ . }}">
   <h5>Enter text to send: </h5>
-  <textarea name="oneshotTextUpload"></textarea>
+  <textarea name="text"></textarea>
   <br><br>
   <input type="submit" value="Upload">
 </form>{{ end }}`
 
-	tmpl, err := template.New("file-section").Parse(fileSection)
-	if err != nil {
-		return nil, err
-	}
-	tmpl, err = tmpl.Parse(inputSection)
-	if err != nil {
-		return nil, err
-	}
-	tmpl, err = tmpl.Parse(base)
-	if err != nil {
-		return nil, err
+	var (
+		err  error
+		tmpl *template.Template
+	)
+
+	if c.UploadHTML != "" {
+		tmpl, err = template.ParseFiles(c.UploadHTML)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		tmpl, err = template.New("file-section").Parse(fileSection)
+		if err != nil {
+			return nil, err
+		}
+		tmpl, err = tmpl.Parse(inputSection)
+		if err != nil {
+			return nil, err
+		}
+		tmpl, err = tmpl.Parse(base)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sections := struct {

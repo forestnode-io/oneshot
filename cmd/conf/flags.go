@@ -208,12 +208,20 @@ See also: -r, --redirect`,
 	)
 
 	flags.BoolVar(&c.NoCSRFToken, "no-csrf-token", false, `Do not use a CSRF token for uploads.
-This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.
 See also: -u, --upload; --upload-input`,
 	)
 
 	flags.StringVar(&c.CustomCSRFToken, "custom-csrf-token", "", `Use a custom CSRF token for uploads.
-This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.
 See also: -u, --upload; --upload-input; --no-csrf-token`,
+	)
+
+	flags.StringVar(&c.UploadHTML, "upload-html", "", `Path to html file to present to clients attempting to upload.
+The file may be a Go HTML temlate. Two boolean values '.FileSection' and '.InputSection' and a string value ' .CSRFToken ' are made available to the template.
+The boolean values ' .FileSection ' and ' .InputSection ' reflect the usage of the -u, --upload; --upload-input and --upload-file flags.
+The string value ' .CSRFToken ' reflects the usage of the --no-csrf-token and --custom-csrf-token flags.
+This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.
+See also: -u, --upload; --upload-input`,
 	)
 }

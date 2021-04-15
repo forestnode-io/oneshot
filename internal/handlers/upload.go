@@ -264,7 +264,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken st
 				return err
 			}
 
-			src = strings.NewReader(r.PostForm.Get("oneshotTextUpload"))
+			src = strings.NewReader(r.PostForm.Get("text"))
 			if unixEOLNormalization {
 				src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 			}

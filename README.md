@@ -173,7 +173,7 @@ oneshot [flags]... [file|dir|url]
                                    Setting this flag will override the -u, --upload flag.
                                    See also: -c, --cgi ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr
       --custom-csrf-token string   Use a custom CSRF token for uploads.
-                                   This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+                                   This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.
                                    See also: -u, --upload; --upload-input; --no-csrf-token
   -d, --dir string                 Working directory for the executable or when saving files.
                                    Defaults to where oneshot was called.
@@ -210,7 +210,7 @@ oneshot [flags]... [file|dir|url]
                                    depending on if a file was given.
                                    See also: -u, --upload ; --upload-input ; --upload-file
       --no-csrf-token              Do not use a CSRF token for uploads.
-                                   This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+                                   This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.
                                    See also: -u, --upload; --upload-input
   -D, --no-download                Don't trigger browser download client side.
                                    If set, the "Content-Disposition" header used to trigger downloads in the clients browser won't be sent.
@@ -280,6 +280,12 @@ oneshot [flags]... [file|dir|url]
                                    Setting both this flag and --upload-input is equivalent to setting the -u, --upload flag.
                                    For more information see the -u, --upload flag documentation.
                                    See also: --upload-input; -u, --upload
+      --upload-html string         Path to html file to present to clients attempting to upload.
+                                   The file may be a Go HTML temlate. Two boolean values '.FileSection' and '.InputSection' and a string value ' .CSRFToken ' are made available to the template.
+                                   The boolean values ' .FileSection ' and ' .InputSection ' reflect the usage of the -u, --upload; --upload-input and --upload-file flags.
+                                   The string value ' .CSRFToken ' reflects the usage of the --no-csrf-token and --custom-csrf-token flags.
+                                   This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.
+                                   See also: -u, --upload; --upload-input
       --upload-input               Receive text from a browser.
                                    Setting both this flag and --upload-file is equivalent to setting the -u, --upload flag.
                                    For more information see the -u, --upload flag documentation.
