@@ -62,12 +62,6 @@ Windows users might be interested in checkout [Goneshot](https://github.com/raph
 If for some reason, you would rather *not* use a command line, [Goneshot](https://github.com/raphaelreyna/goneshot)(beta) wraps oneshot with a GUI (graphical user interface) which might be easier to use. A macOS version will probably be made at some point.
 
 
-### Mobile client
-After connecting to oneshot from a browser on your mobile device you can add it to your homescreen.
-This will essentially add a client app with an icon to transfer files to and from the machine you just connected to.
-For iOS user, simply tap the share button and then tap 'Add to Home Screen'.
-For Android users, you probably have something similar  ¯\\\_(ツ)\_/¯.
-
 ### Use Cases & Examples
 
 #### Send a file
@@ -178,7 +172,7 @@ oneshot [flags]... [file|dir|url]
                                    If the -S, --shell-command flag is used to pass a command, this flag has no effect.
                                    Setting this flag will override the -u, --upload flag.
                                    See also: -c, --cgi ; -s, --shell-command ; -S, --shell ; -R, --replace-headers ; -H, --header ; -E, --env ; --cgi-stderr
-      --custom-csrf-token string   Use a custom CSRF token for uploading.
+      --custom-csrf-token string   Use a custom CSRF token for uploads.
                                    This flag does nothing if both the -u, --upload and --upload-input flags are not set.
                                    See also: -u, --upload; --upload-input; --no-csrf-token
   -d, --dir string                 Working directory for the executable or when saving files.
@@ -215,7 +209,7 @@ oneshot [flags]... [file|dir|url]
                                    If not set, either a random name or the name of the file will be used,
                                    depending on if a file was given.
                                    See also: -u, --upload ; --upload-input ; --upload-file
-      --no-csrf-token              Use a CSRF token for uploading.
+      --no-csrf-token              Do not use a CSRF token for uploads.
                                    This flag does nothing if both the -u, --upload and --upload-input flags are not set.
                                    See also: -u, --upload; --upload-input
   -D, --no-download                Don't trigger browser download client side.
