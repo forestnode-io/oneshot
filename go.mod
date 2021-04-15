@@ -3,6 +3,7 @@ module github.com/raphaelreyna/oneshot
 go 1.16
 
 require (
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/jf-tech/iohelper v1.0.2

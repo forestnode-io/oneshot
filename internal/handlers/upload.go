@@ -1,21 +1,23 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
-	"github.com/jf-tech/iohelper"
-	"github.com/raphaelreyna/oneshot/internal/file"
 	"io"
 	"log"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
-	srvr "github.com/raphaelreyna/oneshot/internal/server"
 	"sync"
+	"time"
+
+	"github.com/jf-tech/iohelper"
+	"github.com/raphaelreyna/oneshot/internal/file"
+	srvr "github.com/raphaelreyna/oneshot/internal/server"
 )
 
-func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log.Logger) srvr.FailableHandler {
+func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken string, infoLog *log.Logger) srvr.FailableHandler {
 	// bytes encoding linefeed and carriage-return linefeed
 	// used for converting between DOS and UNIX file types
 	var (
@@ -25,12 +27,12 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 
 	// record each attempt to show in the summary report
 	type attempt struct {
-		address string
-		size int64
+		address     string
+		size        int64
 		transferred int64
-		start time.Time
-		stop time.Time
-		filename string
+		start       time.Time
+		stop        time.Time
+		filename    string
 	}
 	attempts := []*attempt{}
 	attemptsLock := &sync.Mutex{}
@@ -115,13 +117,12 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 				case a.transferred < kb:
 					aTransferredString = fmt.Sprintf("%d B", a.transferred)
 				case a.transferred < mb:
-					aTransferredString = fmt.Sprintf("%.3f KB", float64(a.transferred) / kb)
+					aTransferredString = fmt.Sprintf("%.3f KB", float64(a.transferred)/kb)
 				case a.transferred < gb:
-					aTransferredString = fmt.Sprintf("%.3f MB", float64(a.transferred) / mb)
+					aTransferredString = fmt.Sprintf("%.3f MB", float64(a.transferred)/mb)
 				default:
-					aTransferredString = fmt.Sprintf("%.3f GB", float64(a.transferred) / gb)
+					aTransferredString = fmt.Sprintf("%.3f GB", float64(a.transferred)/gb)
 				}
-
 
 				// format size
 				var aSize interface{} = a.size
@@ -131,11 +132,11 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 				case a.size < kb:
 					aSize = fmt.Sprintf("%d B", a.size)
 				case a.size < mb:
-					aSize = fmt.Sprintf("%.3f KB", a.size / kb)
+					aSize = fmt.Sprintf("%.3f KB", a.size/kb)
 				case a.size < gb:
-					aSize = fmt.Sprintf("%.3f MB", a.size / mb)
+					aSize = fmt.Sprintf("%.3f MB", a.size/mb)
 				default:
-					aSize = fmt.Sprintf("%.3f GB", a.size / gb)
+					aSize = fmt.Sprintf("%.3f GB", a.size/gb)
 				}
 
 				// compute the transfer rate of the failed attempt
@@ -146,11 +147,11 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 				case aRate < kb:
 					aRateString = fmt.Sprintf("%.3f B/s", aRate)
 				case aRate < mb:
-					aRateString = fmt.Sprintf("%.3f KB/s", aRate / kb)
+					aRateString = fmt.Sprintf("%.3f KB/s", aRate/kb)
 				case aRate < gb:
-					aRateString = fmt.Sprintf("%.3f MB/s", aRate / mb)
+					aRateString = fmt.Sprintf("%.3f MB/s", aRate/mb)
 				default:
-					aRateString = fmt.Sprintf("%.3f GB/s", aRate / gb)
+					aRateString = fmt.Sprintf("%.3f GB/s", aRate/gb)
 				}
 
 				msg += fmt.Sprintf(failedAttempts, a.start.Format("15:04:05.000 MST 2 Jan 2006"),
@@ -190,7 +191,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		)
 		a := &attempt{
 			address: r.RemoteAddr,
-			start: time.Now(),
+			start:   time.Now(),
 		}
 		defer func() {
 			a.stop = time.Now()
@@ -204,6 +205,13 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 		rct := r.Header.Get("Content-Type")
 		switch {
 		case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
+			// Check for csrf token if we care to
+			if csrfToken != "" && r.Header.Get("X-CSRF-Token") != csrfToken {
+				err := errors.New("Invalid CSRF token")
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return err
+			}
+
 			reader, err := r.MultipartReader()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -232,16 +240,42 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, infoLog *log
 				cl = 0
 			}
 		case strings.Contains(rct, "application/x-www-form-urlencoded"): // User uploaded text from HTML text box
+			foundCSRFToken := false
+			// Assume we found the CSRF token if the user doesn't care to use one
+			if csrfToken == "" {
+				foundCSRFToken = true
+			}
+
+			// Look for the CSRF token in the header
+			if r.Header.Get("X-CSRF-Token") == csrfToken && csrfToken != "" {
+				foundCSRFToken = true
+			}
+
 			err := r.ParseForm()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return err
 			}
+
+			// If we havent found the CSRF token yet, look for it in the parsed form data
+			if !foundCSRFToken && r.PostFormValue("csrf-token") != csrfToken {
+				err := errors.New("Invalid CSRF token")
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return err
+			}
+
 			src = strings.NewReader(r.PostForm.Get("oneshotTextUpload"))
 			if unixEOLNormalization {
 				src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 			}
 		default: // Could not determine how file upload was initiated, grabbing the request body
+			// Check for csrf token if we care to
+			if csrfToken != "" && r.Header.Get("X-CSRF-Token") != csrfToken {
+				err := errors.New("Invalid CSRF token")
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return err
+			}
+
 			cd := r.Header.Get("Content-Disposition")
 			if file.Path != "" && file.Name() == "" {
 				if fn := fileName(cd); fn != "" {

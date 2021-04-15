@@ -1,10 +1,11 @@
 package conf
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -22,7 +23,7 @@ type Conf struct {
 	NoInfo     bool
 	NoError    bool
 	Port       string
-	Host string
+	Host       string
 	Timeout    time.Duration
 	NoDownload bool
 
@@ -56,7 +57,7 @@ type Conf struct {
 	ShellCommand bool
 	Shell        string // only used if shellCommand != ""
 
-	Redirect bool
+	Redirect       bool
 	RedirectStatus int
 
 	ReplaceHeaders bool     // only valid if cgi is true or shellCommand != ""
@@ -69,6 +70,9 @@ type Conf struct {
 	WaitForEOF bool
 
 	AllowBots bool
+
+	NoCSRFToken     bool
+	CustomCSRFToken string
 
 	cmdFlagSet *pflag.FlagSet
 

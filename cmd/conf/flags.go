@@ -206,4 +206,14 @@ See also: --status-code`,
 This flag does nothing if not redirecting to a different URL.
 See also: -r, --redirect`,
 	)
+
+	flags.BoolVar(&c.NoCSRFToken, "no-csrf-token", false, `Use a CSRF token for uploading.
+This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+See also: -u, --upload; --upload-input`,
+	)
+
+	flags.StringVar(&c.CustomCSRFToken, "custom-csrf-token", "", `Use a custom CSRF token for uploading.
+This flag does nothing if both the -u, --upload and --upload-input flags are not set.
+See also: -u, --upload; --upload-input; --no-csrf-token`,
+	)
 }

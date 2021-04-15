@@ -7,6 +7,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/google/uuid"
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/internal/server"
@@ -69,64 +70,76 @@ func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Rou
 		route.MaxOK = 1
 	}
 
-	base := `<!DOCTYPE html>
+	base := `{{ define "base" }}<!DOCTYPE html>
 <html>
 <head>
 <link rel="apple-touch-icon" href="/assets/icon.png">
 <link rel="icon" type="image/png" href="/assets/icon.png">
 </head>
 <body>
-{{ .FileSection }}
-{{ if .InputSection }}
+poop
 {{ if .FileSection }}
-<br/>OR<br/>
+  {{ template "file-section" .CSRFToken }}
 {{ end }}
-{{ .InputSection }}
+{{ if .InputSection }}
+  {{ if .FileSection }}
+    <br/>OR<br/>
+  {{ end }}
+  {{ template "input-section" .CSRFToken }}
 {{ end }}
 </body>
 </html>
+{{ end }}
 `
 
-	fileSection := `<form action="/" method="post" enctype="multipart/form-data">
+	fileSection := `{{ define "file-section" }}<form action="/" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf-token" value="{{ . }}">
   <h5>Select a file to upload:</h5>
   <input type="file" name="oneshot">
   <br><br>
   <input type="submit" value="Upload">
-</form>`
+</form>{{ end }}`
 
-	inputSection := `<form action="/" method="post">
+	inputSection := `{{ define "input-section" }}<form action="/" method="post">
+  <input type="hidden" name="csrf-token" value="{{ . }}">
   <h5>Enter text to send: </h5>
   <textarea name="oneshotTextUpload"></textarea>
   <br><br>
   <input type="submit" value="Upload">
-</form>`
+</form>{{ end }}`
 
-	tmpl, err := template.New("upload").Parse(base)
+	tmpl, err := template.New("file-section").Parse(fileSection)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err = tmpl.Parse(inputSection)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err = tmpl.Parse(base)
 	if err != nil {
 		return nil, err
 	}
 
 	sections := struct {
-		FileSection  string
-		InputSection string
-	}{}
+		FileSection  bool
+		InputSection bool
+		CSRFToken    string
+	}{
+		FileSection:  true,
+		InputSection: true,
+		CSRFToken:    c.CustomCSRFToken,
+	}
 
-	if c.Upload {
-		c.UploadFile = true
-		c.UploadInput = true
-	}
-	if c.UploadFile {
-		sections.FileSection = fileSection
-	}
-	if c.UploadInput {
-		sections.InputSection = inputSection
+	if sections.CSRFToken == "" && !c.NoCSRFToken {
+		sections.CSRFToken = uuid.New().String()
 	}
 
 	getHandler := func(w http.ResponseWriter, r *http.Request) error {
-		tmpl.Execute(w, &sections)
+		tmpl.ExecuteTemplate(w, "base", &sections)
 		return server.OKNotDoneErr
 	}
-	postHandler := handlers.HandleUpload(file, !c.NoUnixNorm, srvr.InfoLog)
+	postHandler := handlers.HandleUpload(file, !c.NoUnixNorm, sections.CSRFToken, srvr.InfoLog)
 
 	infoLog := func(format string, v ...interface{}) {
 		if srvr.InfoLog != nil {
