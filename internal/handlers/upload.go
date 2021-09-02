@@ -132,11 +132,11 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken st
 				case a.size < kb:
 					aSize = fmt.Sprintf("%d B", a.size)
 				case a.size < mb:
-					aSize = fmt.Sprintf("%.3f KB", a.size/kb)
+					aSize = fmt.Sprintf("%.3f KB", float64(a.size)/float64(kb))
 				case a.size < gb:
-					aSize = fmt.Sprintf("%.3f MB", a.size/mb)
+					aSize = fmt.Sprintf("%.3f KB", float64(a.size)/float64(mb))
 				default:
-					aSize = fmt.Sprintf("%.3f GB", a.size/gb)
+					aSize = fmt.Sprintf("%.3f KB", float64(a.size)/float64(gb))
 				}
 
 				// compute the transfer rate of the failed attempt
@@ -205,18 +205,40 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken st
 		rct := r.Header.Get("Content-Type")
 		switch {
 		case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
-			// Check for csrf token if we care to
-			if csrfToken != "" && r.Header.Get("X-CSRF-Token") != csrfToken {
-				err := errors.New("Invalid CSRF token")
-				http.Error(w, err.Error(), http.StatusUnauthorized)
-				return err
-			}
-
 			reader, err := r.MultipartReader()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return err
 			}
+
+			// Check for csrf token if we care to
+			if csrfToken != "" {
+				part, err := reader.NextPart()
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return err
+				}
+
+				if !strings.Contains(part.Header.Get("Content-Disposition"), "csrf-token") {
+					err := errors.New("missing CRSF token")
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return err
+				}
+
+				partData, err := io.ReadAll(part)
+				if err != nil {
+					err := errors.New("unable to read CSRF token")
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return err
+				}
+
+				if string(partData) != csrfToken {
+					err := errors.New("invalid CSRF token")
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return err
+				}
+			}
+
 			part, err := reader.NextPart()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -259,7 +281,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken st
 
 			// If we havent found the CSRF token yet, look for it in the parsed form data
 			if !foundCSRFToken && r.PostFormValue("csrf-token") != csrfToken {
-				err := errors.New("Invalid CSRF token")
+				err := errors.New("invalid CSRF token")
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return err
 			}
@@ -271,7 +293,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken st
 		default: // Could not determine how file upload was initiated, grabbing the request body
 			// Check for csrf token if we care to
 			if csrfToken != "" && r.Header.Get("X-CSRF-Token") != csrfToken {
-				err := errors.New("Invalid CSRF token")
+				err := errors.New("invalid CSRF token")
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return err
 			}

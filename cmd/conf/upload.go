@@ -92,7 +92,7 @@ func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Rou
 `
 
 	fileSection := `{{ define "file-section" }}<form action="/" method="post" enctype="multipart/form-data">
-  <input type="hidden" name="csrf-token" value="{{ . }}">
+  {{ if ne . "" }}<input type="hidden" name="csrf-token" value="{{ . }}">{{ end }}
   <h5>Select a file to upload:</h5>
   <input type="file" name="oneshot">
   <br><br>
@@ -100,7 +100,7 @@ func (c *Conf) setupUploadRoute(args []string, srvr *server.Server) (*server.Rou
 </form>{{ end }}`
 
 	inputSection := `{{ define "input-section" }}<form action="/" method="post">
-  <input type="hidden" name="csrf-token" value="{{ . }}">
+  {{ if ne . "" }}<input type="hidden" name="csrf-token" value="{{ . }}">{{ end }}
   <h5>Enter text to send: </h5>
   <textarea name="text"></textarea>
   <br><br>
