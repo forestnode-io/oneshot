@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"math/rand"
+
 	"github.com/raphaelreyna/oneshot/internal/file"
 	"github.com/raphaelreyna/oneshot/internal/handlers"
 	"github.com/raphaelreyna/oneshot/internal/server"
-	"io/ioutil"
-	"math/rand"
 )
 
 func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.Route, error) {
@@ -26,7 +26,7 @@ func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.R
 	}
 
 	if len(paths) == 0 && c.WaitForEOF {
-		tdir, err := ioutil.TempDir("", "oneshot")
+		tdir, err := os.MkdirTemp("", "oneshot")
 		if err != nil {
 			return nil, err
 		}
