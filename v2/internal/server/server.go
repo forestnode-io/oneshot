@@ -27,9 +27,11 @@ type Server struct {
 	http.Server
 
 	requestsQueue chan _wr
+	requestsWG    sync.WaitGroup
 
 	results          []interface{}
 	successfulResult interface{}
+	succChan         chan struct{}
 	succResMu        sync.RWMutex
 	stopWorkers      func()
 
@@ -41,6 +43,7 @@ func NewServer(handler Handler) *Server {
 		requestsQueue: make(chan _wr),
 		results:       make([]interface{}, 0),
 		handler:       handler,
+		succChan:      make(chan struct{}),
 	}
 
 	return &s
@@ -68,8 +71,19 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	}()
 
 	// TODO(raphaelreyna) wait for transfer to succeed and drain client queue
+	go func() {
+		<-s.succChan
+		s.requestsWG.Wait()
+		errs <- nil
+	}()
 
-	return <-errs
+	err := <-errs
+	if err != nil {
+		return err
+	}
+
+	s.Shutdown(ctx)
+	return nil
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
@@ -104,14 +118,17 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	)
 
+	s.requestsWG.Add(1)
 	s.requestsQueue <- wr
 
 	<-done
+	s.requestsWG.Done()
 }
 
 func (s *Server) preTransferWorker(ctx context.Context) {
 	for {
 		if s.transferSucceeded() {
+			s.succChan <- struct{}{}
 			for i := 0; i < runtime.NumCPU(); i++ {
 				go s.postTransferWorker(ctx)
 			}

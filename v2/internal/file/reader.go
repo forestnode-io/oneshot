@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"mime"
 	"os"
@@ -13,7 +12,7 @@ import (
 	"sync"
 )
 
-var UnopenedReadErr = errors.New("attempted to read unopened file")
+var ErrUnopenedRead = errors.New("attempted to read unopened file")
 
 // FileReader represents the file being sent, whether its from an
 // actual file or stdin. FileReader also holds the files metadata.
@@ -44,8 +43,11 @@ type FileReader struct {
 
 	open bool
 
-	requestCount int
-	readCount    int
+	readCount int
+}
+
+func (f *FileReader) Size() int64 {
+	return f.size
 }
 
 func (f *FileReader) Lock() {
@@ -66,30 +68,13 @@ func (f *FileReader) Close() error {
 	if f.file == nil {
 		return nil
 	}
+
+	if f.file == os.Stdin {
+		return nil
+	}
+
 	f.open = false
 	return f.file.Close()
-}
-
-func (f *FileReader) Size() int64 {
-	return f.size
-}
-
-func (f *FileReader) RequestCount() int {
-	return f.requestCount
-}
-
-func (f *FileReader) GetProgress() int64 {
-	return f.progress
-}
-
-// Requested increases the request count by one
-func (f *FileReader) Requested() {
-	f.requestCount++
-}
-
-// ReadCount returns how many times the file has been read
-func (f *FileReader) ReadCount() int {
-	return f.readCount
 }
 
 // Open prepares the files contents for reading.
@@ -110,7 +95,7 @@ archiveBlock:
 			if f.Name == "" {
 				f.Name = fmt.Sprintf("%0-x", rand.Int31())
 			}
-			f.bufferBytes, err = ioutil.ReadAll(os.Stdin)
+			f.bufferBytes, err = io.ReadAll(os.Stdin)
 			if err != nil {
 				return err
 			}
@@ -202,7 +187,7 @@ archiveBlock:
 
 func (f *FileReader) Read(p []byte) (n int, err error) {
 	if !f.open {
-		return 0, UnopenedReadErr
+		return 0, ErrUnopenedRead
 	}
 
 	if f.progress == 0 {
@@ -228,6 +213,10 @@ func (f *FileReader) Read(p []byte) (n int, err error) {
 
 func (f *FileReader) Reset() error {
 	if f.file == nil {
+		return nil
+	}
+
+	if f.file == os.Stdin {
 		return nil
 	}
 

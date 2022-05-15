@@ -109,7 +109,7 @@ func (f *FileWriter) Open() error {
 
 func (f *FileWriter) Write(p []byte) (n int, err error) {
 	if f.file == nil {
-		return 0, UnopenedReadErr
+		return 0, ErrUnopenedRead
 	}
 
 	if f.progress == 0 {

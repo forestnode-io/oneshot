@@ -10,25 +10,25 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/raphaelreyna/oneshot/internal/file"
+	"github.com/raphaelreyna/oneshot/v2/internal/file"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	d := send{
+	d := sendCmd{
 		header: make(http.Header),
 	}
 	root.AddCommand(d.command())
 }
 
-type send struct {
+type sendCmd struct {
 	file   *file.FileReader
 	cmd    *cobra.Command
 	header http.Header
 }
 
-func (s *send) command() *cobra.Command {
+func (s *sendCmd) command() *cobra.Command {
 	s.cmd = &cobra.Command{
 		Use:   "send [file|dir]",
 		Short: "",
@@ -45,14 +45,14 @@ func (s *send) command() *cobra.Command {
 	pflags.StringP("name", "n", "", "Name of file presented to client or if uploading, the name of the file saved to this computer.\nIf not set, either a random name or the name of the file will be used,depending on if a file was given.")
 	pflags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
 
-	lflags := s.cmd.LocalFlags()
+	lflags := s.cmd.Flags()
 	lflags.StringP("archive-method", "a", "tar.gz", "Which archive method to use when sending directories.\nRecognized values are \"zip\" and \"tar.gz\".")
-	lflags.Bool("stream", false, "Stream contents when sending stdin, don't wait for EOF.")
+	lflags.BoolP("stream", "J", false, "Stream contents when sending stdin, don't wait for EOF.")
 
 	return s.cmd
 }
 
-func (s *send) runE(cmd *cobra.Command, args []string) error {
+func (s *sendCmd) runE(cmd *cobra.Command, args []string) error {
 	var (
 		ctx   = cmd.Context()
 		paths = args
@@ -75,32 +75,35 @@ func (s *send) runE(cmd *cobra.Command, args []string) error {
 		archiveMethod = "tar.gz"
 	}
 
-	// consume stdin into a temp file before starting up the server
-	if len(paths) == 0 && !stream {
-		tdir, err := ioutil.TempDir("", "oneshot")
-		if err != nil {
-			return err
-		}
-
-		if fileName == "" {
-			fileName = fmt.Sprintf("%0-x", rand.Int31())
-		}
-
-		fp := filepath.Join(tdir, fileName, fileExt)
-		paths = append(paths, fp)
-
-		err = func() error {
-			tfile, err := os.Create(fp)
+	if len(paths) == 0 {
+		// serving from stdin
+		if !stream {
+			// dont serve http until stdin stream hits EOF
+			tdir, err := ioutil.TempDir("", "oneshot")
 			if err != nil {
 				return err
 			}
-			defer tfile.Close()
 
-			_, err = io.Copy(tfile, os.Stdin)
-			return err
-		}()
-		if err != nil {
-			return err
+			if fileName == "" {
+				fileName = fmt.Sprintf("%0-x", rand.Int31())
+			}
+
+			fp := filepath.Join(tdir, fileName, fileExt)
+			paths = append(paths, fp)
+
+			err = func() error {
+				tfile, err := os.Create(fp)
+				if err != nil {
+					return err
+				}
+				defer tfile.Close()
+
+				_, err = io.Copy(tfile, os.Stdin)
+				return err
+			}()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -118,7 +121,7 @@ func (s *send) runE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (s *send) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	var (
 		file = s.file
 
@@ -141,8 +144,10 @@ func (s *send) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}, e
 	err := file.Open()
 	defer func() {
 		file.Reset()
-		file.Close()
 	}()
+	if err := r.Context().Err(); err != nil {
+		return nil, err
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return struct{}{}, err
@@ -173,6 +178,6 @@ func (s *send) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}, e
 	return struct{}{}, nil
 }
 
-func (d *send) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
+func (d *sendCmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("expired hello from server"))
 }
