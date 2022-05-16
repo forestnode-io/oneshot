@@ -2,18 +2,22 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 )
 
 type connKey struct{}
 
 type Handler interface {
-	ServeHTTP(http.ResponseWriter, *http.Request) (interface{}, error)
+	ServeHTTP(http.ResponseWriter, *http.Request) (*summary.Request, error)
 	ServeExpiredHTTP(http.ResponseWriter, *http.Request)
 }
 
@@ -29,11 +33,9 @@ type Server struct {
 	requestsQueue chan _wr
 	requestsWG    sync.WaitGroup
 
-	results          []interface{}
-	successfulResult interface{}
-	succChan         chan struct{}
-	succResMu        sync.RWMutex
-	stopWorkers      func()
+	summary     *summary.Summary
+	succChan    chan struct{}
+	stopWorkers func()
 
 	handler Handler
 }
@@ -41,9 +43,9 @@ type Server struct {
 func NewServer(handler Handler) *Server {
 	s := Server{
 		requestsQueue: make(chan _wr),
-		results:       make([]interface{}, 0),
 		handler:       handler,
 		succChan:      make(chan struct{}),
+		summary:       summary.NewSummary(time.Now()),
 	}
 
 	return &s
@@ -70,7 +72,6 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		errs <- s.Server.Serve(l)
 	}()
 
-	// TODO(raphaelreyna) wait for transfer to succeed and drain client queue
 	go func() {
 		<-s.succChan
 		s.requestsWG.Wait()
@@ -82,7 +83,11 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		return err
 	}
 
+	s.summary.End()
 	s.Shutdown(ctx)
+	je := json.NewEncoder(os.Stdout)
+	je.SetIndent("", "\t")
+	je.Encode(s.summary)
 	return nil
 }
 
@@ -95,7 +100,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 	// go dark if the transfer succeeded
-	if s.transferSucceeded() {
+	if s.summary.Succesful() {
 		var (
 			ctx  = r.Context()
 			conn = ctx.Value(connKey{}).(net.Conn)
@@ -127,7 +132,7 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) preTransferWorker(ctx context.Context) {
 	for {
-		if s.transferSucceeded() {
+		if s.summary.Succesful() {
 			s.succChan <- struct{}{}
 			for i := 0; i < runtime.NumCPU(); i++ {
 				go s.postTransferWorker(ctx)
@@ -143,13 +148,11 @@ func (s *Server) preTransferWorker(ctx context.Context) {
 				return
 			}
 
-			iface, err := s.handler.ServeHTTP(wr.w, wr.r)
+			smry, err := s.handler.ServeHTTP(wr.w, wr.r)
 			if err != nil {
-				s.results = append(s.results, iface)
+				s.summary.AddFailure(smry)
 			} else {
-				s.succResMu.Lock()
-				s.successfulResult = iface
-				s.succResMu.Unlock()
+				s.summary.SucceededWith(smry)
 			}
 
 			wr.done()
@@ -172,11 +175,4 @@ func (s *Server) postTransferWorker(ctx context.Context) {
 			wr.done()
 		}
 	}
-}
-
-func (s *Server) transferSucceeded() bool {
-	mu := &s.succResMu
-	mu.RLock()
-	defer mu.RUnlock()
-	return s.successfulResult != nil
 }

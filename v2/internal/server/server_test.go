@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/matryer/is"
+	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 )
 
 type testHandler struct {
-	serveHTTP        func(http.ResponseWriter, *http.Request) (interface{}, error)
+	serveHTTP        func(http.ResponseWriter, *http.Request) (*summary.Request, error)
 	serveExpiredHTTP func(http.ResponseWriter, *http.Request)
 }
 
-func (th *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func (th *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
 	return th.serveHTTP(w, r)
 }
 
@@ -38,7 +38,7 @@ func TestNewServer(t *testing.T) {
 	is.True(s != nil)
 	is.True(s.requestsQueue != nil)
 	is.True(s.handler == &th)
-	is.True(s.successfulResult == nil)
+	is.True(s.summary.Succesful() == false)
 }
 
 func TestServer_Serve(t *testing.T) {
@@ -48,21 +48,19 @@ func TestServer_Serve(t *testing.T) {
 		ctx        = context.Background()
 		reqCounter = 0
 		th         = testHandler{
-			serveHTTP: func(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+			serveHTTP: func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
 				if reqCounter < 1 {
 					reqCounter++
 					w.WriteHeader(http.StatusTeapot)
 					payload := "NOT OK"
 					w.Write([]byte(payload))
-					return "not yet", errors.New("ERROR")
+					return &summary.Request{}, errors.New("ERROR")
 				}
 
 				payload := "OK"
-				summary := struct{}{}
-
 				w.Write([]byte(payload))
 
-				return summary, nil
+				return &summary.Request{}, nil
 			},
 			serveExpiredHTTP: func(w http.ResponseWriter, r *http.Request) {
 				status := http.StatusGone
@@ -90,7 +88,7 @@ func TestServer_Serve(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(string(body), "NOT OK")
 
-		is.True(s.results[0].(string) == "not yet")
+		is.True(s.summary.Succesful() == false)
 	})
 
 	t.Run("succesful transfer", func(t *testing.T) {
@@ -104,14 +102,14 @@ func TestServer_Serve(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(string(body), "OK")
 
-		is.True(s.successfulResult == struct{}{})
+		is.True(s.summary.Succesful())
 	})
 
 	t.Run("EOF", func(t *testing.T) {
 		is := is.New(t)
 
 		resp, err := http.Get("http://127.0.0.1:8080")
-		is.True(errors.Is(err, io.EOF))
+		is.True(err != nil)
 		is.True(resp == nil)
 	})
 }
@@ -123,15 +121,13 @@ func TestServer_Serve_Expired(t *testing.T) {
 		ctx = context.Background()
 		wg  = sync.WaitGroup{}
 		th  = testHandler{
-			serveHTTP: func(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+			serveHTTP: func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
 				wg.Wait()
 
 				payload := "OK"
-				summary := struct{}{}
-
 				w.Write([]byte(payload))
 
-				return summary, nil
+				return &summary.Request{}, nil
 			},
 			serveExpiredHTTP: func(w http.ResponseWriter, r *http.Request) {
 				status := http.StatusGone
@@ -151,7 +147,9 @@ func TestServer_Serve_Expired(t *testing.T) {
 	wg.Add(1)
 
 	// first request that blocks until second request is made
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		is := is.New(t)
 		resp, err := http.Get("http://127.0.0.1:8080")
 		is.NoErr(err)
@@ -159,12 +157,13 @@ func TestServer_Serve_Expired(t *testing.T) {
 	}()
 
 	// second request that gets the expired content
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		is := is.New(t)
 		resp, err := http.Get("http://127.0.0.1:8080")
 		is.NoErr(err)
 		is.True(resp.StatusCode == http.StatusOK)
 	}()
-	time.Sleep(time.Second)
 	wg.Done()
 }

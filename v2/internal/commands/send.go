@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/file"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
+	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 	"github.com/spf13/cobra"
 )
 
@@ -121,7 +123,7 @@ func (s *sendCmd) runE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
 	var (
 		file = s.file
 
@@ -131,13 +133,19 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}
 		allowBots, _  = flags.GetBool("allow-bots")
 
 		header = s.header
+
+		sr    = summary.NewRequest(r)
+		start = time.Now()
 	)
+	defer func() {
+		sr.SetTimes(start, time.Now())
+	}()
 
 	// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
 	if headers, exists := r.Header["User-Agent"]; exists && !allowBots {
 		if isBot(headers) {
 			w.WriteHeader(http.StatusOK)
-			return struct{}{}, errors.New("bot")
+			return sr, errors.New("bot")
 		}
 	}
 
@@ -146,11 +154,11 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}
 		file.Reset()
 	}()
 	if err := r.Context().Err(); err != nil {
-		return nil, err
+		return sr, err
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return struct{}{}, err
+		return sr, err
 	}
 
 	// Are we triggering a file download on the users browser?
@@ -172,10 +180,10 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (interface{}
 	// Start writing the file data to the client while timing how long it takes
 	_, err = io.Copy(w, file)
 	if err != nil {
-		return struct{}{}, err
+		return sr, err
 	}
 
-	return struct{}{}, nil
+	return sr, nil
 }
 
 func (d *sendCmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
