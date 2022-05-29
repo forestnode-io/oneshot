@@ -1,11 +1,11 @@
 package server
 
 import (
+	"bufio"
 	"context"
-	"encoding/json"
+	"io"
 	"net"
 	"net/http"
-	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -22,9 +22,10 @@ type Handler interface {
 }
 
 type _wr struct {
-	w    http.ResponseWriter
-	r    *http.Request
-	done func()
+	w         http.ResponseWriter
+	r         *http.Request
+	done      func()
+	startTime time.Time
 }
 
 type Server struct {
@@ -38,6 +39,8 @@ type Server struct {
 	stopWorkers func()
 
 	handler Handler
+
+	bufferRequestBody bool
 }
 
 func NewServer(handler Handler) *Server {
@@ -49,6 +52,10 @@ func NewServer(handler Handler) *Server {
 	}
 
 	return &s
+}
+
+func (s *Server) Summary() *summary.Summary {
+	return s.summary
 }
 
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
@@ -85,9 +92,6 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 
 	s.summary.End()
 	s.Shutdown(ctx)
-	je := json.NewEncoder(os.Stdout)
-	je.SetIndent("", "\t")
-	je.Encode(s.summary)
 	return nil
 }
 
@@ -96,6 +100,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.stopWorkers()
 
 	return s.Server.Shutdown(ctx)
+}
+
+func (s *Server) BufferRequests() {
+	s.bufferRequestBody = true
 }
 
 func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
@@ -114,8 +122,9 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 		done = make(chan struct{})
 
 		wr = _wr{
-			w: w,
-			r: r,
+			w:         w,
+			r:         r,
+			startTime: time.Now(),
 			done: func() {
 				done <- struct{}{}
 				close(done)
@@ -148,11 +157,25 @@ func (s *Server) preTransferWorker(ctx context.Context) {
 				return
 			}
 
-			smry, err := s.handler.ServeHTTP(wr.w, wr.r)
-			if err != nil {
-				s.summary.AddFailure(smry)
+			var (
+				w   = summary.NewResponseWriter(wr.w)
+				req *summary.Request
+				err error
+			)
+			if s.bufferRequestBody {
+				bodyBuf := buffered(wr.r)
+				req, err = s.handler.ServeHTTP(w, wr.r)
+				req.SetBody(bodyBuf)
 			} else {
-				s.summary.SucceededWith(smry)
+				req, err = s.handler.ServeHTTP(w, wr.r)
+			}
+			req.SetTimes(wr.startTime, time.Now())
+			req.SetWriteStats(w)
+
+			if err != nil {
+				s.summary.AddFailure(req)
+			} else {
+				s.summary.SucceededWith(req)
 			}
 
 			wr.done()
@@ -175,4 +198,32 @@ func (s *Server) postTransferWorker(ctx context.Context) {
 			wr.done()
 		}
 	}
+}
+
+type bufferedBody struct {
+	io.ReadCloser
+	buf *bufio.Reader
+}
+
+func (bb *bufferedBody) Close() error {
+	io.ReadAll(bb)
+	return bb.ReadCloser.Close()
+}
+
+func (bb *bufferedBody) Read(p []byte) (int, error) {
+	return bb.buf.Read(p)
+}
+
+func buffered(r *http.Request) *bufio.Reader {
+	var (
+		body = r.Body
+		bb   = bufferedBody{
+			ReadCloser: body,
+			buf:        bufio.NewReader(body),
+		}
+	)
+
+	(*r).Body = &bb
+
+	return bb.buf
 }

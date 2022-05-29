@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/file"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
@@ -18,10 +17,10 @@ import (
 )
 
 func init() {
-	d := sendCmd{
+	x := sendCmd{
 		header: make(http.Header),
 	}
-	root.AddCommand(d.command())
+	root.AddCommand(x.command())
 }
 
 type sendCmd struct {
@@ -41,15 +40,15 @@ func (s *sendCmd) command() *cobra.Command {
 	pflags := s.cmd.PersistentFlags()
 
 	pflags.BoolP("allow-bots", "B", false, "Allow bots to attempt transfer.")
-	pflags.StringP("extension", "e", "", "Extension of file presented to client.\nIf not set, either no extension or the extension of the file will be used, depending on if a file was given.")
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
-	pflags.StringP("mime", "m", "", "MIME type of file presented to client.\nIf not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.")
-	pflags.StringP("name", "n", "", "Name of file presented to client or if uploading, the name of the file saved to this computer.\nIf not set, either a random name or the name of the file will be used,depending on if a file was given.")
-	pflags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
 
 	lflags := s.cmd.Flags()
 	lflags.StringP("archive-method", "a", "tar.gz", "Which archive method to use when sending directories.\nRecognized values are \"zip\" and \"tar.gz\".")
 	lflags.BoolP("stream", "J", false, "Stream contents when sending stdin, don't wait for EOF.")
+	lflags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
+	lflags.StringP("extension", "e", "", "Extension of file presented to client.\nIf not set, either no extension or the extension of the file will be used, depending on if a file was given.")
+	lflags.StringP("mime", "m", "", "MIME type of file presented to client.\nIf not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.")
+	lflags.StringP("name", "n", "", "Name of file presented to client if downloading.\nIf not set, either a random name or the name of the file will be used,depending on if a file was given.")
 
 	return s.cmd
 }
@@ -134,12 +133,8 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Re
 
 		header = s.header
 
-		sr    = summary.NewRequest(r)
-		start = time.Now()
+		sr = summary.NewRequest(r)
 	)
-	defer func() {
-		sr.SetTimes(start, time.Now())
-	}()
 
 	// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
 	if headers, exists := r.Header["User-Agent"]; exists && !allowBots {
@@ -178,7 +173,13 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Re
 	}
 
 	// Start writing the file data to the client while timing how long it takes
-	_, err = io.Copy(w, file)
+	n, err := io.Copy(w, file)
+	sr.File = &summary.File{
+		Name: file.Name,
+		MIME: file.MimeType,
+		Size: file.Size(),
+	}
+	sr.WriteSize = n
 	if err != nil {
 		return sr, err
 	}

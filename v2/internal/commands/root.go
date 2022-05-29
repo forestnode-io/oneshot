@@ -2,9 +2,13 @@ package commands
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net"
 	"os"
+	"strings"
 
+	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 )
@@ -19,26 +23,39 @@ func init() {
 	root.setFlags()
 }
 
-func ExecuteContext(ctx context.Context) {
+func ExecuteContext(ctx context.Context) error {
 	ctx = withServer(ctx, &root.server)
-	if err := root.ExecuteContext(ctx); err != nil {
-		os.Exit(1)
-	}
+	ctx = withClosers(ctx, &root.closers)
+	ctx = withFileGarbageCollection(ctx, &root.garbageFiles)
+
+	defer func() {
+		for _, closer := range root.closers {
+			closer.Close()
+		}
+		for _, path := range root.garbageFiles {
+			os.Remove(path)
+		}
+	}()
+
+	return root.ExecuteContext(ctx)
 }
 
 type rootCommand struct {
 	cobra.Command
 	server       *server.Server
 	garbageFiles []string
+	closers      []io.Closer
 }
 
 func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
 
-		flags      = cmd.Flags()
-		host, _    = flags.GetString("host")
-		portNum, _ = flags.GetString("port")
+		flags              = cmd.Flags()
+		host, _            = flags.GetString("host")
+		portNum, _         = flags.GetString("port")
+		jopts, jsonFlagErr = flags.GetString("json")
+		wantsJSON          = jsonFlagErr == nil
 	)
 
 	defer func() {
@@ -48,9 +65,27 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	}()
 
 	if portNum != "" {
-		host += ":" + portNum
+		portNum = ":" + portNum
 	}
 
+	stdout := cmd.OutOrStdout()
+	if !wantsJSON {
+		if host == "" {
+			addrs, err := network.HostAddresses()
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(stdout, "listening on: ")
+			for _, addr := range addrs {
+				fmt.Fprintf(stdout, "\t- http://%s%s\n", addr, portNum)
+			}
+		} else {
+			fmt.Fprintf(stdout, "listening on: http://%s:%s", host, portNum)
+		}
+	}
+
+	host += portNum
 	l, err := net.Listen("tcp", host)
 	if err != nil {
 		return err
@@ -58,7 +93,22 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 
 	defer l.Close()
 
-	return r.server.Serve(ctx, l)
+	if strings.Contains(jopts, "include-body") {
+		r.server.BufferRequests()
+	}
+
+	if err := r.server.Serve(ctx, l); err != nil {
+		return err
+	}
+
+	summary := r.server.Summary()
+	if wantsJSON {
+		summary.WriteJSON(stdout, strings.Contains(jopts, "pretty"))
+	} else {
+		summary.WriteHuman(stdout)
+	}
+
+	return nil
 }
 
 func (r *rootCommand) setFlags() {
@@ -105,29 +155,42 @@ If the -W, --hidden-password flag is set, this flags will be ignored.`)
 
 	pflags.DurationP("timeout", "t", 0, `How long to wait for client. A value of zero will cause oneshot to wait indefinitely.`)
 
+	pflags.String("json", "", `Enable JSON output. Options: include-body`)
+	pflags.Lookup("json").NoOptDefVal = "true"
 }
 
 type serverKey struct{}
+
 type fileGCKey struct{}
 
 func withServer(ctx context.Context, sdp **server.Server) context.Context {
 	return context.WithValue(ctx, serverKey{}, sdp)
 }
 
-func withFileGarbageCollection(ctx context.Context, files []string) context.Context {
+func withFileGarbageCollection(ctx context.Context, files *[]string) context.Context {
 	return context.WithValue(ctx, fileGCKey{}, files)
 }
 
 func setServer(ctx context.Context, s *server.Server) {
-	sdp, ok := ctx.Value(serverKey{}).(**server.Server)
-	if ok {
+	if sdp, ok := ctx.Value(serverKey{}).(**server.Server); ok {
 		*sdp = s
 	}
 }
 
 func markFilesAsGarbage(ctx context.Context, filePaths ...string) {
-	files, ok := ctx.Value(fileGCKey{}).([]string)
-	if ok {
-		files = append(files, filePaths...)
+	if files, ok := ctx.Value(fileGCKey{}).(*[]string); ok {
+		*files = append(*files, filePaths...)
+	}
+}
+
+type closerKey struct{}
+
+func withClosers(ctx context.Context, closers *[]io.Closer) context.Context {
+	return context.WithValue(ctx, closerKey{}, closers)
+}
+
+func markForClose(ctx context.Context, closer io.Closer) {
+	if closers, ok := ctx.Value(closerKey{}).(*[]io.Closer); ok {
+		*closers = append(*closers, closer)
 	}
 }
