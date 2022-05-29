@@ -25,23 +25,23 @@ type execCmd struct {
 	header       http.Header
 }
 
-func (s *execCmd) command() *cobra.Command {
-	s.cobraCommand = &cobra.Command{
+func (c *execCmd) command() *cobra.Command {
+	c.cobraCommand = &cobra.Command{
 		Use:  "exec command",
-		RunE: s.runE,
+		RunE: c.runE,
 	}
 
-	flags := s.cobraCommand.Flags()
+	flags := c.cobraCommand.Flags()
 	flags.Bool("enforce-cgi", false, "The exec must conform to the CGI.")
 	flags.StringSliceP("env", "e", []string{}, "Set an environment variable")
 	flags.String("dir", "", "Set the working directory")
 	flags.String("stderr", "", "Where to send exec stderr")
 	flags.Bool("replace-headers", false, "Allow exec to replace header values")
 
-	return s.cobraCommand
+	return c.cobraCommand
 }
 
-func (s *execCmd) runE(cmd *cobra.Command, args []string) error {
+func (c *execCmd) runE(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
 
@@ -89,8 +89,8 @@ func (s *execCmd) runE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s.handler = handler
-	srvr := server.NewServer(s)
+	c.handler = handler
+	srvr := server.NewServer(c)
 	setServer(ctx, srvr)
 	return nil
 }
