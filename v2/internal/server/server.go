@@ -162,6 +162,7 @@ func (s *Server) preTransferWorker(ctx context.Context) {
 				req *summary.Request
 				err error
 			)
+
 			if s.bufferRequestBody {
 				bodyBuf := buffered(wr.r)
 				req, err = s.handler.ServeHTTP(w, wr.r)
@@ -169,13 +170,16 @@ func (s *Server) preTransferWorker(ctx context.Context) {
 			} else {
 				req, err = s.handler.ServeHTTP(w, wr.r)
 			}
-			req.SetTimes(wr.startTime, time.Now())
-			req.SetWriteStats(w)
 
-			if err != nil {
-				s.summary.AddFailure(req)
-			} else {
-				s.summary.SucceededWith(req)
+			if req != nil {
+				req.SetTimes(wr.startTime, time.Now())
+				req.SetWriteStats(w)
+
+				if err != nil {
+					s.summary.AddFailure(req)
+				} else {
+					s.summary.SucceededWith(req)
+				}
 			}
 
 			wr.done()
