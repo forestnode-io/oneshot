@@ -64,23 +64,14 @@ func (c *redirectCmd) runE(cmd *cobra.Command, args []string) error {
 
 func (c *redirectCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
 	var (
-		sr           = summary.NewRequest(r)
-		header       = c.header
-		cmd          = c.cobraCommand
-		allowBots, _ = cmd.Flags().GetBool("allow-bots")
+		sr     = summary.NewRequest(r)
+		header = c.header
 	)
-
-	// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
-	if headers, exists := r.Header["User-Agent"]; exists && !allowBots {
-		if isBot(headers) {
-			w.WriteHeader(http.StatusOK)
-			return sr, errors.New("bot")
-		}
-	}
 
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}
+
 	http.Redirect(w, r, c.url, c.statusCode)
 	return sr, nil
 }

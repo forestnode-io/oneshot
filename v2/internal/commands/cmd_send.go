@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,11 +35,6 @@ func (s *sendCmd) command() *cobra.Command {
 		Long:  "",
 		RunE:  s.runE,
 	}
-
-	pflags := s.cmd.PersistentFlags()
-
-	pflags.BoolP("allow-bots", "B", false, "Allow bots to attempt transfer.")
-	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
 
 	lflags := s.cmd.Flags()
 	lflags.StringP("archive-method", "a", "tar.gz", "Which archive method to use when sending directories.\nRecognized values are \"zip\" and \"tar.gz\".")
@@ -129,20 +123,11 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Re
 		cmd           = s.cmd
 		flags         = cmd.Flags()
 		noDownload, _ = flags.GetBool("no-download")
-		allowBots, _  = flags.GetBool("allow-bots")
 
 		header = s.header
 
 		sr = summary.NewRequest(r)
 	)
-
-	// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
-	if headers, exists := r.Header["User-Agent"]; exists && !allowBots {
-		if isBot(headers) {
-			w.WriteHeader(http.StatusOK)
-			return sr, errors.New("bot")
-		}
-	}
 
 	err := file.Open()
 	defer func() {
@@ -173,16 +158,29 @@ func (s *sendCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Re
 	}
 
 	// Start writing the file data to the client while timing how long it takes
+	fmt.Println(1)
 	n, err := io.Copy(w, file)
+	fmt.Printf("n: %d\n", n)
+	fmt.Println(2)
 	sr.File = &summary.File{
 		Name: file.Name,
 		MIME: file.MimeType,
 		Size: file.Size(),
 	}
+	fmt.Println(3)
 	sr.WriteSize = n
 	if err != nil {
 		return sr, err
 	}
+	fmt.Println(4)
+	fmt.Printf("ws: %d fs: %d\n", sr.WriteSize, sr.File.Size)
+	if sr.WriteSize != sr.File.Size {
+		return sr, fmt.Errorf(
+			"only wrote %d out of %d bytes to client",
+			sr.WriteSize, sr.File.Size,
+		)
+	}
+	fmt.Println(5)
 
 	return sr, nil
 }

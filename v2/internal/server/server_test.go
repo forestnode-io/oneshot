@@ -37,7 +37,8 @@ func TestNewServer(t *testing.T) {
 
 	is.True(s != nil)
 	is.True(s.requestsQueue != nil)
-	is.True(s.handler == &th)
+	is.True(s.serveHTTP != nil)
+	is.True(s.serveExpiredHTTP != nil)
 	is.True(s.summary.Succesful() == false)
 }
 

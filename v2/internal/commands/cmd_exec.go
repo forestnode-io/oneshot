@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -96,22 +95,7 @@ func (c *execCmd) runE(cmd *cobra.Command, args []string) error {
 }
 
 func (s *execCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
-	var (
-		cmd          = s.cobraCommand
-		flags        = cmd.Flags()
-		allowBots, _ = flags.GetBool("allow-bots")
-
-		sr = summary.NewRequest(r)
-	)
-
-	// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
-	if headers, exists := r.Header["User-Agent"]; exists && !allowBots {
-		if isBot(headers) {
-			w.WriteHeader(http.StatusOK)
-			return sr, errors.New("bot")
-		}
-	}
-
+	var sr = summary.NewRequest(r)
 	s.handler.ServeHTTP(w, r)
 	return sr, nil
 }

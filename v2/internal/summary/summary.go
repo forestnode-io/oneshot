@@ -77,6 +77,10 @@ func (s *Summary) WriteJSON(w io.Writer, pretty bool) {
 }
 
 func (s *Summary) WriteHuman(w io.Writer) {
+	if len(s.FailedRequests) == 0 && s.SuccessfulRequest == nil {
+		return
+	}
+
 	s.Lock()
 	defer s.Unlock()
 
@@ -261,7 +265,6 @@ func NewResponseWriter(w http.ResponseWriter) http.ResponseWriter {
 func (rw *responseWriter) Write(p []byte) (int, error) {
 	if rw.start.IsZero() {
 		rw.start = time.Now()
-		fmt.Printf("set start time: %v", rw.start)
 	}
 	n, err := rw.ResponseWriter.Write(p)
 	rw.size += n

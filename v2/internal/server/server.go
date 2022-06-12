@@ -3,6 +3,8 @@ package server
 import (
 	"bufio"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +15,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 )
+
+var ErrTimeout = errors.New("timeout")
 
 type connKey struct{}
 
@@ -36,22 +40,36 @@ type Server struct {
 
 	summary     *summary.Summary
 	succChan    chan struct{}
+	timeoutChan chan struct{}
 	stopWorkers func()
 
-	handler Handler
+	serveHTTP        HandlerFunc
+	serveExpiredHTTP http.HandlerFunc
 
 	bufferRequestBody bool
+	timeout           time.Duration
 }
 
 func NewServer(handler Handler) *Server {
 	s := Server{
-		requestsQueue: make(chan _wr),
-		handler:       handler,
-		succChan:      make(chan struct{}),
-		summary:       summary.NewSummary(time.Now()),
+		requestsQueue:    make(chan _wr),
+		serveHTTP:        handler.ServeHTTP,
+		serveExpiredHTTP: handler.ServeExpiredHTTP,
+		succChan:         make(chan struct{}),
+		summary:          summary.NewSummary(time.Now()),
 	}
 
 	return &s
+}
+
+func (s *Server) AddMiddleware(m Middleware) {
+	if m == nil {
+		return
+	}
+
+	s.serveHTTP = m(s.serveHTTP)
+	var hf = m(newHandlerFunc(s.serveExpiredHTTP, false))
+	s.serveExpiredHTTP = func(w http.ResponseWriter, r *http.Request) { hf(w, r) }
 }
 
 func (s *Server) Summary() *summary.Summary {
@@ -74,6 +92,10 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 
 	go s.preTransferWorker(ctx)
 
+	if 0 < s.timeout {
+		s.timeoutChan = make(chan struct{}, 1)
+		l = withTimeout(s.timeout, s.timeoutChan, l)
+	}
 	var errs = make(chan error)
 	go func() {
 		errs <- s.Server.Serve(l)
@@ -82,6 +104,12 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	go func() {
 		<-s.succChan
 		s.requestsWG.Wait()
+		errs <- nil
+	}()
+
+	go func() {
+		<-s.timeoutChan
+		fmt.Printf("timeout after %v; exiting ...\n", s.timeout)
 		errs <- nil
 	}()
 
@@ -99,11 +127,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	close(s.requestsQueue)
 	s.stopWorkers()
 
-	return s.Server.Shutdown(ctx)
+	return s.Server.Close()
 }
 
 func (s *Server) BufferRequests() {
 	s.bufferRequestBody = true
+}
+
+func (s *Server) SetTimeoutDuration(d time.Duration) {
+	s.timeout = d
 }
 
 func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
@@ -165,10 +197,10 @@ func (s *Server) preTransferWorker(ctx context.Context) {
 
 			if s.bufferRequestBody {
 				bodyBuf := buffered(wr.r)
-				req, err = s.handler.ServeHTTP(w, wr.r)
+				req, err = s.serveHTTP(w, wr.r)
 				req.SetBody(bodyBuf)
 			} else {
-				req, err = s.handler.ServeHTTP(w, wr.r)
+				req, err = s.serveHTTP(w, wr.r)
 			}
 
 			if req != nil {
@@ -197,7 +229,7 @@ func (s *Server) postTransferWorker(ctx context.Context) {
 				return
 			}
 
-			s.handler.ServeExpiredHTTP(wr.w, wr.r)
+			s.serveExpiredHTTP(wr.w, wr.r)
 
 			wr.done()
 		}
