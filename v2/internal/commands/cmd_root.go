@@ -10,8 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
+	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
@@ -32,6 +32,7 @@ func ExecuteContext(ctx context.Context) error {
 	ctx = withServer(ctx, &root.server)
 	ctx = withClosers(ctx, &root.closers)
 	ctx = withFileGarbageCollection(ctx, &root.garbageFiles)
+	ctx = stdout.WithStdout(ctx)
 
 	defer func() {
 		for _, closer := range root.closers {
@@ -55,14 +56,22 @@ type rootCommand struct {
 
 func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
 	var (
+		ctx                    = cmd.Context()
 		flags                  = cmd.Flags()
 		allowBots, _           = flags.GetBool("allow-bots")
 		unauthenticatedHandler = http.HandlerFunc(nil)
 		uname, passwd, err     = usernamePassword(flags)
+		jopts, jsonFlagErr     = flags.GetString("json")
+		wantsJSON              = jsonFlagErr == nil && jopts != ""
 	)
 	if err != nil {
 		return err
 	}
+
+	if wantsJSON {
+		stdout.WantsJSON(ctx, jopts)
+	}
+	stdout.SetCobraCommandStdout(cmd)
 
 	r.middleware = r.middleware.
 		Chain(botsMiddleware(allowBots)).
@@ -75,12 +84,11 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	var (
 		ctx = cmd.Context()
 
-		flags              = cmd.Flags()
-		host, _            = flags.GetString("host")
-		portNum, _         = flags.GetString("port")
-		jopts, jsonFlagErr = flags.GetString("json")
-		wantsJSON          = jsonFlagErr == nil && jopts != ""
-		timeout, _         = flags.GetDuration("timeout")
+		flags      = cmd.Flags()
+		host, _    = flags.GetString("host")
+		port, _    = flags.GetString("port")
+		jopts, _   = flags.GetString("json")
+		timeout, _ = flags.GetDuration("timeout")
 	)
 
 	defer func() {
@@ -89,10 +97,6 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 		}
 	}()
 
-	if portNum != "" {
-		portNum = ":" + portNum
-	}
-
 	if strings.Contains(jopts, "include-body") {
 		r.server.BufferRequests()
 	}
@@ -100,40 +104,18 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	r.server.SetTimeoutDuration(timeout)
 	r.server.AddMiddleware(r.middleware)
 
-	host += portNum
-	l, err := net.Listen("tcp", host)
+	l, err := net.Listen("tcp", address(host, port))
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-
-	stdout := cmd.OutOrStdout()
-	if !wantsJSON {
-		if host == "" {
-			addrs, err := network.HostAddresses()
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintln(stdout, "listening on: ")
-			for _, addr := range addrs {
-				fmt.Fprintf(stdout, "\t- http://%s%s\n", addr, portNum)
-			}
-		} else {
-			fmt.Fprintf(stdout, "listening on: http://localhost%s\n", portNum)
-		}
-	}
+	stdout.WriteListeningOn(ctx, "http", host, port)
 
 	if err := r.server.Serve(ctx, l); err != nil {
 		return err
 	}
 
-	summary := r.server.Summary()
-	if wantsJSON {
-		summary.WriteJSON(stdout, strings.Contains(jopts, "pretty"))
-	} else {
-		summary.WriteHuman(stdout)
-	}
+	stdout.WriteSummary(ctx, r.server.Summary())
 
 	return nil
 }
@@ -256,4 +238,12 @@ func markForClose(ctx context.Context, closer io.Closer) {
 	if closers, ok := ctx.Value(closerKey{}).(*[]io.Closer); ok {
 		*closers = append(*closers, closer)
 	}
+}
+
+func address(host, port string) string {
+	if port != "" {
+		port = ":" + port
+	}
+
+	return host + port
 }

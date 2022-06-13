@@ -18,6 +18,7 @@ import (
 	"github.com/jf-tech/iohelper"
 	"github.com/raphaelreyna/oneshot/v2/internal/file"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
+	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
 	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 	"github.com/spf13/cobra"
 )
@@ -61,6 +62,10 @@ func (c *receiveCmd) runE(cmd *cobra.Command, args []string) error {
 		csrfToken, _   = flags.GetString("csrf-token")
 		eol, _         = flags.GetString("eol")
 	)
+
+	if len(args) == 0 {
+		stdout.ReceivingToStdout(ctx)
+	}
 
 	c.csrfToken = csrfToken
 	c.unixEOLNormalization = eol == "unix"
