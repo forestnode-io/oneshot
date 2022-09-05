@@ -1,11 +1,9 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"runtime"
@@ -13,17 +11,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/raphaelreyna/oneshot/v2/internal/summary"
+	"github.com/raphaelreyna/oneshot/v2/internal/api"
+	"github.com/raphaelreyna/oneshot/v2/internal/out"
 )
 
 var ErrTimeout = errors.New("timeout")
 
 type connKey struct{}
-
-type Handler interface {
-	ServeHTTP(http.ResponseWriter, *http.Request) (*summary.Request, error)
-	ServeExpiredHTTP(http.ResponseWriter, *http.Request)
-}
 
 type _wr struct {
 	w         http.ResponseWriter
@@ -38,25 +32,26 @@ type Server struct {
 	requestsQueue chan _wr
 	requestsWG    sync.WaitGroup
 
-	summary     *summary.Summary
+	success     bool
 	succChan    chan struct{}
 	timeoutChan chan struct{}
 	stopWorkers func()
 
-	serveHTTP        HandlerFunc
-	serveExpiredHTTP http.HandlerFunc
+	serveHTTP        api.HTTPHandler
+	serveExpiredHTTP api.HTTPHandler
+
+	Events chan<- out.Event
 
 	bufferRequestBody bool
 	timeout           time.Duration
 }
 
-func NewServer(handler Handler) *Server {
+func NewServer(serve, serveExpired api.HTTPHandler) *Server {
 	s := Server{
 		requestsQueue:    make(chan _wr),
-		serveHTTP:        handler.ServeHTTP,
-		serveExpiredHTTP: handler.ServeExpiredHTTP,
+		serveHTTP:        serve,
+		serveExpiredHTTP: serveExpired,
 		succChan:         make(chan struct{}),
-		summary:          summary.NewSummary(time.Now()),
 	}
 
 	return &s
@@ -68,12 +63,7 @@ func (s *Server) AddMiddleware(m Middleware) {
 	}
 
 	s.serveHTTP = m(s.serveHTTP)
-	var hf = m(newHandlerFunc(s.serveExpiredHTTP, false))
-	s.serveExpiredHTTP = func(w http.ResponseWriter, r *http.Request) { hf(w, r) }
-}
-
-func (s *Server) Summary() *summary.Summary {
-	return s.summary
+	s.serveExpiredHTTP = m(s.serveExpiredHTTP)
 }
 
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
@@ -118,7 +108,6 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		return err
 	}
 
-	s.summary.End()
 	s.Shutdown(ctx)
 	return nil
 }
@@ -140,7 +129,7 @@ func (s *Server) SetTimeoutDuration(d time.Duration) {
 
 func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 	// go dark if the transfer succeeded
-	if s.summary.Succesful() {
+	if s.success {
 		var (
 			ctx  = r.Context()
 			conn = ctx.Value(connKey{}).(net.Conn)
@@ -173,7 +162,10 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) preTransferWorker(ctx context.Context) {
 	for {
-		if s.summary.Succesful() {
+		// if there was a succesfull transfer,
+		// startup as many postTransferWorkers as posssible
+		// and end this worker to cleanly end the waiting connections asap.
+		if s.success {
 			s.succChan <- struct{}{}
 			for i := 0; i < runtime.NumCPU(); i++ {
 				go s.postTransferWorker(ctx)
@@ -190,28 +182,15 @@ func (s *Server) preTransferWorker(ctx context.Context) {
 			}
 
 			var (
-				w   = summary.NewResponseWriter(wr.w)
-				req *summary.Request
-				err error
+				apiCtx = apiCtx{
+					events: s.Events,
+				}
 			)
 
-			if s.bufferRequestBody {
-				bodyBuf := buffered(wr.r)
-				req, err = s.serveHTTP(w, wr.r)
-				req.SetBody(bodyBuf)
-			} else {
-				req, err = s.serveHTTP(w, wr.r)
-			}
+			s.serveHTTP(&apiCtx, wr.w, wr.r) // run the command server
 
-			if req != nil {
-				req.SetTimes(wr.startTime, time.Now())
-				req.SetWriteStats(w)
-
-				if err != nil {
-					s.summary.AddFailure(req)
-				} else {
-					s.summary.SucceededWith(req)
-				}
+			if apiCtx.success {
+				s.success = true
 			}
 
 			wr.done()
@@ -229,37 +208,36 @@ func (s *Server) postTransferWorker(ctx context.Context) {
 				return
 			}
 
-			s.serveExpiredHTTP(wr.w, wr.r)
+			var apiCtx apiCtx
+			s.serveExpiredHTTP(&apiCtx, wr.w, wr.r)
 
 			wr.done()
 		}
 	}
 }
 
-type bufferedBody struct {
-	io.ReadCloser
-	buf *bufio.Reader
+type apiCtx struct {
+	events  chan<- out.Event
+	success bool
 }
 
-func (bb *bufferedBody) Close() error {
-	io.ReadAll(bb)
-	return bb.ReadCloser.Close()
+func (a *apiCtx) Success() {
+	a.success = true
+	a.events <- out.Success{}
 }
 
-func (bb *bufferedBody) Read(p []byte) (int, error) {
-	return bb.buf.Read(p)
+func (a *apiCtx) Raise(e out.Event) {
+	a.events <- e
 }
 
-func buffered(r *http.Request) *bufio.Reader {
-	var (
-		body = r.Body
-		bb   = bufferedBody{
-			ReadCloser: body,
-			buf:        bufio.NewReader(body),
-		}
-	)
+type serverKey struct{}
 
-	(*r).Body = &bb
+func WithServer(ctx context.Context, sdp **Server) context.Context {
+	return context.WithValue(ctx, serverKey{}, sdp)
+}
 
-	return bb.buf
+func SetServer(ctx context.Context, s *Server) {
+	if sdp, ok := ctx.Value(serverKey{}).(**Server); ok {
+		*sdp = s
+	}
 }

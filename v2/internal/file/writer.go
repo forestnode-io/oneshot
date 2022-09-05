@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
@@ -8,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
 )
 
 // FileWriter represents the file being received, whether its to an
@@ -28,10 +31,14 @@ type FileWriter struct {
 
 	userProvidedName bool
 
-	file     *os.File
+	file     io.WriteCloser
 	size     int64
 	progress int64
 	sync.Mutex
+}
+
+func (f *FileWriter) IsStdout() bool {
+	return f.Path == ""
 }
 
 func (f *FileWriter) Close() error {
@@ -74,30 +81,29 @@ func (f *FileWriter) SetName(name string, fromRemote bool) {
 // Open prepares the files contents for reading.
 // If f.file is the empty string then f.Open() will read from stdin into a buffer.
 // This method is idempotent.
-func (f *FileWriter) Open() error {
+func (f *FileWriter) Open(ctx context.Context) error {
 	if f.file != nil {
 		return nil
 	}
 
-	switch f.Path {
-	case "":
-		f.file = os.Stdout
+	if f.IsStdout() {
+		f.file = stdout.WriteCloser(ctx)
 		return nil
-	default:
-		if f.name == "" {
-			f.name = fmt.Sprintf("%0-x", rand.Int31())
-			if f.MIMEType != "" {
-				exts, err := mime.ExtensionsByType(f.MIMEType)
-				if err != nil {
-					return err
-				}
-				if len(exts) > 0 {
-					f.name = f.name + exts[0]
-				}
+	}
+
+	if f.name == "" {
+		f.name = fmt.Sprintf("%0-x", rand.Int31())
+		if f.MIMEType != "" {
+			exts, err := mime.ExtensionsByType(f.MIMEType)
+			if err != nil {
+				return err
+			}
+			if len(exts) > 0 {
+				f.name = f.name + exts[0]
 			}
 		}
-		f.location = filepath.Join(f.Path, f.name)
 	}
+	f.location = filepath.Join(f.Path, f.name)
 
 	var err error
 	if f.file, err = os.Create(f.location); err != nil {
@@ -143,6 +149,7 @@ func (f *FileWriter) Reset() error {
 }
 
 func (f *FileWriter) writeProgress() {
+	fmt.Println(1)
 	const (
 		kb = 1000
 		mb = kb * 1000

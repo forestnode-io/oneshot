@@ -1,31 +1,16 @@
 package server
 
 import (
-	"net/http"
-
-	"github.com/raphaelreyna/oneshot/v2/internal/summary"
+	"github.com/raphaelreyna/oneshot/v2/internal/api"
 )
 
-type HandlerFunc func(http.ResponseWriter, *http.Request) (*summary.Request, error)
-
-func newHandlerFunc(hf http.HandlerFunc, includeSummary bool) HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
-		var sr *summary.Request
-		if includeSummary {
-			sr = summary.NewRequest(r)
-		}
-		hf(w, r)
-		return sr, nil
-	}
-}
-
-type Middleware func(HandlerFunc) HandlerFunc
+type Middleware func(api.HTTPHandler) api.HTTPHandler
 
 func (mw Middleware) Chain(m Middleware) Middleware {
 	if mw == nil {
 		return m
 	}
-	return func(hf HandlerFunc) HandlerFunc {
+	return func(hf api.HTTPHandler) api.HTTPHandler {
 		hf = mw(hf)
 		return m(hf)
 	}

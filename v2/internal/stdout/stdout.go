@@ -1,6 +1,7 @@
 package stdout
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
@@ -8,18 +9,24 @@ import (
 )
 
 type stdout struct {
-	w                 io.Writer
-	wantsJSON         bool
-	jopts             string
-	receivingToStdout bool
+	w           io.Writer
+	wantsJSON   bool
+	jopts       string
+	skipSummary bool
+	receivedBuf *bytes.Buffer
 }
 
 func (s *stdout) Write(p []byte) (int, error) {
+	if b := s.receivedBuf; b != nil {
+		return b.Write(p)
+	}
 	return s.w.Write(p)
 }
 
+func (s *stdout) Close() error { return nil }
+
 func (s *stdout) writeListeningOn(scheme, host, port string) {
-	if s.wantsJSON || s.receivingToStdout {
+	if s.wantsJSON || s.skipSummary {
 		return
 	}
 

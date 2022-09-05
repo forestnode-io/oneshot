@@ -10,20 +10,21 @@ import (
 	"testing"
 
 	"github.com/matryer/is"
-	"github.com/raphaelreyna/oneshot/v2/internal/summary"
+	"github.com/raphaelreyna/oneshot/v2/internal/api"
+	"github.com/raphaelreyna/oneshot/v2/internal/out"
 )
 
 type testHandler struct {
-	serveHTTP        func(http.ResponseWriter, *http.Request) (*summary.Request, error)
-	serveExpiredHTTP func(http.ResponseWriter, *http.Request)
+	serveHTTP        api.HTTPHandler
+	serveExpiredHTTP api.HTTPHandler
 }
 
-func (th *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
-	return th.serveHTTP(w, r)
+func (th *testHandler) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
+	th.serveHTTP(actx, w, r)
 }
 
-func (th *testHandler) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
-	th.serveExpiredHTTP(w, r)
+func (th *testHandler) ServeExpiredHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
+	th.serveExpiredHTTP(actx, w, r)
 }
 
 func TestNewServer(t *testing.T) {
@@ -33,13 +34,13 @@ func TestNewServer(t *testing.T) {
 		th testHandler
 	)
 
-	s := NewServer(&th)
+	s := NewServer(th.ServeHTTP, th.ServeExpiredHTTP)
 
 	is.True(s != nil)
 	is.True(s.requestsQueue != nil)
 	is.True(s.serveHTTP != nil)
 	is.True(s.serveExpiredHTTP != nil)
-	is.True(s.summary.Succesful() == false)
+	is.True(s.success == false)
 }
 
 func TestServer_Serve(t *testing.T) {
@@ -49,28 +50,30 @@ func TestServer_Serve(t *testing.T) {
 		ctx        = context.Background()
 		reqCounter = 0
 		th         = testHandler{
-			serveHTTP: func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
+			serveHTTP: func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 				if reqCounter < 1 {
 					reqCounter++
 					w.WriteHeader(http.StatusTeapot)
 					payload := "NOT OK"
 					w.Write([]byte(payload))
-					return &summary.Request{}, errors.New("ERROR")
+					actx.Raise(&out.ClientDisconnected{
+						Err: errors.New("ERROR"),
+					})
+					return
 				}
 
 				payload := "OK"
 				w.Write([]byte(payload))
-
-				return &summary.Request{}, nil
+				actx.Success()
 			},
-			serveExpiredHTTP: func(w http.ResponseWriter, r *http.Request) {
+			serveExpiredHTTP: func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 				status := http.StatusGone
 				http.Error(w, http.StatusText(status), status)
 			},
 		}
 	)
 
-	s := NewServer(&th)
+	s := NewServer(th.ServeHTTP, th.ServeExpiredHTTP)
 	l, err := net.Listen("tcp", ":8080")
 	is.NoErr(err)
 
@@ -89,7 +92,7 @@ func TestServer_Serve(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(string(body), "NOT OK")
 
-		is.True(s.summary.Succesful() == false)
+		is.True(s.success == false)
 	})
 
 	t.Run("succesful transfer", func(t *testing.T) {
@@ -103,7 +106,7 @@ func TestServer_Serve(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(string(body), "OK")
 
-		is.True(s.summary.Succesful())
+		is.True(s.success)
 	})
 
 	t.Run("EOF", func(t *testing.T) {
@@ -122,22 +125,21 @@ func TestServer_Serve_Expired(t *testing.T) {
 		ctx = context.Background()
 		wg  = sync.WaitGroup{}
 		th  = testHandler{
-			serveHTTP: func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
+			serveHTTP: func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 				wg.Wait()
-
 				payload := "OK"
 				w.Write([]byte(payload))
-
-				return &summary.Request{}, nil
+				actx.Success()
+				return
 			},
-			serveExpiredHTTP: func(w http.ResponseWriter, r *http.Request) {
+			serveExpiredHTTP: func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 				status := http.StatusGone
 				http.Error(w, http.StatusText(status), status)
 			},
 		}
 	)
 
-	s := NewServer(&th)
+	s := NewServer(th.ServeHTTP, th.ServeExpiredHTTP)
 	l, err := net.Listen("tcp", ":8080")
 	is.NoErr(err)
 

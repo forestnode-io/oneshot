@@ -30,7 +30,7 @@ type FileReader struct {
 
 	// ProgressWriter will be used to output read progress
 	// whenever this File structs Read() method is called.
-	ProgressWriter io.Writer
+	ProgressWriter io.WriteCloser
 
 	ArchiveMethod string
 
@@ -71,6 +71,10 @@ func (f *FileReader) Close() error {
 
 	if f.file == os.Stdin {
 		return nil
+	}
+
+	if f.ProgressWriter != nil {
+		f.ProgressWriter.Close()
 	}
 
 	f.open = false
@@ -234,7 +238,10 @@ func (f *FileReader) writeProgress() {
 	if f.ProgressWriter == nil {
 		return
 	}
-	fmt.Fprintf(f.ProgressWriter, "transfer progress: %.2f%%\r",
+	fmt.Fprintf(f.ProgressWriter, "\tTransfer progress: %.2f%%\r",
 		100.0*float64(f.progress)/float64(f.size),
 	)
+	if f.progress == f.size {
+		f.ProgressWriter.Close()
+	}
 }

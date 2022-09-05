@@ -1,10 +1,11 @@
 package stdout
 
 import (
+	"bytes"
 	"context"
-	"strings"
+	"io"
+	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 	"github.com/spf13/cobra"
 )
 
@@ -16,13 +17,23 @@ func WithStdout(ctx context.Context) context.Context {
 
 func ReceivingToStdout(ctx context.Context) {
 	if stdout := stdoutFromContext(ctx); stdout != nil {
-		stdout.receivingToStdout = true
+		stdout.skipSummary = true
+		if stdout.wantsJSON {
+			if stdout.receivedBuf == nil {
+				stdout.receivedBuf = bytes.NewBuffer(nil)
+			}
+		}
 	}
 }
 
-func WantsJSON(ctx context.Context, opts string) {
+func WantsJSON(ctx context.Context, opts ...string) {
 	if stdout := stdoutFromContext(ctx); stdout != nil {
 		stdout.wantsJSON = true
+		if stdout.skipSummary {
+			if stdout.receivedBuf == nil {
+				stdout.receivedBuf = bytes.NewBuffer(nil)
+			}
+		}
 	}
 }
 
@@ -40,21 +51,12 @@ func SetCobraCommandStdout(cmd *cobra.Command) {
 	}
 }
 
-func WriteSummary(ctx context.Context, summary *summary.Summary) {
-	stdout := stdoutFromContext(ctx)
-	if stdout == nil {
-		return
+func WriteCloser(ctx context.Context) io.WriteCloser {
+	if stdout := stdoutFromContext(ctx); stdout != nil {
+		return stdout
 	}
 
-	if stdout.receivingToStdout {
-		return
-	}
-
-	if stdout.wantsJSON {
-		summary.WriteJSON(stdout.w, strings.Contains(stdout.jopts, "pretty"))
-	} else {
-		summary.WriteHuman(stdout.w)
-	}
+	return os.Stdout
 }
 
 func stdoutFromContext(ctx context.Context) *stdout {

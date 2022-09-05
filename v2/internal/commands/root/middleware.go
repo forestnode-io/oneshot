@@ -1,57 +1,57 @@
-package commands
+package root
 
 import (
 	"net/http"
 	"strings"
 
+	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
-	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 )
 
 func botsMiddleware(block bool) server.Middleware {
 	if !block {
-		return func(hf server.HandlerFunc) server.HandlerFunc {
+		return func(hf api.HTTPHandler) api.HTTPHandler {
 			return hf
 		}
 	}
-	return func(next server.HandlerFunc) server.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
+	return func(next api.HTTPHandler) api.HTTPHandler {
+		return func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 			// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
 			if headers, exists := r.Header["User-Agent"]; exists {
 				if isBot(headers) {
 					w.WriteHeader(http.StatusOK)
-					return nil, nil
+					return
 				}
 			}
-			return next(w, r)
+			next(actx, w, r)
 		}
 	}
 }
 
 func authMiddleware(unauthenticated http.HandlerFunc, username, password string) server.Middleware {
 	if username == "" && password == "" {
-		return func(hf server.HandlerFunc) server.HandlerFunc {
+		return func(hf api.HTTPHandler) api.HTTPHandler {
 			return hf
 		}
 	}
 
-	return func(authenticated server.HandlerFunc) server.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
+	return func(authenticated api.HTTPHandler) api.HTTPHandler {
+		return func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 			u, p, ok := r.BasicAuth()
 			if !ok {
 				unauthenticated(w, r)
-				return nil, nil
+				return
 			}
 			// Whichever field is missing is not checked
 			if username != "" && username != u {
 				unauthenticated(w, r)
-				return nil, nil
+				return
 			}
 			if password != "" && password != p {
 				unauthenticated(w, r)
-				return nil, nil
+				return
 			}
-			return authenticated(w, r)
+			authenticated(actx, w, r)
 		}
 	}
 }

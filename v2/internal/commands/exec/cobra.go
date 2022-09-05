@@ -1,36 +1,37 @@
-package commands
+package exec
 
 import (
 	"io"
 	"net/http"
 	"os"
 
+	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/cgi"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/out"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
-	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	x := execCmd{
-		header: make(http.Header),
-	}
-	root.AddCommand(x.command())
-}
-
-type execCmd struct {
+type Cmd struct {
 	cobraCommand *cobra.Command
 	handler      *cgi.Handler
 	header       http.Header
 }
 
-func (c *execCmd) command() *cobra.Command {
+func New() *Cmd {
+	return &Cmd{
+		header: make(http.Header),
+	}
+}
+
+func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:  "exec command",
-		RunE: c.runE,
+		RunE: c.createServer,
 	}
 
-	flags := c.cobraCommand.Flags()
+	flags := c.cobraCommand.LocalFlags()
 	flags.Bool("enforce-cgi", false, "The exec must conform to the CGI.")
 	flags.StringSliceP("env", "e", []string{}, "Set an environment variable")
 	flags.String("dir", "", "Set the working directory")
@@ -40,7 +41,7 @@ func (c *execCmd) command() *cobra.Command {
 	return c.cobraCommand
 }
 
-func (c *execCmd) runE(cmd *cobra.Command, args []string) error {
+func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
 
@@ -59,7 +60,7 @@ func (c *execCmd) runE(cmd *cobra.Command, args []string) error {
 		WorkingDir:    dir,
 		InheritEnvs:   nil,
 		BaseEnv:       env,
-		Header:        headerFromStringSlice(headerSlice),
+		Header:        shared.HeaderFromStringSlice(headerSlice),
 		OutputHandler: cgi.DefaultOutputHandler,
 		Stderr:        cmd.ErrOrStderr(),
 	}
@@ -78,7 +79,7 @@ func (c *execCmd) runE(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		markForClose(ctx, handlerConf.Stderr.(io.WriteCloser))
+		shared.MarkForClose(ctx, handlerConf.Stderr.(io.WriteCloser))
 	} else {
 		handlerConf.Stderr = cmd.ErrOrStderr()
 	}
@@ -89,17 +90,19 @@ func (c *execCmd) runE(cmd *cobra.Command, args []string) error {
 	}
 
 	c.handler = handler
-	srvr := server.NewServer(c)
-	setServer(ctx, srvr)
+	srvr := server.NewServer(c.ServeHTTP, nil)
+	server.SetServer(ctx, srvr)
 	return nil
 }
 
-func (s *execCmd) ServeHTTP(w http.ResponseWriter, r *http.Request) (*summary.Request, error) {
-	var sr = summary.NewRequest(r)
+func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
+	actx.Raise(out.NewHTTPRequest(r))
+
 	s.handler.ServeHTTP(w, r)
-	return sr, nil
+
+	actx.Success()
 }
 
-func (s *execCmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Cmd) ServeExpiredHTTP(_ api.Context, w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("expired hello from server"))
 }

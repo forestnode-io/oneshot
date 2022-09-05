@@ -1,7 +1,8 @@
-package commands
+package root
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -10,6 +11,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/raphaelreyna/oneshot/v2/internal/commands/exec"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands/receive"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands/redirect"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands/send"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/out"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
 	"github.com/spf13/cobra"
@@ -26,11 +33,15 @@ func init() {
 	root.PersistentPostRunE = root.persistentPostRunE
 
 	root.setFlags()
+	root.AddCommand(exec.New().Cobra())
+	root.AddCommand(receive.New().Cobra())
+	root.AddCommand(redirect.New().Cobra())
+	root.AddCommand(send.New().Cobra())
 }
 
 func ExecuteContext(ctx context.Context) error {
-	ctx = withServer(ctx, &root.server)
-	ctx = withClosers(ctx, &root.closers)
+	ctx = server.WithServer(ctx, &root.server)
+	ctx = shared.WithClosers(ctx, &root.closers)
 	ctx = withFileGarbageCollection(ctx, &root.garbageFiles)
 	ctx = stdout.WithStdout(ctx)
 
@@ -52,6 +63,8 @@ type rootCommand struct {
 	garbageFiles []string
 	closers      []io.Closer
 	middleware   server.Middleware
+
+	outFlag outputFormatFlagArg
 }
 
 func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
@@ -61,15 +74,14 @@ func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error
 		allowBots, _           = flags.GetBool("allow-bots")
 		unauthenticatedHandler = http.HandlerFunc(nil)
 		uname, passwd, err     = usernamePassword(flags)
-		jopts, jsonFlagErr     = flags.GetString("json")
-		wantsJSON              = jsonFlagErr == nil && jopts != ""
+		wantsJSON              = r.outFlag.format == "json"
 	)
 	if err != nil {
 		return err
 	}
 
 	if wantsJSON {
-		stdout.WantsJSON(ctx, jopts)
+		stdout.WantsJSON(ctx, r.outFlag.opts...)
 	}
 	stdout.SetCobraCommandStdout(cmd)
 
@@ -111,11 +123,18 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	defer l.Close()
 	stdout.WriteListeningOn(ctx, "http", host, port)
 
+	eventsChan := make(chan out.Event, 1)
+	o := out.Out{
+		Events: eventsChan,
+		Stdout: os.Stdout,
+	}
+	r.server.Events = eventsChan
+
+	go o.Run()
+
 	if err := r.server.Serve(ctx, l); err != nil {
 		return err
 	}
-
-	stdout.WriteSummary(ctx, r.server.Summary())
 
 	return nil
 }
@@ -198,46 +217,13 @@ func (r *rootCommand) setFlags() {
 
 	pflags.Duration("timeout", 0, `How long to wait for client. A value of zero will cause oneshot to wait indefinitely.`)
 
-	pflags.String("json", "", `Enable JSON output. Options: include-body`)
-	pflags.Lookup("json").NoOptDefVal = "true"
+	pflags.VarP(&r.outFlag, "output", "o", `Set output format.`)
 	pflags.Bool("allow-bots", false, `Don't block bots.`)
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
-}
 
-type serverKey struct{}
-
-type fileGCKey struct{}
-
-func withServer(ctx context.Context, sdp **server.Server) context.Context {
-	return context.WithValue(ctx, serverKey{}, sdp)
-}
-
-func withFileGarbageCollection(ctx context.Context, files *[]string) context.Context {
-	return context.WithValue(ctx, fileGCKey{}, files)
-}
-
-func setServer(ctx context.Context, s *server.Server) {
-	if sdp, ok := ctx.Value(serverKey{}).(**server.Server); ok {
-		*sdp = s
-	}
-}
-
-func markFilesAsGarbage(ctx context.Context, filePaths ...string) {
-	if files, ok := ctx.Value(fileGCKey{}).(*[]string); ok {
-		*files = append(*files, filePaths...)
-	}
-}
-
-type closerKey struct{}
-
-func withClosers(ctx context.Context, closers *[]io.Closer) context.Context {
-	return context.WithValue(ctx, closerKey{}, closers)
-}
-
-func markForClose(ctx context.Context, closer io.Closer) {
-	if closers, ok := ctx.Value(closerKey{}).(*[]io.Closer); ok {
-		*closers = append(*closers, closer)
-	}
+	// internal
+	pflags.String("testing-unix-conn-path", "", `Enables a testing unix connection`)
+	pflags.MarkHidden("testing-unix-conn-path")
 }
 
 func address(host, port string) string {
@@ -246,4 +232,34 @@ func address(host, port string) string {
 	}
 
 	return host + port
+}
+
+type outputFormatFlagArg struct {
+	format string
+	opts   []string
+}
+
+func (o *outputFormatFlagArg) String() string {
+	s := o.format
+	if 0 < len(o.opts) {
+		s += "=" + strings.Join(o.opts, ",")
+	}
+	return s
+}
+
+func (o *outputFormatFlagArg) Set(v string) error {
+	switch {
+	case strings.HasPrefix(v, "json"):
+		o.format = "json"
+		parts := strings.Split(v, "=")
+		if len(parts) < 2 {
+			return nil
+		}
+		o.opts = strings.Split(parts[1], ",")
+	}
+	return errors.New(`must be "json[=opts...]"`)
+}
+
+func (o *outputFormatFlagArg) Type() string {
+	return "string"
 }
