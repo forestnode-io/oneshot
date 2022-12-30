@@ -51,14 +51,20 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		c.file.SetSize(cl)
 	}
 
+	ctx := c.cobraCommand.Context()
 	// open the file we are writing to
-	if err = c.file.Open(c.cobraCommand.Context()); err != nil {
+	if err = c.file.Open(ctx); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		actx.Raise(&out.ClientDisconnected{
 			Err: err,
 		})
 		return
 	}
+
+	pw, event, pwCleanup := out.NewProgressWriter()
+	defer pwCleanup()
+	c.file.ProgressWriter = pw
+	actx.Raise(event)
 
 	_, err = io.Copy(c.file, src)
 	if err != nil {

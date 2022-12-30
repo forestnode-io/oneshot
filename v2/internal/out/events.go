@@ -1,6 +1,7 @@
 package out
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 )
@@ -59,10 +60,10 @@ func newHTTPRequest(r *http.Request) *HTTPRequest {
 
 func newHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 	ht := newHTTPRequest(r)
-	rPipe, wPipe := io.Pipe()
-	r.Body = io.NopCloser(io.TeeReader(r.Body, wPipe))
+	buf := bytes.NewBuffer(nil)
+	r.Body = io.NopCloser(io.TeeReader(r.Body, buf))
 	ht.body = func() ([]byte, error) {
-		return io.ReadAll(rPipe)
+		return io.ReadAll(buf)
 	}
 	return ht
 }
@@ -70,7 +71,7 @@ func newHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 func (*HTTPRequest) isEvent() {}
 
 type File struct {
-	Name    string `json:"NName,omitempty"`
+	Name    string `json:"Name,omitempty"`
 	Path    string `json:",omitempty"`
 	MIME    string `json:",omitempty"`
 	Size    int64  `json:",omitempty"`

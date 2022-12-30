@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
+	"github.com/raphaelreyna/oneshot/v2/internal/out"
 )
 
 // FileWriter represents the file being received, whether its to an
@@ -25,7 +25,7 @@ type FileWriter struct {
 
 	// ProgressWriter will be used to output read progress
 	// whenever this File structs Read() method is called.
-	ProgressWriter io.Writer
+	ProgressWriter io.WriteCloser
 
 	location string // path file on disk
 
@@ -87,7 +87,7 @@ func (f *FileWriter) Open(ctx context.Context) error {
 	}
 
 	if f.IsStdout() {
-		f.file = stdout.WriteCloser(ctx)
+		f.file = out.GetWriteCloser()
 		return nil
 	}
 
@@ -149,7 +149,6 @@ func (f *FileWriter) Reset() error {
 }
 
 func (f *FileWriter) writeProgress() {
-	fmt.Println(1)
 	const (
 		kb = 1000
 		mb = kb * 1000
@@ -176,4 +175,7 @@ func (f *FileWriter) writeProgress() {
 		)
 	}
 	fmt.Fprint(f.ProgressWriter, "\r")
+	if f.size <= f.progress {
+		f.ProgressWriter.Close()
+	}
 }

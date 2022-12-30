@@ -11,8 +11,8 @@ import (
 	"github.com/jf-tech/iohelper"
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
 	"github.com/raphaelreyna/oneshot/v2/internal/file"
+	"github.com/raphaelreyna/oneshot/v2/internal/out"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
-	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +34,7 @@ type Cmd struct {
 func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:  "receive [dir]",
-		RunE: c.runE,
+		RunE: c.setServer,
 	}
 
 	flags := c.cobraCommand.Flags()
@@ -45,7 +45,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	return c.cobraCommand
 }
 
-func (c *Cmd) runE(cmd *cobra.Command, args []string) error {
+func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 	var (
 		ctx            = cmd.Context()
 		flags          = cmd.Flags()
@@ -57,7 +57,7 @@ func (c *Cmd) runE(cmd *cobra.Command, args []string) error {
 	)
 
 	if len(args) == 0 {
-		stdout.ReceivingToStdout(ctx)
+		out.ReceivingToStdout()
 	}
 
 	c.csrfToken = csrfToken

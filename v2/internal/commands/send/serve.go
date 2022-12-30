@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
@@ -65,25 +64,10 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		Size: file.Size(),
 	}
 
-	rp, wp := io.Pipe()
-	defer rp.Close()
-	defer wp.Close()
-	file.ProgressWriter = wp
-	actx.Raise(out.TransferProgress(func(w io.Writer) *out.TransferInfo {
-		ti := out.TransferInfo{
-			WriteStartTime: time.Now(),
-		}
-
-		n, _ := io.Copy(w, rp)
-		w.Write([]byte("\n"))
-
-		ti.WriteEndTime = time.Now()
-		ti.WriteDuration = ti.WriteEndTime.Sub(ti.WriteStartTime)
-		ti.WriteSize = n
-		ti.WriteBytesPerSecond = 1000 * 1000 * 1000 * n / int64(ti.WriteDuration)
-
-		return &ti
-	}))
+	pw, event, pwCleanup := out.NewProgressWriter()
+	defer pwCleanup()
+	file.ProgressWriter = pw
+	actx.Raise(event)
 
 	// Start writing the file data to the client while timing how long it takes
 	n, err := io.Copy(w, file)

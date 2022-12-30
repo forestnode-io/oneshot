@@ -68,7 +68,7 @@ func (s *Server) AddMiddleware(m Middleware) {
 
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	r := mux.NewRouter()
-	r.HandleFunc("/", s.rootHandler)
+	r.PathPrefix("/").HandlerFunc(s.rootHandler)
 
 	s.Handler = r
 	s.BaseContext = func(l net.Listener) context.Context {

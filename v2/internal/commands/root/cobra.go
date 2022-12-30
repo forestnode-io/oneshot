@@ -18,7 +18,6 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
-	"github.com/raphaelreyna/oneshot/v2/internal/stdout"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
@@ -43,7 +42,6 @@ func ExecuteContext(ctx context.Context) error {
 	ctx = server.WithServer(ctx, &root.server)
 	ctx = shared.WithClosers(ctx, &root.closers)
 	ctx = withFileGarbageCollection(ctx, &root.garbageFiles)
-	ctx = stdout.WithStdout(ctx)
 
 	defer func() {
 		for _, closer := range root.closers {
@@ -69,21 +67,14 @@ type rootCommand struct {
 
 func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
 	var (
-		ctx                    = cmd.Context()
 		flags                  = cmd.Flags()
 		allowBots, _           = flags.GetBool("allow-bots")
 		unauthenticatedHandler = http.HandlerFunc(nil)
 		uname, passwd, err     = usernamePassword(flags)
-		wantsJSON              = r.outFlag.format == "json"
 	)
 	if err != nil {
 		return err
 	}
-
-	if wantsJSON {
-		stdout.WantsJSON(ctx, r.outFlag.opts...)
-	}
-	stdout.SetCobraCommandStdout(cmd)
 
 	r.middleware = r.middleware.
 		Chain(botsMiddleware(allowBots)).
@@ -121,17 +112,18 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 		return err
 	}
 	defer l.Close()
-	stdout.WriteListeningOn(ctx, "http", host, port)
 
 	eventsChan := make(chan out.Event, 1)
-	o := out.Out{
-		Events: eventsChan,
-		Stdout: os.Stdout,
-	}
 	r.server.Events = eventsChan
 
-	go o.Run()
+	out.SetEventsChan(eventsChan)
+	out.SetStdout(os.Stdout)
+	out.SetFormat(r.outFlag.format)
+	out.SetFormatOpts(r.outFlag.opts...)
 
+	out.Init()
+
+	out.WriteListeningOn("http", host, port)
 	if err := r.server.Serve(ctx, l); err != nil {
 		return err
 	}
