@@ -2,6 +2,7 @@ package out
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,10 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 )
+
+var nopTransferProgress TransferProgress = func(w io.Writer) *transferInfo {
+	return nil
+}
 
 type Event interface {
 	_event
@@ -25,34 +30,62 @@ type out struct {
 	servingToStdout bool
 	receivedBuf     *bytes.Buffer
 
-	cls                  []*ClientSession
-	currentClientSession *ClientSession
+	cls                  []*clientSession
+	currentClientSession *clientSession
+
+	doneChan chan struct{}
 }
 
 var o = out{
-	Stdout: os.Stdout,
+	Stdout:   os.Stdout,
+	doneChan: make(chan struct{}),
+	cls:      make([]*clientSession, 0),
 }
 
 func (o *out) run() {
-	o.cls = make([]*ClientSession, 0)
 	switch o.Format {
 	case "":
 		o.runDefault()
 	case "json":
-		// TODO(raphaelreyna): currently the download process gets stuck on waiting for  events to be consumed.
-		// create a json run mode that will consume and intergrate events into a json report at the end
 		NewHTTPRequest = newHTTPRequest_WithBody
 		o.runJSON()
-	default:
 	}
-}
 
-var nopTransferProgress TransferProgress = func(w io.Writer) *TransferInfo {
-	return nil
+	o.doneChan <- struct{}{}
 }
 
 func (o *out) runJSON() {
-	for _ = range o.Events {
+	for event := range o.Events {
+		switch event := event.(type) {
+		case ClientDisconnected:
+			o.cls = append(o.cls, o.currentClientSession)
+			o.currentClientSession = nil
+		case *HTTPRequest:
+			o.currentClientSession = &clientSession{
+				Request: event,
+			}
+		case *File:
+			if o.currentClientSession != nil {
+				o.currentClientSession.File = event
+				if bf, ok := o.currentClientSession.File.Content.(func() []byte); ok {
+					o.currentClientSession.File.Content = bf()
+				}
+			}
+		case Success:
+			if err := o.currentClientSession.Request.readBody(); err != nil {
+				panic(err)
+			}
+			for _, s := range o.cls {
+				if err := s.Request.readBody(); err != nil {
+					panic(err)
+				}
+			}
+			_ = json.NewEncoder(os.Stdout).Encode(report{
+				Success:  o.currentClientSession,
+				Attempts: o.cls,
+			})
+		default:
+		}
 	}
 }
 
@@ -74,7 +107,7 @@ func (o *out) runDefault() {
 				continue
 			}
 
-			o.currentClientSession = &ClientSession{
+			o.currentClientSession = &clientSession{
 				Request: event,
 			}
 			fmt.Fprintf(o.Stdout, "New connection from %v\n", event.RemoteAddr)
@@ -110,6 +143,7 @@ func (o *out) runDefault() {
 			fmt.Fprintf(o.Stdout, "\t\tSize: %s\n", summary.PrettySize(ti.WriteSize))
 			fmt.Fprintf(o.Stdout, "\t\tDuration: %v\n", ti.WriteDuration)
 			fmt.Fprintf(o.Stdout, "\t\tRate: %s\n", summary.PrettyRate(ti.WriteBytesPerSecond))
+		default:
 		}
 	}
 }
@@ -144,16 +178,21 @@ func address(host, port string) string {
 	return host + port
 }
 
-type ClientSession struct {
+type clientSession struct {
 	Request      *HTTPRequest  `json:",omitempty"`
 	File         *File         `json:",omitempty"`
-	TransferInfo *TransferInfo `json:",omitempty"`
+	TransferInfo *transferInfo `json:",omitempty"`
 }
 
-type TransferInfo struct {
+type transferInfo struct {
 	WriteSize           int64         `json:",omitempty"`
 	WriteStartTime      time.Time     `json:",omitempty"`
 	WriteEndTime        time.Time     `json:",omitempty"`
 	WriteDuration       time.Duration `json:",omitempty"`
 	WriteBytesPerSecond int64         `json:",omitempty"`
+}
+
+type report struct {
+	Success  *clientSession
+	Attempts []*clientSession
 }

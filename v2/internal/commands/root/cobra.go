@@ -122,8 +122,9 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	out.SetFormatOpts(r.outFlag.opts...)
 
 	out.Init()
-
+	defer out.Wait()
 	out.WriteListeningOn("http", host, port)
+
 	if err := r.server.Serve(ctx, l); err != nil {
 		return err
 	}

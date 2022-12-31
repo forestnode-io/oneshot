@@ -24,7 +24,7 @@ type HTTPRequestBody func() ([]byte, error)
 
 func (HTTPRequestBody) isEvent() {}
 
-type TransferProgress func(io.Writer) *TransferInfo
+type TransferProgress func(io.Writer) *transferInfo
 
 func (TransferProgress) isEvent() {}
 
@@ -43,6 +43,25 @@ type HTTPRequest struct {
 	body func() ([]byte, error) `json:"-"`
 }
 
+// readBody reads in the http requests body by calling body() if its not nil.
+// the body func just reads in a buffered copy of the body; it will have already
+// been read from the client point of view.
+func (hr *HTTPRequest) readBody() error {
+	bf := hr.body
+	if bf == nil || hr.Body != nil {
+		return nil
+	}
+
+	body, err := bf()
+	if err != nil {
+		return err
+	}
+
+	hr.Body = body
+
+	return nil
+}
+
 var NewHTTPRequest = newHTTPRequest
 
 func newHTTPRequest(r *http.Request) *HTTPRequest {
@@ -58,6 +77,8 @@ func newHTTPRequest(r *http.Request) *HTTPRequest {
 	}
 }
 
+// newHTTPRequest_WithBody replaces the requests body with a tee reader that copies the data into a byte buffer.
+// This allows for the body to be written out later in a report should we need to.
 func newHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 	ht := newHTTPRequest(r)
 	buf := bytes.NewBuffer(nil)
@@ -71,7 +92,7 @@ func newHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 func (*HTTPRequest) isEvent() {}
 
 type File struct {
-	Name    string `json:"Name,omitempty"`
+	Name    string `json:",omitempty"`
 	Path    string `json:",omitempty"`
 	MIME    string `json:",omitempty"`
 	Size    int64  `json:",omitempty"`

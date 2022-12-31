@@ -53,7 +53,6 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		name, _        = flags.GetString("name")
 		csrfToken, _   = flags.GetString("csrf-token")
 		eol, _         = flags.GetString("eol")
-		_, wantsJSON   = flags.GetString("json")
 	)
 
 	if len(args) == 0 {
@@ -77,9 +76,6 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 	}
 
 	c.file.ProgressWriter = nil
-	if wantsJSON == nil {
-		c.file.ProgressWriter = nil
-	}
 
 	if fileDirPath == "" {
 		// writing file (and only the file) to stdout

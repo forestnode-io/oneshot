@@ -37,10 +37,6 @@ type FileWriter struct {
 	sync.Mutex
 }
 
-func (f *FileWriter) IsStdout() bool {
-	return f.Path == ""
-}
-
 func (f *FileWriter) Close() error {
 	if f.file == nil {
 		return nil
@@ -86,11 +82,21 @@ func (f *FileWriter) Open(ctx context.Context) error {
 		return nil
 	}
 
-	if f.IsStdout() {
-		f.file = out.GetWriteCloser()
+	// if we are receiving to stdout
+	if out.IsServingToStdout() {
+		// and are outputting json
+		if format, _ := out.GetFormatAndOpts(); format == "json" {
+			// send the contents into the ether.
+			// theres a buffer elsewhere that will provide the contents in the json object.
+			f.file = null{}
+		} else {
+			// otherwise write the content to stdout
+			f.file = out.GetWriteCloser()
+		}
 		return nil
 	}
 
+	// if the file wasnt given a name
 	if f.name == "" {
 		f.name = fmt.Sprintf("%0-x", rand.Int31())
 		if f.MIMEType != "" {
@@ -178,4 +184,15 @@ func (f *FileWriter) writeProgress() {
 	if f.size <= f.progress {
 		f.ProgressWriter.Close()
 	}
+}
+
+// null is a noop io.WriteCloser
+type null struct{}
+
+func (null) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (null) Close() error {
+	return nil
 }

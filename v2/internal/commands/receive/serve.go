@@ -66,7 +66,8 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	c.file.ProgressWriter = pw
 	actx.Raise(event)
 
-	_, err = io.Copy(c.file, src)
+	file, getBufBytes := out.NewBufferedWriter(c.file)
+	_, err = io.Copy(file, src)
 	if err != nil {
 		c.file.Reset()
 		actx.Raise(&out.ClientDisconnected{
@@ -77,10 +78,11 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	c.file.Close()
 
 	actx.Raise(&out.File{
-		MIME: c.file.MIMEType,
-		Size: c.file.GetSize(),
-		Path: c.file.GetLocation(),
-		Name: c.file.Name(),
+		MIME:    c.file.MIMEType,
+		Size:    c.file.GetSize(),
+		Path:    c.file.GetLocation(),
+		Name:    c.file.Name(),
+		Content: getBufBytes,
 	})
 	actx.Success()
 }

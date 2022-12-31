@@ -114,6 +114,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	close(s.requestsQueue)
+	close(s.Events)
 	s.stopWorkers()
 
 	return s.Server.Close()
