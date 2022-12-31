@@ -24,5 +24,5 @@ func (suite *BasicTestSuite) Test_Redirect() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "transfer complete")
+	suite.Assert().Contains(string(stdout), "Done")
 }

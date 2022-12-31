@@ -27,7 +27,7 @@ func (suite *BasicTestSuite) Test_Send_FromStdin() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "transfer complete")
+	suite.Assert().Contains(string(stdout), "Done")
 }
 
 func (suite *BasicTestSuite) Test_Send_File() {
@@ -51,7 +51,7 @@ func (suite *BasicTestSuite) Test_Send_File() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "transfer complete")
+	suite.Assert().Contains(string(stdout), "Done")
 }
 
 func (suite *BasicTestSuite) Test_Send_StatusCode() {
@@ -75,5 +75,5 @@ func (suite *BasicTestSuite) Test_Send_StatusCode() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "transfer complete")
+	suite.Assert().Contains(string(stdout), "Done")
 }
