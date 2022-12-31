@@ -16,6 +16,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/redirect"
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/send"
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
@@ -63,6 +64,8 @@ type rootCommand struct {
 	middleware   server.Middleware
 
 	outFlag outputFormatFlagArg
+
+	qrCode bool
 }
 
 func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
@@ -123,7 +126,18 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 
 	out.Init()
 	defer out.Wait()
-	out.WriteListeningOn("http", host, port)
+
+	if qr, _ := flags.GetBool("qr-code"); qr {
+		if host == "" {
+			hostIP, err := network.GetSourceIP("", "")
+			if err == nil {
+				host = hostIP
+			}
+		}
+		out.WriteListeningOnQR("http", host, port)
+	} else {
+		out.WriteListeningOn("http", host, port)
+	}
 
 	if err := r.server.Serve(ctx, l); err != nil {
 		return err
@@ -213,6 +227,8 @@ func (r *rootCommand) setFlags() {
 	pflags.VarP(&r.outFlag, "output", "o", `Set output format.`)
 	pflags.Bool("allow-bots", false, `Don't block bots.`)
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
+
+	pflags.Bool("qr-code", false, `Generate QR codes for connection URLs`)
 
 	// internal
 	pflags.String("testing-unix-conn-path", "", `Enables a testing unix connection`)

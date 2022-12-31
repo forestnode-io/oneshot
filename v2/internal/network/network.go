@@ -3,6 +3,8 @@ package network
 import (
 	"net"
 	"strings"
+
+	"github.com/jackpal/gateway"
 )
 
 func HostAddresses() ([]string, error) {
@@ -34,4 +36,31 @@ func HostAddresses() ([]string, error) {
 	}
 
 	return hostAddrs, nil
+}
+
+// GetSourceIP returns the ip address used to access target:port
+// If target is the empty string then the default gateway ip is used.
+// If the port is the empty string, then "80" is used by default.
+func GetSourceIP(target, port string) (string, error) {
+	if target == "" {
+		ip, err := gateway.DiscoverGateway()
+		if err != nil {
+			return "", err
+		}
+		target = ip.String()
+	}
+
+	if port == "" {
+		port = "80"
+	}
+
+	conn, err := net.Dial("udp", target+":"+port)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String(), nil
 }

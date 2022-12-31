@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mdp/qrterminal/v3"
 	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/summary"
 )
@@ -146,6 +147,34 @@ func (o *out) runDefault() {
 		default:
 		}
 	}
+}
+
+func (o *out) writeListeningOnQRCode(scheme, host, port string) {
+	if o.Format == "json" || o.skipSummary {
+		return
+	}
+
+	if host == "" {
+		addrs, err := network.HostAddresses()
+		if err != nil {
+			addr := fmt.Sprintf("%s://localhost%s", scheme, port)
+			fmt.Fprintf(o.Stdout, "%s:\n", addr)
+			qrterminal.Generate(addr, qrterminal.L, o.Stdout)
+			return
+		}
+
+		fmt.Fprintln(o.Stdout, "listening on: ")
+		for _, addr := range addrs {
+			addr = fmt.Sprintf("%s://%s", scheme, address(addr, port))
+			fmt.Fprintf(o.Stdout, "%s:\n", addr)
+			qrterminal.Generate(addr, qrterminal.L, o.Stdout)
+		}
+		return
+	}
+
+	addr := fmt.Sprintf("%s://%s", scheme, address(host, port))
+	fmt.Fprintf(o.Stdout, "%s:\n", addr)
+	qrterminal.Generate(addr, qrterminal.L, o.Stdout)
 }
 
 func (o *out) writeListeningOn(scheme, host, port string) {

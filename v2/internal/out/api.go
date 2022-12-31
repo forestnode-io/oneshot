@@ -10,6 +10,10 @@ func WriteListeningOn(scheme, host, port string) {
 	o.writeListeningOn(scheme, host, port)
 }
 
+func WriteListeningOnQR(scheme, host, port string) {
+	o.writeListeningOnQRCode(scheme, host, port)
+}
+
 func SetEventsChan(ec <-chan Event) {
 	o.Events = ec
 }
