@@ -17,7 +17,7 @@ func (fm FilesMap) projectInto(dir string) error {
 			path      = filepath.Join(dir, path)
 			parentDir = filepath.Dir(path)
 		)
-		if err := os.MkdirAll(parentDir, os.ModeDir); err != nil {
+		if err := os.MkdirAll(parentDir, 0700); err != nil {
 			return err
 		}
 
