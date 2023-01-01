@@ -64,8 +64,6 @@ type rootCommand struct {
 	middleware   server.Middleware
 
 	outFlag outputFormatFlagArg
-
-	qrCode bool
 }
 
 func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
@@ -95,7 +93,20 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 		port, _    = flags.GetString("port")
 		jopts, _   = flags.GetString("json")
 		timeout, _ = flags.GetDuration("timeout")
+		tlsCert, _ = flags.GetString("tls-cert")
+		tlsKey, _  = flags.GetString("tls-key")
 	)
+
+	if tlsCert != "" && tlsKey == "" {
+		return fmt.Errorf("tls cert provided without a key")
+	}
+
+	if tlsKey != "" && tlsCert == "" {
+		return fmt.Errorf("tls key provided without a cert")
+	}
+
+	r.server.TLSKey = tlsKey
+	r.server.TLSCert = tlsCert
 
 	defer func() {
 		for _, fp := range r.garbageFiles {
@@ -180,47 +191,44 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 func (r *rootCommand) setFlags() {
 	pflags := root.PersistentFlags()
 	/*
+		pflags.BoolP("quiet", "q", false, "Don't show info messages.")
 
-			pflags.String("host", "", "Host specifies the TCP address for the server to listen on.")
-
-
-			pflags.BoolP("quiet", "q", false, "Don't show info messages.")
-
-			pflags.BoolP("silent", "Q", false, "Supress all messages, including errors.")
-
-			pflags.BoolP("ss-tls", "T", false, `Generate and use a self-signed TLS certificate/key pair for HTTPS.
-		A new certificate/key pair is generated for each running instance of oneshot.
-		To use your own certificate/key pair, use the --tls-cert and --tls-key flags.`)
-
-			pflags.String("tls-cert", "", `Certificate file to use for HTTPS.
+		pflags.BoolP("silent", "Q", false, "Supress all messages, including errors.")
+	*/
+	pflags.String("tls-cert", "", `Certificate file to use for HTTPS.
 		If the empty string ("") is passed to both this flag and --tls-key, then oneshot will generate, self-sign and use a TLS certificate/key pair.
 		Key file must also be provided using the --tls-key flag.
-		See also: --tls-key ; -T, --ss-tls`)
+		See also: --tls-key`)
 
-			pflags.String("tls-key", "", `Key file to use for HTTPS.
+	pflags.String("tls-key", "", `Key file to use for HTTPS.
 		If the empty string ("") is passed to both this flag and --tls-cert, then oneshot will generate, self-sign and use a TLS certificate/key pair.
 		Cert file must also be provided using the --tls-cert flag.
-		See also: --tls-cert ; -T, --ss-tls`)
+		See also: --tls-cert`)
 
-			pflags.BoolP("mdns", "M", false, "Register oneshot as an mDNS (bonjour/avahi) service.")
+	pflags.StringP("host", "h", "", `Host specifies the TCP address for the server to listen on.
+		See also: -p, --port`)
+	pflags.StringP("port", "p", "8080", `Port to bind to.
+		See also: -h , --host`)
 
-	*/
-	pflags.StringP("port", "p", "8080", "Port to bind to.")
-
-	pflags.String("username", "", `Username for basic authentication.
+	pflags.StringP("username", "U", "", `Username for basic authentication.
 		If an empty username ("") is set then a random, easy to remember username will be used.
-		If a password is not also provided using either the -P, --password flag ; -W, --hidden-password; or -w, --password-file flags then the client may enter any password.`)
+		If a password is not also provided using either the -P, --password flag ; -W, --prompt-password; or --password-file flags then the client may enter any password.
+		See also: -P, --password ; -W --prompt-password ; --password-file`)
 
-	pflags.String("password", "", `Password for basic authentication.
+	pflags.StringP("password", "P", "", `Password for basic authentication.
 		If an empty password ("") is set then a random secure will be used.
 		If a username is not also provided using the -U, --username flag then the client may enter any username.
-		If either the -W, --hidden-password or -w, --password-file flags are set, this flag will be ignored.`)
+		If either the -W, --prompt-password or --password-file flags are set, this flag will be ignored.
+		See also: -U, --username ; -W --prompt-password ; --password-file`)
 
-	pflags.Bool("prompt-password", false, "Prompt for password for basic authentication.\nIf a username is not also provided using the -U, --username flag then the client may enter any username.")
+	pflags.BoolP("prompt-password", "W", false, `Prompt for password for basic authentication.
+		If a username is not also provided using the -U, --username flag then the client may enter any username.
+		See also: -U, --username ; -P --password ; --password-file`)
 
 	pflags.String("password-file", "", `File containing password for basic authentication.
 		If a username is not also provided using the -U, --username flag then the client may enter any username.
-		If the -W, --hidden-password flag is set, this flags will be ignored.`)
+		If the -W, --prompt-password flag is set, this flags will be ignored.
+		See also: -U, --username ; -P --password ; -W --prompt-password`)
 
 	pflags.Duration("timeout", 0, `How long to wait for client. A value of zero will cause oneshot to wait indefinitely.`)
 
@@ -228,11 +236,7 @@ func (r *rootCommand) setFlags() {
 	pflags.Bool("allow-bots", false, `Don't block bots.`)
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
 
-	pflags.Bool("qr-code", false, `Generate QR codes for connection URLs`)
-
-	// internal
-	pflags.String("testing-unix-conn-path", "", `Enables a testing unix connection`)
-	pflags.MarkHidden("testing-unix-conn-path")
+	pflags.BoolP("qr-code", "Q", false, `Generate QR codes for connection URLs`)
 }
 
 func address(host, port string) string {

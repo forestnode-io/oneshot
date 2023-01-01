@@ -42,6 +42,8 @@ type Server struct {
 
 	Events chan<- out.Event
 
+	TLSCert, TLSKey string
+
 	bufferRequestBody bool
 	timeout           time.Duration
 }
@@ -88,7 +90,11 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	}
 	var errs = make(chan error)
 	go func() {
-		errs <- s.Server.Serve(l)
+		if s.TLSKey != "" {
+			errs <- s.Server.ServeTLS(l, s.TLSCert, s.TLSKey)
+		} else {
+			errs <- s.Server.Serve(l)
+		}
 	}()
 
 	go func() {
