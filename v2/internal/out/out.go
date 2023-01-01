@@ -150,6 +150,14 @@ func (o *out) runDefault() {
 }
 
 func (o *out) writeListeningOnQRCode(scheme, host, port string) {
+	qrConf := qrterminal.Config{
+		Level:      qrterminal.L,
+		Writer:     o.Stdout,
+		BlackChar:  qrterminal.BLACK,
+		WhiteChar:  qrterminal.WHITE,
+		QuietZone:  1,
+		HalfBlocks: false,
+	}
 	if o.Format == "json" || o.skipSummary {
 		return
 	}
@@ -159,7 +167,7 @@ func (o *out) writeListeningOnQRCode(scheme, host, port string) {
 		if err != nil {
 			addr := fmt.Sprintf("%s://localhost%s", scheme, port)
 			fmt.Fprintf(o.Stdout, "%s:\n", addr)
-			qrterminal.Generate(addr, qrterminal.L, o.Stdout)
+			qrterminal.GenerateWithConfig(addr, qrConf)
 			return
 		}
 
@@ -167,14 +175,14 @@ func (o *out) writeListeningOnQRCode(scheme, host, port string) {
 		for _, addr := range addrs {
 			addr = fmt.Sprintf("%s://%s", scheme, address(addr, port))
 			fmt.Fprintf(o.Stdout, "%s:\n", addr)
-			qrterminal.Generate(addr, qrterminal.L, o.Stdout)
+			qrterminal.GenerateWithConfig(addr, qrConf)
 		}
 		return
 	}
 
 	addr := fmt.Sprintf("%s://%s", scheme, address(host, port))
 	fmt.Fprintf(o.Stdout, "%s:\n", addr)
-	qrterminal.Generate(addr, qrterminal.L, o.Stdout)
+	qrterminal.GenerateWithConfig(addr, qrConf)
 }
 
 func (o *out) writeListeningOn(scheme, host, port string) {
