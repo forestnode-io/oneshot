@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -41,6 +42,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags.StringP("name", "n", "", "Name of the file")
 	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated")
 	flags.String("eol", "unix", "How to parse EOLs in the received file. 'unix': '\\n', 'dos': '\\r\\n' ")
+	flags.String("ui", "", "Name of ui file to use")
 
 	return c.cobraCommand
 }
@@ -53,6 +55,8 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		name, _        = flags.GetString("name")
 		csrfToken, _   = flags.GetString("csrf-token")
 		eol, _         = flags.GetString("eol")
+
+		err error
 	)
 
 	if len(args) == 0 {
@@ -81,24 +85,40 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		// writing file (and only the file) to stdout
 		c.file.ProgressWriter = nil
 	} else {
-		if err := isDirWritable(fileDirPath); err != nil {
+		if err = isDirWritable(fileDirPath); err != nil {
 			return err
 		}
 		c.file.Path = fileDirPath
 	}
 
-	// create the writeTemplate func to execute the template into the RequestWriter.
-	var err error
-	tmpl := template.New("file-section")
-	if tmpl, err = tmpl.Parse(receivePageFileSectionTemplate); err != nil {
-		return err
+	var (
+		tmpl *template.Template
+		ui   = os.Getenv("ONESHOT_UI")
+	)
+
+	if flagUI, _ := flags.GetString("ui"); flagUI != "" {
+		ui = flagUI
 	}
-	if tmpl, err = tmpl.Parse(receivePageInputSectionTemplate); err != nil {
-		return err
+
+	if ui != "" {
+		tmpl, err = tmpl.ParseGlob(ui)
+		if err != nil {
+			return err
+		}
+	} else {
+		// create the writeTemplate func to execute the template into the RequestWriter.
+		tmpl = template.New("internal")
+		if tmpl, err = tmpl.Parse(receivePageFileSectionTemplate); err != nil {
+			return err
+		}
+		if tmpl, err = tmpl.Parse(receivePageInputSectionTemplate); err != nil {
+			return err
+		}
+		if tmpl, err = tmpl.Parse(receivePageBaseTemplate); err != nil {
+			return err
+		}
 	}
-	if tmpl, err = tmpl.Parse(receivePageBaseTemplate); err != nil {
-		return err
-	}
+
 	sections := struct {
 		FileSection  bool
 		InputSection bool
@@ -109,7 +129,7 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		CSRFToken:    c.csrfToken,
 	}
 	c.writeTemplate = func(w io.Writer) error {
-		return tmpl.ExecuteTemplate(w, "base", &sections)
+		return tmpl.ExecuteTemplate(w, "oneshot", &sections)
 	}
 
 	srvr := server.NewServer(c.ServeHTTP, c.ServeExpiredHTTP)

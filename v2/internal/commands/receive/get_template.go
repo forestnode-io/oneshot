@@ -1,7 +1,7 @@
 package receive
 
 const (
-	receivePageBaseTemplate = `{{ define "base" }}<!DOCTYPE html>
+	receivePageBaseTemplate = `{{ define "oneshot" }}<!DOCTYPE html>
 <html>
 <head>
 <link rel="apple-touch-icon" href="/assets/icon.png">
