@@ -30,6 +30,7 @@ type Cmd struct {
 	header               http.Header
 	csrfToken            string
 	unixEOLNormalization bool
+	decodeBase64Output   bool
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -42,7 +43,8 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags.StringP("name", "n", "", "Name of the file")
 	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated")
 	flags.String("eol", "unix", "How to parse EOLs in the received file. 'unix': '\\n', 'dos': '\\r\\n' ")
-	flags.String("ui", "", "Name of ui file to use")
+	flags.StringP("ui", "U", "", "Name of ui file to use")
+	flags.Bool("decode-b64", false, "Decode base-64")
 
 	return c.cobraCommand
 }
@@ -58,6 +60,7 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 
 		err error
 	)
+	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
 
 	if len(args) == 0 {
 		out.ReceivingToStdout()
@@ -92,9 +95,16 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 	}
 
 	var (
-		tmpl *template.Template
+		tmpl = template.New("base")
 		ui   = os.Getenv("ONESHOT_UI")
 	)
+
+	tmpl = tmpl.Funcs(template.FuncMap{
+		"enableBase64Decoding": func() error {
+			c.decodeBase64Output = true
+			return nil
+		},
+	})
 
 	if flagUI, _ := flags.GetString("ui"); flagUI != "" {
 		ui = flagUI
@@ -117,6 +127,11 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		if tmpl, err = tmpl.Parse(receivePageBaseTemplate); err != nil {
 			return err
 		}
+	}
+
+	// execute template to run config funcs it may have set
+	if ui != "" {
+		_ = tmpl.ExecuteTemplate(io.Discard, "oneshot", nil)
 	}
 
 	sections := struct {
@@ -146,7 +161,7 @@ func (he *httpError) Unwrap() error {
 	return he.error
 }
 
-func (c *Cmd) readerFromMultipartFormData(r *http.Request) (io.Reader, int64, error) {
+func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (io.ReadCloser, int64, error) {
 	reader, err := r.MultipartReader()
 	if err != nil {
 		return nil, 0, &httpError{
@@ -208,7 +223,7 @@ func (c *Cmd) readerFromMultipartFormData(r *http.Request) (io.Reader, int64, er
 	return part, cl, nil
 }
 
-func (c *Cmd) readerFromApplicationWWWForm(r *http.Request) (io.Reader, int64, error) {
+func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (io.ReadCloser, int64, error) {
 	foundCSRFToken := false
 	// Assume we found the CSRF token if the user doesn't care to use one
 	if c.csrfToken == "" {
@@ -241,10 +256,10 @@ func (c *Cmd) readerFromApplicationWWWForm(r *http.Request) (io.Reader, int64, e
 		src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 	}
 
-	return src, 0, nil
+	return io.NopCloser(src), 0, nil
 }
 
-func (c *Cmd) readerFromRawBody(r *http.Request) (io.Reader, int64, error) {
+func (c *Cmd) readCloserFromRawBody(r *http.Request) (io.ReadCloser, int64, error) {
 	// Check for csrf token if we care to
 	if c.csrfToken != "" && r.Header.Get("X-CSRF-Token") != c.csrfToken {
 		return nil, 0, &httpError{

@@ -205,12 +205,12 @@ func (r *rootCommand) setFlags() {
 		Cert file must also be provided using the --tls-cert flag.
 		See also: --tls-cert`)
 
-	pflags.StringP("host", "h", "", `Host specifies the TCP address for the server to listen on.
+	pflags.String("host", "", `Host specifies the TCP address for the server to listen on.
 		See also: -p, --port`)
 	pflags.StringP("port", "p", "8080", `Port to bind to.
-		See also: -h , --host`)
+		See also: --host`)
 
-	pflags.StringP("username", "U", "", `Username for basic authentication.
+	pflags.StringP("username", "u", "", `Username for basic authentication.
 		If an empty username ("") is set then a random, easy to remember username will be used.
 		If a password is not also provided using either the -P, --password flag ; -W, --prompt-password; or --password-file flags then the client may enter any password.
 		See also: -P, --password ; -W --prompt-password ; --password-file`)

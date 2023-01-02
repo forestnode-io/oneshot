@@ -1,7 +1,9 @@
 package receive
 
 import (
+	"encoding/base64"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 
@@ -18,7 +20,7 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	actx.Raise(out.NewHTTPRequest(r))
 
 	var (
-		src io.Reader
+		src io.ReadCloser
 		cl  int64 // content-length
 		err error
 	)
@@ -28,12 +30,13 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	rct := r.Header.Get("Content-Type")
 	switch {
 	case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
-		src, cl, err = c.readerFromMultipartFormData(r)
+		src, cl, err = c.readCloserFromMultipartFormData(r)
 	case strings.Contains(rct, "application/x-www-form-urlencoded"): // User uploaded text from HTML text box
-		src, cl, err = c.readerFromApplicationWWWForm(r)
+		src, cl, err = c.readCloserFromApplicationWWWForm(r)
 	default: // Could not determine how file upload was initiated, grabbing the request body
-		src, cl, err = c.readerFromRawBody(r)
+		src, cl, err = c.readCloserFromRawBody(r)
 	}
+	defer r.Body.Close()
 
 	if err != nil {
 		http.Error(w, err.Error(), err.(*httpError).stat)
@@ -43,11 +46,21 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if c.decodeBase64Output && 0 < cl {
+		src = io.NopCloser(base64.NewDecoder(base64.StdEncoding, src))
+	}
+
 	c.file.Lock()
 	defer c.file.Unlock()
-	defer r.Body.Close()
 
-	if cl != 0 {
+	if fileSize := cl; fileSize != 0 {
+		// if decoding base64
+		if c.decodeBase64Output {
+			// recompute the file size
+			x := float64(cl) / 4
+			x = 3*math.Ceil(x) - 2
+			cl = int64(x)
+		}
 		c.file.SetSize(cl)
 	}
 
