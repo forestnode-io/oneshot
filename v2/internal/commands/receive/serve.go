@@ -3,7 +3,6 @@ package receive
 import (
 	"encoding/base64"
 	"io"
-	"math"
 	"net/http"
 	"strings"
 
@@ -53,13 +52,10 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	c.file.Lock()
 	defer c.file.Unlock()
 
-	if fileSize := cl; fileSize != 0 {
+	if fileSize := int(cl); fileSize != 0 {
 		// if decoding base64
 		if c.decodeBase64Output {
-			// recompute the file size
-			x := float64(cl) / 4
-			x = 3*math.Ceil(x) - 2
-			cl = int64(x)
+			cl = int64(base64.StdEncoding.DecodedLen(fileSize))
 		}
 		c.file.SetSize(cl)
 	}

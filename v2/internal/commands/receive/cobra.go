@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -40,7 +41,6 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	flags := c.cobraCommand.Flags()
-	flags.StringP("name", "n", "", "Name of the file")
 	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated")
 	flags.String("eol", "unix", "How to parse EOLs in the received file. 'unix': '\\n', 'dos': '\\r\\n' ")
 	flags.StringP("ui", "U", "", "Name of ui file to use")
@@ -54,44 +54,52 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		ctx            = cmd.Context()
 		flags          = cmd.Flags()
 		headerSlice, _ = flags.GetStringSlice("header")
-		name, _        = flags.GetString("name")
-		csrfToken, _   = flags.GetString("csrf-token")
 		eol, _         = flags.GetString("eol")
 
 		err error
 	)
 	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
+	c.csrfToken, _ = flags.GetString("csrf-token")
 
-	if len(args) == 0 {
-		out.ReceivingToStdout()
-	}
-
-	c.csrfToken = csrfToken
 	c.unixEOLNormalization = eol == "unix"
 	c.header = shared.HeaderFromStringSlice(headerSlice)
 	c.file = &file.FileWriter{}
-	var fileDirPath string
-	if 0 < len(args) {
-		fileDirPath = args[0]
-	}
-	if name != "" {
-		c.file.SetName(name, false)
-		if fileDirPath == "" {
-			// not writing to stdout, omitting a dir while supplying a name defaults to the cwd
-			fileDirPath = "."
-		}
-	}
 
-	c.file.ProgressWriter = nil
+	var (
+		// if no args were passed, we can assume the user wants to receive to stdout
+		writingTostdout = len(args) == 0
+		fileDirPath     string
+	)
 
-	if fileDirPath == "" {
-		// writing file (and only the file) to stdout
-		c.file.ProgressWriter = nil
+	// if writing to stdout
+	if writingTostdout {
+		// let the out package know
+		out.ReceivingToStdout()
 	} else {
-		if err = isDirWritable(fileDirPath); err != nil {
+		// otherwise grab the first arg as the file path directory the user wants to receive to
+		fileDirPath, err = filepath.Abs(args[0])
+		if err != nil {
 			return err
 		}
-		c.file.Path = fileDirPath
+
+		// if fileDirPath doesnt exist
+		if _, err := os.Stat(fileDirPath); err != nil {
+			// then the user wants to receive to a file that doesnt exist yet and has given
+			// us the file and directory names all in 1 string
+			dirName, fileName := filepath.Split(fileDirPath)
+			c.file.SetName(fileName, false)
+			c.file.Path = dirName
+		} else {
+			// otherwise the user want to receive to an existing directory and
+			// hasnt given us the name of the file they want to receive to.
+			// we can only set the directory name
+			c.file.Path = fileDirPath
+		}
+
+		// make sure we can write to the directory we're receiving to
+		if err = isDirWritable(c.file.Path); err != nil {
+			return err
+		}
 	}
 
 	var (
