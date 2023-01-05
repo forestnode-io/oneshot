@@ -26,7 +26,7 @@ func New() *Cmd {
 
 type Cmd struct {
 	file                 *file.FileWriter
-	writeTemplate        func(io.Writer) error
+	writeTemplate        func(io.Writer, bool) error
 	cobraCommand         *cobra.Command
 	header               http.Header
 	csrfToken            string
@@ -82,18 +82,28 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		// if fileDirPath doesnt exist
-		if _, err := os.Stat(fileDirPath); err != nil {
+		// get info on the fileDirPath
+		stat, err := os.Stat(fileDirPath)
+		// if it doesnt exist
+		if err != nil {
 			// then the user wants to receive to a file that doesnt exist yet and has given
 			// us the file and directory names all in 1 string
 			dirName, fileName := filepath.Split(fileDirPath)
-			c.file.SetName(fileName, false)
+			c.file.SetUserProvidedName(fileName)
 			c.file.Path = dirName
 		} else {
-			// otherwise the user want to receive to an existing directory and
-			// hasnt given us the name of the file they want to receive to.
-			// we can only set the directory name
-			c.file.Path = fileDirPath
+			// otherwise the user
+			if stat.IsDir() {
+				// either wants to receive to an existing directory and
+				// hasnt given us the name of the file they want to receive to
+				// so we can only set the directory name
+				c.file.Path = fileDirPath
+			} else {
+				// or the user wants to overwrite an existing file
+				dirName, fileName := filepath.Split(fileDirPath)
+				c.file.SetUserProvidedName(fileName)
+				c.file.Path = dirName
+			}
 		}
 
 		// make sure we can write to the directory we're receiving to
@@ -146,12 +156,14 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		FileSection  bool
 		InputSection bool
 		CSRFToken    string
+		WithJS       bool
 	}{
 		FileSection:  true,
 		InputSection: true,
 		CSRFToken:    c.csrfToken,
 	}
-	c.writeTemplate = func(w io.Writer) error {
+	c.writeTemplate = func(w io.Writer, withJS bool) error {
+		sections.WithJS = withJS
 		return tmpl.ExecuteTemplate(w, "oneshot", &sections)
 	}
 
@@ -220,13 +232,29 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (io.ReadCloser, i
 	}
 
 	cd := part.Header.Get("Content-Disposition")
-	if c.file.Name() == "" {
-		if fn := fileName(cd); fn != "" {
-			c.file.SetName(fn, true)
-		}
-	}
+	clientProvidedName := fileName(cd)
+	c.file.SetClientProvidedName(clientProvidedName)
 
 	cl, _ := strconv.ParseInt(part.Header.Get("Content-Length"), 10, 64)
+	// if we couldnt get the content length from a Content-Length header
+	if cl == 0 {
+		// try to get it from our own injected header
+		if mpLengthsString := r.Header.Get("X-Oneshot-Multipart-Content-Lengths"); mpLengthsString != "" {
+			mpls := strings.Split(mpLengthsString, ";")
+			if 0 < len(mpls) {
+				nameSize := strings.Split(mpls[0], "=")
+				if len(nameSize) == 2 {
+					if nameSize[0] == clientProvidedName {
+						size, err := strconv.ParseInt(nameSize[1], 10, 64)
+						if err == nil {
+							cl = size
+						}
+					}
+				}
+
+			}
+		}
+	}
 
 	return part, cl, nil
 }
@@ -277,14 +305,8 @@ func (c *Cmd) readCloserFromRawBody(r *http.Request) (io.ReadCloser, int64, erro
 	}
 
 	cd := r.Header.Get("Content-Disposition")
-	if c.file.Path != "" && c.file.Name() == "" {
-		if fn := fileName(cd); fn != "" {
-			if c.file.Path == "" {
-				c.file.Path = "."
-			}
-			c.file.SetName(fn, true)
-		}
-	}
+	fn := fileName(cd)
+	c.file.SetClientProvidedName(fn)
 
 	c.file.MIMEType = r.Header.Get("Content-Type")
 	cl, _ := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)

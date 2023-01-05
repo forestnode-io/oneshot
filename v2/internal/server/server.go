@@ -12,7 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/raphaelreyna/oneshot/v2/internal/api"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 )
 
 var ErrTimeout = errors.New("timeout")
@@ -40,7 +40,7 @@ type Server struct {
 	serveHTTP        api.HTTPHandler
 	serveExpiredHTTP api.HTTPHandler
 
-	Events chan<- out.Event
+	Events chan<- events.Event
 
 	TLSCert, TLSKey string
 
@@ -224,16 +224,16 @@ func (s *Server) postTransferWorker(ctx context.Context) {
 }
 
 type apiCtx struct {
-	events  chan<- out.Event
+	events  chan<- events.Event
 	success bool
 }
 
 func (a *apiCtx) Success() {
 	a.success = true
-	a.events <- out.Success{}
+	a.events <- events.Success{}
 }
 
-func (a *apiCtx) Raise(e out.Event) {
+func (a *apiCtx) Raise(e events.Event) {
 	a.events <- e
 }
 

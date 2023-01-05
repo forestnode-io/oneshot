@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 )
 
 func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
@@ -28,14 +30,14 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		file.Reset()
 	}()
 	if err := r.Context().Err(); err != nil {
-		actx.Raise(&out.ClientDisconnected{
+		actx.Raise(&events.ClientDisconnected{
 			Err: err,
 		})
 		return
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		actx.Raise(&out.ClientDisconnected{
+		actx.Raise(&events.ClientDisconnected{
 			Err: err,
 		})
 		return
@@ -50,7 +52,7 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 
 	// Set standard Content headers
 	w.Header().Set("Content-Type", file.MimeType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size()))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", file.GetSize()))
 
 	// Set any additional headers added by the user via flags
 	for key := range header {
@@ -58,29 +60,35 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	}
 	w.WriteHeader(status)
 
-	eventFile := &out.File{
+	eventFile := &events.File{
 		Name: file.Name,
 		MIME: file.MimeType,
-		Size: file.Size(),
+		Size: file.GetSize(),
 	}
 
-	pw, event, pwCleanup := out.NewProgressWriter()
-	defer pwCleanup()
-	file.ProgressWriter = pw
-	actx.Raise(event)
+	success := false
+	cancelProgDisp := out.DisplayProgress(
+		&file.Progress,
+		125*time.Millisecond,
+		r.RemoteAddr,
+		file.GetSize(),
+	)
+	defer func() {
+		cancelProgDisp(success)
+	}()
 
 	// Start writing the file data to the client while timing how long it takes
 	n, err := io.Copy(w, file)
 	writeSize := n
 	if err != nil {
-		actx.Raise(out.ClientDisconnected{
+		actx.Raise(events.ClientDisconnected{
 			Err: err,
 		})
 		return
 	}
 
 	if writeSize != eventFile.Size {
-		actx.Raise(&out.ClientDisconnected{
+		actx.Raise(&events.ClientDisconnected{
 			Err: err,
 		})
 		return
@@ -89,6 +97,7 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	actx.Raise(eventFile)
 
 	actx.Success()
+	success = true
 }
 
 func (d *Cmd) ServeExpiredHTTP(_ api.Context, w http.ResponseWriter, r *http.Request) {

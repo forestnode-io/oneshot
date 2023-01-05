@@ -18,6 +18,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
 	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -127,11 +128,10 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	}
 	defer l.Close()
 
-	eventsChan := make(chan out.Event, 1)
+	eventsChan := make(chan events.Event, 1)
 	r.server.Events = eventsChan
 
 	out.SetEventsChan(eventsChan)
-	out.SetStdout(os.Stdout)
 	out.SetFormat(r.outFlag.format)
 	out.SetFormatOpts(r.outFlag.opts...)
 
@@ -146,8 +146,6 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 			}
 		}
 		out.WriteListeningOnQR("http", host, port)
-	} else {
-		out.WriteListeningOn("http", host, port)
 	}
 
 	if err := r.server.Serve(ctx, l); err != nil {

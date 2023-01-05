@@ -1,8 +1,27 @@
-package summary
+package fmt
 
 import (
 	"fmt"
+	"time"
 )
+
+func RoundedDurationString(d time.Duration, digits int) string {
+	dd := 1
+	for range make([]struct{}, digits) {
+		dd *= 10
+	}
+	ptd := time.Duration(dd)
+
+	switch {
+	case d > time.Second:
+		d = d.Round(time.Second / ptd)
+	case d > time.Millisecond:
+		d = d.Round(time.Millisecond / ptd)
+	case d > time.Microsecond:
+		d = d.Round(time.Microsecond / ptd)
+	}
+	return d.String()
+}
 
 const (
 	kb = 1000
@@ -43,17 +62,25 @@ func PrettyRate(n int64) string {
 	// Create the size string using appropriate units: B, KB, MB, and GB
 	switch {
 	case rate < kb:
-		str = fmt.Sprintf("%.3f B/s", rate)
+		str = fmt.Sprintf("%.2f B/s", rate)
 	case rate < mb:
 		rate = rate / kb
-		str = fmt.Sprintf("%.3f KB/s", rate)
+		str = fmt.Sprintf("%.2f KB/s", rate)
 	case rate < gb:
 		rate = rate / mb
-		str = fmt.Sprintf("%.3f MB/s", rate)
+		str = fmt.Sprintf("%.2f MB/s", rate)
 	default:
 		rate = rate / gb
-		str = fmt.Sprintf("%.3f GB/s", rate)
+		str = fmt.Sprintf("%.2f GB/s", rate)
 	}
 
 	return str
+}
+
+func Address(host, port string) string {
+	if port != "" {
+		port = ":" + port
+	}
+
+	return host + port
 }

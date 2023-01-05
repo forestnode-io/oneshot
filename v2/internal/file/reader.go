@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 )
 
 var ErrUnopenedRead = errors.New("attempted to read unopened file")
@@ -28,9 +29,7 @@ type FileReader struct {
 	// MimeType is optional if Path is provided
 	MimeType string
 
-	// ProgressWriter will be used to output read progress
-	// whenever this File structs Read() method is called.
-	ProgressWriter io.WriteCloser
+	Progress atomic.Int64
 
 	ArchiveMethod string
 
@@ -38,15 +37,12 @@ type FileReader struct {
 	buffer      *bytes.Buffer
 	bufferBytes []byte
 	size        int64
-	progress    int64
 	mutex       *sync.Mutex
 
 	open bool
-
-	readCount int
 }
 
-func (f *FileReader) Size() int64 {
+func (f *FileReader) GetSize() int64 {
 	return f.size
 }
 
@@ -71,10 +67,6 @@ func (f *FileReader) Close() error {
 
 	if f.file == os.Stdin {
 		return nil
-	}
-
-	if f.ProgressWriter != nil {
-		f.ProgressWriter.Close()
 	}
 
 	f.open = false
@@ -194,23 +186,13 @@ func (f *FileReader) Read(p []byte) (n int, err error) {
 		return 0, ErrUnopenedRead
 	}
 
-	if f.progress == 0 {
-		f.writeProgress()
-	}
-
 	if f.buffer != nil {
 		n, err = f.buffer.Read(p)
 	} else {
 		n, err = f.file.Read(p)
 	}
 
-	f.progress += int64(n)
-	f.writeProgress()
-
-	if err == io.EOF && f.ProgressWriter != nil {
-		f.readCount++
-		fmt.Fprint(f.ProgressWriter, "\n")
-	}
+	f.Progress.Add(int64(n))
 
 	return
 }
@@ -229,19 +211,7 @@ func (f *FileReader) Reset() error {
 		return err
 	}
 	f.file = nil
-	f.progress = 0
+	f.Progress.Store(0)
 	f.open = false
 	return err
-}
-
-func (f *FileReader) writeProgress() {
-	if f.ProgressWriter == nil {
-		return
-	}
-	fmt.Fprintf(f.ProgressWriter, "\tTransfer progress: %.2f%%\r",
-		100.0*float64(f.progress)/float64(f.size),
-	)
-	if f.progress == f.size {
-		f.ProgressWriter.Close()
-	}
 }

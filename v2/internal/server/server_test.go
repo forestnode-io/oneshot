@@ -11,7 +11,7 @@ import (
 
 	"github.com/matryer/is"
 	"github.com/raphaelreyna/oneshot/v2/internal/api"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 )
 
 type testHandler struct {
@@ -56,7 +56,7 @@ func TestServer_Serve(t *testing.T) {
 					w.WriteHeader(http.StatusTeapot)
 					payload := "NOT OK"
 					w.Write([]byte(payload))
-					actx.Raise(&out.ClientDisconnected{
+					actx.Raise(&events.ClientDisconnected{
 						Err: errors.New("ERROR"),
 					})
 					return

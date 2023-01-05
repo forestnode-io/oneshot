@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/raphaelreyna/oneshot/internal/server"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 	"github.com/spf13/cobra"
 )
 
@@ -17,5 +17,5 @@ type Cmd interface {
 
 type Context interface {
 	Success()
-	Raise(out.Event)
+	Raise(events.Event)
 }

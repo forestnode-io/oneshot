@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"go.uber.org/atomic"
 )
 
 // FileWriter represents the file being received, whether its to an
@@ -19,21 +20,17 @@ type FileWriter struct {
 	// Path is optional if Name, Ext and MimeType are provided
 	Path string
 	// Name is the filename to use when writing to disk
-	name string
+	clientProvidedName string
+	userProvidedName   string
 
 	MIMEType string
 
-	// ProgressWriter will be used to output read progress
-	// whenever this File structs Read() method is called.
-	ProgressWriter io.WriteCloser
+	Progress atomic.Int64
 
 	location string // path file on disk
 
-	userProvidedName bool
-
-	file     io.WriteCloser
-	size     int64
-	progress int64
+	file io.WriteCloser
+	size int64
 	sync.Mutex
 }
 
@@ -45,9 +42,6 @@ func (f *FileWriter) Close() error {
 }
 
 func (f *FileWriter) GetSize() int64 {
-	if f.size == 0 {
-		return f.progress
-	}
 	return f.size
 }
 
@@ -55,23 +49,32 @@ func (f *FileWriter) SetSize(size int64) {
 	f.size = size
 }
 
-func (f *FileWriter) GetProgress() int64 {
-	return f.progress
-}
-
 func (f *FileWriter) GetLocation() string {
 	return f.location
 }
 
+// Name returns the name of the file, giving presedence to the client provided name
 func (f *FileWriter) Name() string {
-	return f.name
+	if f.userProvidedName != "" {
+		return f.userProvidedName
+	}
+	return f.clientProvidedName
 }
 
-func (f *FileWriter) SetName(name string, fromRemote bool) {
-	f.name = name
-	if !fromRemote {
-		f.userProvidedName = true
-	}
+func (f *FileWriter) ClientProvidedName() string {
+	return f.clientProvidedName
+}
+
+func (f *FileWriter) UserProvidedName() string {
+	return f.clientProvidedName
+}
+
+func (f *FileWriter) SetClientProvidedName(name string) {
+	f.clientProvidedName = name
+}
+
+func (f *FileWriter) SetUserProvidedName(name string) {
+	f.userProvidedName = name
 }
 
 // Open prepares the files contents for reading.
@@ -96,20 +99,25 @@ func (f *FileWriter) Open(ctx context.Context) error {
 		return nil
 	}
 
+	name := f.Name()
 	// if the file wasnt given a name
-	if f.name == "" {
-		f.name = fmt.Sprintf("%0-x", rand.Int31())
+	if name == "" {
+		// create a random one
+		name = fmt.Sprintf("%0-x", rand.Int31())
+
+		// if the mime type was provided
 		if f.MIMEType != "" {
+			// use it get the appropriate file extension
 			exts, err := mime.ExtensionsByType(f.MIMEType)
 			if err != nil {
 				return err
 			}
 			if len(exts) > 0 {
-				f.name = f.name + exts[0]
+				name += exts[0]
 			}
 		}
 	}
-	f.location = filepath.Join(f.Path, f.name)
+	f.location = filepath.Join(f.Path, name)
 
 	var err error
 	if f.file, err = os.Create(f.location); err != nil {
@@ -124,14 +132,8 @@ func (f *FileWriter) Write(p []byte) (n int, err error) {
 		return 0, ErrUnopenedRead
 	}
 
-	if f.progress == 0 {
-		f.writeProgress()
-	}
-
 	n, err = f.file.Write(p)
-
-	f.progress += int64(n)
-	f.writeProgress()
+	f.Progress.Add(int64(n))
 
 	return
 }
@@ -143,47 +145,13 @@ func (f *FileWriter) Reset() error {
 
 	f.Close()
 	f.file = nil
-	if !f.userProvidedName {
-		f.name = ""
-	}
-	f.progress = 0
+	f.clientProvidedName = ""
+	f.Progress.Store(0)
 	if f.location != "" {
 		os.Remove(f.location)
 	}
 	f.location = ""
 	return nil
-}
-
-func (f *FileWriter) writeProgress() {
-	const (
-		kb = 1000
-		mb = kb * 1000
-		gb = mb * 1000
-	)
-	if f.ProgressWriter == nil || f.Path == "" {
-		return
-	}
-	switch {
-	case f.size == 0:
-		switch {
-		case f.progress < kb:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %8d  B", f.progress)
-		case f.progress < mb:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %8.3f KB", float64(f.progress)/kb)
-		case f.progress < gb:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %8.3f MB", float64(f.progress)/mb)
-		default:
-			fmt.Fprintf(f.ProgressWriter, "transferred: %8.3f GB", float64(f.progress)/gb)
-		}
-	default:
-		fmt.Fprintf(f.ProgressWriter, "transfer progress: %8.2f%%",
-			100.0*float64(f.progress)/float64(f.size),
-		)
-	}
-	fmt.Fprint(f.ProgressWriter, "\r")
-	if f.size <= f.progress {
-		f.ProgressWriter.Close()
-	}
 }
 
 // null is a noop io.WriteCloser

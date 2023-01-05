@@ -5,9 +5,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 )
 
 func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
@@ -39,7 +41,7 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 
 	if err != nil {
 		http.Error(w, err.Error(), err.(*httpError).stat)
-		actx.Raise(&out.ClientDisconnected{
+		actx.Raise(&events.ClientDisconnected{
 			Err: err,
 		})
 		return
@@ -64,40 +66,63 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	// open the file we are writing to
 	if err = c.file.Open(ctx); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		actx.Raise(&out.ClientDisconnected{
+		actx.Raise(&events.ClientDisconnected{
 			Err: err,
 		})
 		return
 	}
 
-	pw, event, pwCleanup := out.NewProgressWriter()
-	defer pwCleanup()
-	c.file.ProgressWriter = pw
-	actx.Raise(event)
+	success := false
+	cancelProgDisp := out.DisplayProgress(
+		&c.file.Progress,
+		125*time.Millisecond,
+		r.RemoteAddr,
+		c.file.GetSize(),
+	)
+	defer func() {
+		cancelProgDisp(success)
+	}()
 
 	file, getBufBytes := out.NewBufferedWriter(c.file)
-	_, err = io.Copy(file, src)
+	fileReport := events.File{
+		MIME: c.file.MIMEType,
+		Size: c.file.GetSize(),
+		Name: c.file.ClientProvidedName(),
+
+		TransferStartTime: time.Now(),
+	}
+
+	fileReport.TransferSize, err = io.Copy(file, src)
 	if err != nil {
+		fileReport.TransferEndTime = time.Now()
+		actx.Raise(&fileReport)
+
+		cancelProgDisp(false)
 		c.file.Reset()
-		actx.Raise(&out.ClientDisconnected{
+
+		actx.Raise(&events.ClientDisconnected{
 			Err: err,
 		})
 		return
 	}
 	c.file.Close()
 
-	actx.Raise(&out.File{
-		MIME:    c.file.MIMEType,
-		Size:    c.file.GetSize(),
-		Path:    c.file.GetLocation(),
-		Name:    c.file.Name(),
-		Content: getBufBytes,
-	})
+	fileReport.Path = c.file.Path
+	fileReport.Content = getBufBytes
+	fileReport.TransferEndTime = time.Now()
+	actx.Raise(&fileReport)
+
 	actx.Success()
+	success = true
 }
 
 func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
-	c.writeTemplate(w)
+	withJS := true
+	ua := r.Header.Get("User-Agent")
+	if strings.Contains(ua, "curl") || strings.Contains(ua, "wget") {
+		withJS = false
+	}
+	c.writeTemplate(w, withJS)
 }
 
 func (c *Cmd) ServeExpiredHTTP(_ api.Context, w http.ResponseWriter, r *http.Request) {
