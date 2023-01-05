@@ -3,7 +3,6 @@ package send
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -75,7 +74,7 @@ func (s *Cmd) createServer(cmd *cobra.Command, args []string) error {
 		// serving from stdin
 		if !stream {
 			// dont serve http until stdin stream hits EOF
-			tdir, err := ioutil.TempDir("", "oneshot")
+			tdir, err := os.MkdirTemp("", "oneshot")
 			if err != nil {
 				return err
 			}

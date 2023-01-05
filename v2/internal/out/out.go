@@ -86,28 +86,6 @@ func (o *out) writeListeningOnQRCode(scheme, host, port string) {
 	qrterminal.GenerateWithConfig(addr, qrConf)
 }
 
-func (o *out) writeListeningOn(scheme, host, port string) {
-	if o.Format == "json" || o.skipSummary {
-		return
-	}
-
-	if host == "" {
-		addrs, err := network.HostAddresses()
-		if err != nil {
-			fmt.Fprintf(o.Stdout, "Listening on: %s://localhost%s\n", scheme, port)
-			return
-		}
-
-		fmt.Fprintln(o.Stdout, "Listening on: ")
-		for _, addr := range addrs {
-			fmt.Fprintf(o.Stdout, "  - %s://%s\n", scheme, oneshotfmt.Address(addr, port))
-		}
-		return
-	}
-
-	fmt.Fprintf(o.Stdout, "Listening on: %s://%s\n", scheme, oneshotfmt.Address(host, port))
-}
-
 type clientSession struct {
 	Request *events.HTTPRequest `json:",omitempty"`
 	File    *events.File        `json:",omitempty"`

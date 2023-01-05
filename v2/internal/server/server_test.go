@@ -130,7 +130,6 @@ func TestServer_Serve_Expired(t *testing.T) {
 				payload := "OK"
 				w.Write([]byte(payload))
 				actx.Success()
-				return
 			},
 			serveExpiredHTTP: func(actx api.Context, w http.ResponseWriter, r *http.Request) {
 				status := http.StatusGone

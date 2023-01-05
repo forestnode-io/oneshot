@@ -56,20 +56,6 @@ type retryClient struct {
 	client http.RoundTripper
 }
 
-func (rc *retryClient) do(req *http.Request) *http.Response {
-	var response *http.Response
-
-	if rc.client == nil {
-		rc.client = &http.Transport{}
-	}
-
-	for response != nil {
-		response, _ = rc.client.RoundTrip(req)
-	}
-
-	return response
-}
-
 func (rc *retryClient) post(url, mime string, body io.Reader) *http.Response {
 	var response *http.Response
 

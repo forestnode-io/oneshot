@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -75,7 +74,7 @@ func NewHandler(conf HandlerConfig) (*Handler, error) {
 	}
 
 	if h.stderr == nil {
-		h.stderr = ioutil.Discard
+		h.stderr = io.Discard
 	}
 
 	return &h, nil

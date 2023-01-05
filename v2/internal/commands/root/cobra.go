@@ -43,7 +43,6 @@ func init() {
 func ExecuteContext(ctx context.Context) error {
 	ctx = server.WithServer(ctx, &root.server)
 	ctx = shared.WithClosers(ctx, &root.closers)
-	ctx = withFileGarbageCollection(ctx, &root.garbageFiles)
 
 	defer func() {
 		for _, closer := range root.closers {
