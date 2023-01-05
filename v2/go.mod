@@ -11,7 +11,6 @@ require (
 	github.com/raphaelreyna/oneshot v1.5.1
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.8.1
-	go.uber.org/atomic v1.4.0
 )
 
 require (

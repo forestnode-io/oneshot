@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
-	"go.uber.org/atomic"
 )
 
 // FileWriter represents the file being received, whether its to an
