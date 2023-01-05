@@ -8,8 +8,6 @@ import (
 )
 
 func (o *out) runHuman() {
-	var initialTransferProgress = true
-
 	for event := range o.Events {
 		switch event := event.(type) {
 		case *events.ClientDisconnected:
@@ -39,15 +37,6 @@ func (o *out) runHuman() {
 			}
 			o.currentClientSession.Request.Body = body
 			fmt.Fprintln(os.Stdout, string(body))
-		case events.TransferProgress:
-			if o.servingToStdout {
-				continue
-			}
-
-			if initialTransferProgress {
-				o.Stdout.SaveCursorPosition()
-			}
-			event(o.Stdout)
 		default:
 		}
 	}

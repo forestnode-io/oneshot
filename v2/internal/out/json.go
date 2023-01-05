@@ -2,7 +2,6 @@ package out
 
 import (
 	"encoding/json"
-	"io"
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
@@ -18,8 +17,6 @@ func (o *out) runJSON() {
 			o.currentClientSession = &clientSession{
 				Request: event,
 			}
-		case events.TransferProgress:
-			go event(io.Discard)
 		case *events.File:
 			if o.currentClientSession != nil {
 				o.currentClientSession.File = event

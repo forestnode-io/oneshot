@@ -1,7 +1,5 @@
 package events
 
-import "io"
-
 type Event interface {
 	_event
 }
@@ -23,7 +21,3 @@ func (Success) isEvent() {}
 type HTTPRequestBody func() ([]byte, error)
 
 func (HTTPRequestBody) isEvent() {}
-
-type TransferProgress func(io.Writer)
-
-func (TransferProgress) isEvent() {}
