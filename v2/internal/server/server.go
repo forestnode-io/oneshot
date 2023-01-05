@@ -3,16 +3,12 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
-	"runtime"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/raphaelreyna/oneshot/v2/internal/api"
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 )
 
 var ErrTimeout = errors.New("timeout")
@@ -30,17 +26,13 @@ type Server struct {
 	http.Server
 
 	requestsQueue chan _wr
-	requestsWG    sync.WaitGroup
 
 	success     bool
 	succChan    chan struct{}
 	timeoutChan chan struct{}
-	stopWorkers func()
 
-	serveHTTP        api.HTTPHandler
-	serveExpiredHTTP api.HTTPHandler
-
-	Events chan<- events.Event
+	serveHTTP        http.HandlerFunc
+	serveExpiredHTTP http.HandlerFunc
 
 	TLSCert, TLSKey string
 
@@ -48,7 +40,7 @@ type Server struct {
 	timeout           time.Duration
 }
 
-func NewServer(serve, serveExpired api.HTTPHandler) *Server {
+func NewServer(serve, serveExpired http.HandlerFunc) *Server {
 	s := Server{
 		requestsQueue:    make(chan _wr),
 		serveHTTP:        serve,
@@ -80,50 +72,29 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		return context.WithValue(ctx, connKey{}, c)
 	}
 
-	ctx, s.stopWorkers = context.WithCancel(ctx)
-
 	go s.preTransferWorker(ctx)
 
 	if 0 < s.timeout {
 		s.timeoutChan = make(chan struct{}, 1)
 		l = withTimeout(s.timeout, s.timeoutChan, l)
 	}
-	var errs = make(chan error)
-	go func() {
-		if s.TLSKey != "" {
-			errs <- s.Server.ServeTLS(l, s.TLSCert, s.TLSKey)
-		} else {
-			errs <- s.Server.Serve(l)
-		}
-	}()
 
-	go func() {
-		<-s.succChan
-		s.requestsWG.Wait()
-		errs <- nil
-	}()
-
-	go func() {
-		<-s.timeoutChan
-		fmt.Printf("timeout after %v; exiting ...\n", s.timeout)
-		errs <- nil
-	}()
-
-	err := <-errs
+	var err error
+	if s.TLSKey != "" {
+		err = s.Server.ServeTLS(l, s.TLSCert, s.TLSKey)
+	} else {
+		err = s.Server.Serve(l)
+	}
 	if err != nil {
-		return err
+		if errors.Is(err, http.ErrServerClosed) {
+			if err := events.GetCancellationError(ctx); err != nil {
+				// TODO(raphaelreyna) improve this
+				panic(err)
+			}
+		}
 	}
 
-	s.Shutdown(ctx)
 	return nil
-}
-
-func (s *Server) Shutdown(ctx context.Context) error {
-	close(s.requestsQueue)
-	close(s.Events)
-	s.stopWorkers()
-
-	return s.Server.Close()
 }
 
 func (s *Server) BufferRequests() {
@@ -160,81 +131,26 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	)
 
-	s.requestsWG.Add(1)
 	s.requestsQueue <- wr
-
 	<-done
-	s.requestsWG.Done()
 }
 
 func (s *Server) preTransferWorker(ctx context.Context) {
 	for {
-		// if there was a succesfull transfer,
-		// startup as many postTransferWorkers as posssible
-		// and end this worker to cleanly end the waiting connections asap.
-		if s.success {
-			s.succChan <- struct{}{}
-			for i := 0; i < runtime.NumCPU(); i++ {
-				go s.postTransferWorker(ctx)
-			}
-			return
-		}
-
 		select {
 		case <-ctx.Done():
+			close(s.requestsQueue)
+			s.Server.Shutdown(ctx)
 			return
 		case wr, ok := <-s.requestsQueue:
 			if !ok {
 				return
 			}
 
-			var (
-				apiCtx = apiCtx{
-					events: s.Events,
-				}
-			)
-
-			s.serveHTTP(&apiCtx, wr.w, wr.r) // run the command server
-
-			if apiCtx.success {
-				s.success = true
-			}
-
+			s.serveHTTP(wr.w, wr.r) // run the command server
 			wr.done()
 		}
 	}
-}
-
-func (s *Server) postTransferWorker(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case wr, ok := <-s.requestsQueue:
-			if !ok {
-				return
-			}
-
-			var apiCtx apiCtx
-			s.serveExpiredHTTP(&apiCtx, wr.w, wr.r)
-
-			wr.done()
-		}
-	}
-}
-
-type apiCtx struct {
-	events  chan<- events.Event
-	success bool
-}
-
-func (a *apiCtx) Success() {
-	a.success = true
-	a.events <- events.Success{}
-}
-
-func (a *apiCtx) Raise(e events.Event) {
-	a.events <- e
 }
 
 type serverKey struct{}

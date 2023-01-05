@@ -74,7 +74,7 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 	// if writing to stdout
 	if writingTostdout {
 		// let the out package know
-		out.ReceivingToStdout()
+		out.ReceivingToStdout(ctx)
 	} else {
 		// otherwise grab the first arg as the file path directory the user wants to receive to
 		fileDirPath, err = filepath.Abs(args[0])

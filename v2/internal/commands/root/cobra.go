@@ -16,9 +16,9 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/redirect"
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/send"
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/network"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -41,8 +41,12 @@ func init() {
 }
 
 func ExecuteContext(ctx context.Context) error {
+	ctx = events.WithEvents(ctx)
+	ctx = out.WithOut(ctx)
 	ctx = server.WithServer(ctx, &root.server)
 	ctx = shared.WithClosers(ctx, &root.closers)
+
+	events.RegisterEventListener(ctx, out.SetEventsChan)
 
 	defer func() {
 		for _, closer := range root.closers {
@@ -127,15 +131,11 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	}
 	defer l.Close()
 
-	eventsChan := make(chan events.Event, 1)
-	r.server.Events = eventsChan
+	out.SetFormat(ctx, r.outFlag.format)
+	out.SetFormatOpts(ctx, r.outFlag.opts...)
 
-	out.SetEventsChan(eventsChan)
-	out.SetFormat(r.outFlag.format)
-	out.SetFormatOpts(r.outFlag.opts...)
-
-	out.Init()
-	defer out.Wait()
+	out.Init(ctx)
+	defer out.Wait(ctx)
 
 	if qr, _ := flags.GetBool("qr-code"); qr {
 		if host == "" {
@@ -144,7 +144,7 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 				host = hostIP
 			}
 		}
-		out.WriteListeningOnQR("http", host, port)
+		out.WriteListeningOnQR(ctx, "http", host, port)
 	}
 
 	if err := r.server.Serve(ctx, l); err != nil {

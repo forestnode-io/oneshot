@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
@@ -67,8 +67,9 @@ func (c *Cmd) runE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
-	actx.Raise(out.NewHTTPRequest(r))
+func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := c.cobraCommand.Context()
+	out.Raise(ctx, out.NewHTTPRequest(r))
 
 	var header = c.header
 	for key := range header {
@@ -77,9 +78,9 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 
 	http.Redirect(w, r, c.url, c.statusCode)
 
-	actx.Success()
+	events.Success(ctx)
 }
 
-func (s *Cmd) ServeExpiredHTTP(_ api.Context, w http.ResponseWriter, r *http.Request) {
+func (s *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("expired hello from server"))
 }

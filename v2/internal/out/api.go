@@ -2,43 +2,67 @@ package out
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
+	"github.com/muesli/termenv"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/internal/out/fmt"
 )
 
-func WriteListeningOnQR(scheme, host, port string) {
-	o.writeListeningOnQRCode(scheme, host, port)
+func WithOut(ctx context.Context) context.Context {
+	o := output{
+		Stdout:   termenv.DefaultOutput(),
+		doneChan: make(chan struct{}),
+		cls:      make([]*clientSession, 0),
+	}
+	return context.WithValue(ctx, key{}, &o)
 }
 
-func SetEventsChan(ec <-chan events.Event) {
-	o.Events = ec
+func ClientDisconnected(ctx context.Context, err error) {
+	Raise(ctx, &events.ClientDisconnected{
+		Err: err,
+	})
 }
 
-func SetFormat(f string) {
-	o.Format = f
+func Raise(ctx context.Context, e events.Event) {
+	getOut(ctx).events <- e
 }
 
-func SetFormatOpts(opts ...string) {
-	o.FormatOpts = opts
+func SetEventsChan(ctx context.Context, ec chan events.Event) {
+	getOut(ctx).events = ec
 }
 
-func GetFormatAndOpts() (string, []string) {
+func WriteListeningOnQR(ctx context.Context, scheme, host, port string) {
+	getOut(ctx).writeListeningOnQRCode(scheme, host, port)
+}
+
+func SetFormat(ctx context.Context, f string) {
+	getOut(ctx).Format = f
+}
+
+func SetFormatOpts(ctx context.Context, opts ...string) {
+	getOut(ctx).FormatOpts = opts
+}
+
+func GetFormatAndOpts(ctx context.Context) (string, []string) {
+	o := getOut(ctx)
 	return o.Format, o.FormatOpts
 }
 
-func IsServingToStdout() bool {
-	return o.servingToStdout
+func IsServingToStdout(ctx context.Context) bool {
+	return getOut(ctx).servingToStdout
 }
 
 // ReceivingToStdout ensures that only the appropriate content is sent to stdout.
 // The summary is flagged to be skipped and if outputting json, make sure we have initiated the buffer
 // that holds the received content.
-func ReceivingToStdout() {
+func ReceivingToStdout(ctx context.Context) {
+	o := getOut(ctx)
+
 	o.skipSummary = true
 	o.servingToStdout = true
 	if o.Format == "json" {
@@ -48,15 +72,16 @@ func ReceivingToStdout() {
 	}
 }
 
-func Init() {
-	go o.run()
+func Init(ctx context.Context) {
+	go getOut(ctx).run(ctx)
 }
 
-func Wait() {
-	<-o.doneChan
+func Wait(ctx context.Context) {
+	<-getOut(ctx).doneChan
 }
 
-func DisplayProgress(prog *atomic.Int64, period time.Duration, host string, total int64) func(bool) {
+func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Duration, host string, total int64) func(bool) {
+	o := getOut(ctx)
 	if o.servingToStdout || o.Format == "json" {
 		return func(_ bool) {}
 	}
@@ -72,7 +97,7 @@ func DisplayProgress(prog *atomic.Int64, period time.Duration, host string, tota
 	fmt.Fprintf(o.Stdout, "%s  %s", start.Format(progDisplayTimeFormat), host)
 	o.Stdout.SaveCursorPosition()
 
-	lastTime = displayProgress(start, prog, total)
+	lastTime = displayProgress(o, start, prog, total)
 
 	go func() {
 		for {
@@ -81,7 +106,7 @@ func DisplayProgress(prog *atomic.Int64, period time.Duration, host string, tota
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				lastTime = displayProgress(start, prog, total)
+				lastTime = displayProgress(o, start, prog, total)
 			}
 		}
 	}()
@@ -96,14 +121,14 @@ func DisplayProgress(prog *atomic.Int64, period time.Duration, host string, tota
 		done = nil
 
 		if success {
-			displayProgressSuccessFlush(lastTime, prog.Load())
+			displayProgressSuccessFlush(o, lastTime, prog.Load())
 		}
 	}
 }
 
 const progDisplayTimeFormat = "2006-01-02T15:04:05-0700"
 
-func displayProgressSuccessFlush(start time.Time, total int64) {
+func displayProgressSuccessFlush(o *output, start time.Time, total int64) {
 	const (
 		kb = 1000
 		mb = kb * 1000
@@ -132,7 +157,7 @@ func displayProgressSuccessFlush(start time.Time, total int64) {
 	)
 }
 
-func displayProgress(start time.Time, prog *atomic.Int64, total int64) time.Time {
+func displayProgress(o *output, start time.Time, prog *atomic.Int64, total int64) time.Time {
 	const (
 		kb = 1000
 		mb = kb * 1000
@@ -174,11 +199,13 @@ func displayProgress(start time.Time, prog *atomic.Int64, total int64) time.Time
 	return start
 }
 
-func GetWriteCloser() io.WriteCloser {
+func GetWriteCloser(ctx context.Context) io.WriteCloser {
+	o := getOut(ctx)
 	return &writer{o.Stdout, o.receivedBuf}
 }
 
-func NewBufferedWriter(w io.Writer) (io.Writer, func() []byte) {
+func NewBufferedWriter(ctx context.Context, w io.Writer) (io.Writer, func() []byte) {
+	o := getOut(ctx)
 	if o.Format != "json" {
 		return w, nil
 	}

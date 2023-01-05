@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 )
@@ -11,7 +10,6 @@ func (suite *BasicTestSuite) Test_Redirect() {
 	var oneshot = suite.NewOneshot()
 	oneshot.Args = []string{"redirect", "https://github.com"}
 	oneshot.Start()
-	fmt.Println("oneshot started")
 
 	client := retryClient{}
 	resp, err := client.get("http://127.0.0.1:8080")

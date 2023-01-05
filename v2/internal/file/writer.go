@@ -86,15 +86,15 @@ func (f *FileWriter) Open(ctx context.Context) error {
 	}
 
 	// if we are receiving to stdout
-	if out.IsServingToStdout() {
+	if out.IsServingToStdout(ctx) {
 		// and are outputting json
-		if format, _ := out.GetFormatAndOpts(); format == "json" {
+		if format, _ := out.GetFormatAndOpts(ctx); format == "json" {
 			// send the contents into the ether.
 			// theres a buffer elsewhere that will provide the contents in the json object.
 			f.file = null{}
 		} else {
 			// otherwise write the content to stdout
-			f.file = out.GetWriteCloser()
+			f.file = out.GetWriteCloser(ctx)
 		}
 		return nil
 	}

@@ -1,16 +1,14 @@
 package server
 
-import (
-	"github.com/raphaelreyna/oneshot/v2/internal/api"
-)
+import "net/http"
 
-type Middleware func(api.HTTPHandler) api.HTTPHandler
+type Middleware func(http.HandlerFunc) http.HandlerFunc
 
 func (mw Middleware) Chain(m Middleware) Middleware {
 	if mw == nil {
 		return m
 	}
-	return func(hf api.HTTPHandler) api.HTTPHandler {
+	return func(hf http.HandlerFunc) http.HandlerFunc {
 		hf = mw(hf)
 		return m(hf)
 	}

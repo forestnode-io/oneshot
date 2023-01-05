@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/api"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 )
 
-func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
+func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var (
+		ctx  = s.Cobra().Context()
 		file = s.file
 
 		cmd           = s.cmd
@@ -23,25 +23,16 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		header = s.header
 	)
 
-	actx.Raise(out.NewHTTPRequest(r))
+	out.Raise(ctx, out.NewHTTPRequest(r))
 
-	err := file.Open()
+	if err := file.Open(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		out.ClientDisconnected(ctx, err)
+		return
+	}
 	defer func() {
 		file.Reset()
 	}()
-	if err := r.Context().Err(); err != nil {
-		actx.Raise(&events.ClientDisconnected{
-			Err: err,
-		})
-		return
-	}
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		actx.Raise(&events.ClientDisconnected{
-			Err: err,
-		})
-		return
-	}
 
 	// Are we triggering a file download on the users browser?
 	if !noDownload {
@@ -68,6 +59,7 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 
 	success := false
 	cancelProgDisp := out.DisplayProgress(
+		cmd.Context(),
 		&file.Progress,
 		125*time.Millisecond,
 		r.RemoteAddr,
@@ -81,25 +73,21 @@ func (s *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	n, err := io.Copy(w, file)
 	writeSize := n
 	if err != nil {
-		actx.Raise(events.ClientDisconnected{
-			Err: err,
-		})
+		out.ClientDisconnected(ctx, err)
 		return
 	}
 
 	if writeSize != eventFile.Size {
-		actx.Raise(&events.ClientDisconnected{
-			Err: err,
-		})
+		out.ClientDisconnected(ctx, err)
 		return
 	}
 
-	actx.Raise(eventFile)
+	out.Raise(ctx, eventFile)
+	events.Success(ctx)
 
-	actx.Success()
 	success = true
 }
 
-func (d *Cmd) ServeExpiredHTTP(_ api.Context, w http.ResponseWriter, r *http.Request) {
+func (d *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("expired hello from server"))
 }

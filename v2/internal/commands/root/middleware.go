@@ -4,18 +4,17 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/api"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 )
 
 func botsMiddleware(block bool) server.Middleware {
 	if !block {
-		return func(hf api.HTTPHandler) api.HTTPHandler {
+		return func(hf http.HandlerFunc) http.HandlerFunc {
 			return hf
 		}
 	}
-	return func(next api.HTTPHandler) api.HTTPHandler {
-		return func(actx api.Context, w http.ResponseWriter, r *http.Request) {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			// Filter out requests from bots, iMessage, etc. by checking the User-Agent header for known bot headers
 			if headers, exists := r.Header["User-Agent"]; exists {
 				if isBot(headers) {
@@ -23,20 +22,20 @@ func botsMiddleware(block bool) server.Middleware {
 					return
 				}
 			}
-			next(actx, w, r)
+			next(w, r)
 		}
 	}
 }
 
 func authMiddleware(unauthenticated http.HandlerFunc, username, password string) server.Middleware {
 	if username == "" && password == "" {
-		return func(hf api.HTTPHandler) api.HTTPHandler {
+		return func(hf http.HandlerFunc) http.HandlerFunc {
 			return hf
 		}
 	}
 
-	return func(authenticated api.HTTPHandler) api.HTTPHandler {
-		return func(actx api.Context, w http.ResponseWriter, r *http.Request) {
+	return func(authenticated http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			u, p, ok := r.BasicAuth()
 			if !ok {
 				unauthenticated(w, r)
@@ -51,7 +50,7 @@ func authMiddleware(unauthenticated http.HandlerFunc, username, password string)
 				unauthenticated(w, r)
 				return
 			}
-			authenticated(actx, w, r)
+			authenticated(w, r)
 		}
 	}
 }

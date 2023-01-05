@@ -7,18 +7,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/api"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 )
 
-func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request) {
+func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := c.cobraCommand.Context()
+
 	if r.Method == "GET" {
 		c._handleGET(w, r)
 		return
 	}
 
-	actx.Raise(out.NewHTTPRequest(r))
+	out.Raise(ctx, out.NewHTTPRequest(r))
 
 	var (
 		src io.ReadCloser
@@ -41,9 +42,7 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 
 	if err != nil {
 		http.Error(w, err.Error(), err.(*httpError).stat)
-		actx.Raise(&events.ClientDisconnected{
-			Err: err,
-		})
+		out.ClientDisconnected(ctx, err)
 		return
 	}
 
@@ -62,18 +61,16 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		c.file.SetSize(cl)
 	}
 
-	ctx := c.cobraCommand.Context()
 	// open the file we are writing to
 	if err = c.file.Open(ctx); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		actx.Raise(&events.ClientDisconnected{
-			Err: err,
-		})
+		out.ClientDisconnected(ctx, err)
 		return
 	}
 
 	success := false
 	cancelProgDisp := out.DisplayProgress(
+		ctx,
 		&c.file.Progress,
 		125*time.Millisecond,
 		r.RemoteAddr,
@@ -83,7 +80,7 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 		cancelProgDisp(success)
 	}()
 
-	file, getBufBytes := out.NewBufferedWriter(c.file)
+	file, getBufBytes := out.NewBufferedWriter(ctx, c.file)
 	fileReport := events.File{
 		MIME: c.file.MIMEType,
 		Size: c.file.GetSize(),
@@ -95,12 +92,12 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	fileReport.TransferSize, err = io.Copy(file, src)
 	if err != nil {
 		fileReport.TransferEndTime = time.Now()
-		actx.Raise(&fileReport)
+		out.ClientDisconnected(ctx, err)
 
 		cancelProgDisp(false)
 		c.file.Reset()
 
-		actx.Raise(&events.ClientDisconnected{
+		out.Raise(ctx, events.ClientDisconnected{
 			Err: err,
 		})
 		return
@@ -110,9 +107,9 @@ func (c *Cmd) ServeHTTP(actx api.Context, w http.ResponseWriter, r *http.Request
 	fileReport.Path = c.file.Path
 	fileReport.Content = getBufBytes
 	fileReport.TransferEndTime = time.Now()
-	actx.Raise(&fileReport)
+	out.Raise(ctx, &fileReport)
 
-	actx.Success()
+	events.Success(ctx)
 	success = true
 }
 
@@ -125,6 +122,6 @@ func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 	c.writeTemplate(w, withJS)
 }
 
-func (c *Cmd) ServeExpiredHTTP(_ api.Context, w http.ResponseWriter, r *http.Request) {
+func (c *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("expired hello from server"))
 }

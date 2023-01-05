@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 )
 
-func (o *out) runHuman() {
-	for event := range o.Events {
+func runHuman(o *output) {
+	for event := range o.events {
 		switch event := event.(type) {
 		case *events.ClientDisconnected:
 			if !o.servingToStdout {

@@ -2,17 +2,28 @@ package out
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
+	"github.com/raphaelreyna/oneshot/v2/internal/events"
 	"github.com/raphaelreyna/oneshot/v2/internal/network"
-	"github.com/raphaelreyna/oneshot/v2/internal/out/events"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/internal/out/fmt"
 )
 
-type out struct {
-	Events     <-chan events.Event
+type key struct{}
+
+func getOut(ctx context.Context) *output {
+	o, _ := ctx.Value(key{}).(*output)
+	if o == nil {
+		panic("no output set")
+	}
+	return o
+}
+
+type output struct {
+	events     chan events.Event
 	Stdout     *termenv.Output
 	Format     string
 	FormatOpts []string
@@ -27,13 +38,7 @@ type out struct {
 	doneChan chan struct{}
 }
 
-var o = out{
-	Stdout:   termenv.DefaultOutput(),
-	doneChan: make(chan struct{}),
-	cls:      make([]*clientSession, 0),
-}
-
-func (o *out) run() {
+func (o *output) run(ctx context.Context) {
 	if !o.servingToStdout {
 		o.Stdout.HideCursor()
 		defer o.Stdout.ShowCursor()
@@ -41,16 +46,16 @@ func (o *out) run() {
 
 	switch o.Format {
 	case "":
-		o.runHuman()
+		runHuman(o)
 	case "json":
 		NewHTTPRequest = events.NewHTTPRequest_WithBody
-		o.runJSON()
+		runJSON(ctx, o)
 	}
 
 	o.doneChan <- struct{}{}
 }
 
-func (o *out) writeListeningOnQRCode(scheme, host, port string) {
+func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 	qrConf := qrterminal.Config{
 		Level:      qrterminal.L,
 		Writer:     o.Stdout,
