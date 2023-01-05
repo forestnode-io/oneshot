@@ -24,6 +24,10 @@ type File struct {
 }
 
 func (f *File) ComputeTransferFields() {
+	if f == nil {
+		return
+	}
+
 	f.TransferDuration = f.TransferEndTime.Sub(f.TransferStartTime)
 	f.TransferRate = 1000 * 1000 * 1000 * f.TransferSize / int64(f.TransferDuration)
 }
