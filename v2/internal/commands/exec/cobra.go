@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/internal/cgi"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands"
 	"github.com/raphaelreyna/oneshot/v2/internal/events"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/internal/net/http"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
-	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +60,7 @@ func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
 		WorkingDir:    dir,
 		InheritEnvs:   nil,
 		BaseEnv:       env,
-		Header:        shared.HeaderFromStringSlice(headerSlice),
+		Header:        oneshothttp.HeaderFromStringSlice(headerSlice),
 		OutputHandler: cgi.DefaultOutputHandler,
 		Stderr:        cmd.ErrOrStderr(),
 	}
@@ -79,7 +79,7 @@ func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		shared.MarkForClose(ctx, handlerConf.Stderr.(io.WriteCloser))
+		commands.MarkForClose(ctx, handlerConf.Stderr.(io.WriteCloser))
 	} else {
 		handlerConf.Stderr = cmd.ErrOrStderr()
 	}
@@ -90,8 +90,7 @@ func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
 	}
 
 	c.handler = handler
-	srvr := server.NewServer(c.ServeHTTP, nil)
-	server.SetServer(ctx, srvr)
+	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil
 }
 
@@ -101,8 +100,4 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	s.handler.ServeHTTP(w, r)
 	events.Success(ctx)
-}
-
-func (s *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("expired hello from server"))
 }

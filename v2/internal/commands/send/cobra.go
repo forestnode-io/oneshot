@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands"
 	"github.com/raphaelreyna/oneshot/v2/internal/file"
-	"github.com/raphaelreyna/oneshot/v2/internal/server"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/internal/net/http"
 	"github.com/spf13/cobra"
 )
 
@@ -26,16 +26,16 @@ type Cmd struct {
 	header http.Header
 }
 
-func (s *Cmd) Cobra() *cobra.Command {
-	s.header = make(http.Header)
-	s.cmd = &cobra.Command{
+func (c *Cmd) Cobra() *cobra.Command {
+	c.header = make(http.Header)
+	c.cmd = &cobra.Command{
 		Use:   "send [file|dir]",
 		Short: "",
 		Long:  "",
-		RunE:  s.createServer,
+		RunE:  c.createServer,
 	}
 
-	flags := s.cmd.Flags()
+	flags := c.cmd.Flags()
 	flags.StringP("archive-method", "a", "tar.gz", "Which archive method to use when sending directories.\nRecognized values are \"zip\" and \"tar.gz\".")
 	flags.BoolP("stream", "J", false, "Stream contents when sending stdin, don't wait for EOF.")
 	flags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
@@ -44,10 +44,10 @@ func (s *Cmd) Cobra() *cobra.Command {
 	flags.StringP("name", "n", "", "Name of file presented to client if downloading.\nIf not set, either a random name or the name of the file will be used,depending on if a file was given.")
 	flags.Int("status-code", 200, "HTTP status code sent to client.")
 
-	return s.cmd
+	return c.cmd
 }
 
-func (s *Cmd) createServer(cmd *cobra.Command, args []string) error {
+func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
 	var (
 		ctx   = cmd.Context()
 		paths = args
@@ -108,8 +108,8 @@ func (s *Cmd) createServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	s.header = shared.HeaderFromStringSlice(headerSlice)
-	s.file = &file.FileReader{
+	c.header = oneshothttp.HeaderFromStringSlice(headerSlice)
+	c.file = &file.FileReader{
 		Paths:         paths,
 		Name:          fileName,
 		Ext:           fileExt,
@@ -117,9 +117,6 @@ func (s *Cmd) createServer(cmd *cobra.Command, args []string) error {
 		ArchiveMethod: archiveMethod,
 	}
 
-	server.SetServer(ctx,
-		server.NewServer(s.ServeHTTP, s.ServeExpiredHTTP),
-	)
-
+	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil
 }

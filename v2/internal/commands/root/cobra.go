@@ -1,7 +1,6 @@
 package root
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,63 +10,24 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/exec"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/receive"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/redirect"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/send"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	"github.com/raphaelreyna/oneshot/v2/internal/network"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/internal/net"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	oneshotfmt "github.com/raphaelreyna/oneshot/v2/internal/out/fmt"
 	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 )
 
-var root rootCommand
-
-func init() {
-	root.garbageFiles = make([]string, 0)
-	root.Use = "oneshot"
-	root.PersistentPreRunE = root.persistentPreRunE
-	root.PersistentPostRunE = root.persistentPostRunE
-
-	root.setFlags()
-	root.AddCommand(exec.New().Cobra())
-	root.AddCommand(receive.New().Cobra())
-	root.AddCommand(redirect.New().Cobra())
-	root.AddCommand(send.New().Cobra())
-}
-
-func ExecuteContext(ctx context.Context) error {
-	ctx = events.WithEvents(ctx)
-	ctx = out.WithOut(ctx)
-	ctx = server.WithServer(ctx, &root.server)
-	ctx = shared.WithClosers(ctx, &root.closers)
-
-	events.RegisterEventListener(ctx, out.SetEventsChan)
-
-	defer func() {
-		for _, closer := range root.closers {
-			closer.Close()
-		}
-		for _, path := range root.garbageFiles {
-			os.Remove(path)
-		}
-	}()
-
-	return root.ExecuteContext(ctx)
-}
-
 type rootCommand struct {
 	cobra.Command
-	server       *server.Server
-	garbageFiles []string
-	closers      []io.Closer
-	middleware   server.Middleware
+	server     *server.Server
+	closers    []io.Closer
+	middleware server.Middleware
 
 	outFlag outputFormatFlagArg
+
+	handler http.HandlerFunc
 }
 
 func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
@@ -109,23 +69,18 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 		return fmt.Errorf("tls key provided without a cert")
 	}
 
-	r.server.TLSKey = tlsKey
-	r.server.TLSCert = tlsCert
-
-	defer func() {
-		for _, fp := range r.garbageFiles {
-			_ = os.Remove(fp)
-		}
-	}()
-
-	if strings.Contains(jopts, "include-body") {
-		r.server.BufferRequests()
+	r.server = &server.Server{
+		HandlerFunc:       r.handler,
+		TLSCert:           tlsCert,
+		TLSKey:            tlsKey,
+		Timeout:           timeout,
+		BufferRequestBody: strings.Contains(jopts, "include-body"),
+		Middleware: []server.Middleware{
+			r.middleware,
+		},
 	}
 
-	r.server.SetTimeoutDuration(timeout)
-	r.server.AddMiddleware(r.middleware)
-
-	l, err := net.Listen("tcp", address(host, port))
+	l, err := net.Listen("tcp", oneshotfmt.Address(host, port))
 	if err != nil {
 		return err
 	}
@@ -139,7 +94,7 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 
 	if qr, _ := flags.GetBool("qr-code"); qr {
 		if host == "" {
-			hostIP, err := network.GetSourceIP("", "")
+			hostIP, err := oneshotnet.GetSourceIP("", "")
 			if err == nil {
 				host = hostIP
 			}
@@ -147,7 +102,7 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 		out.WriteListeningOnQR(ctx, "http", host, port)
 	}
 
-	if err := r.server.Serve(ctx, l); err != nil {
+	if err := r.server.Serve(ctx, 1, l); err != nil {
 		return err
 	}
 
@@ -186,7 +141,7 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 }
 
 func (r *rootCommand) setFlags() {
-	pflags := root.PersistentFlags()
+	pflags := r.PersistentFlags()
 	/*
 		pflags.BoolP("quiet", "q", false, "Don't show info messages.")
 
@@ -234,14 +189,6 @@ func (r *rootCommand) setFlags() {
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
 
 	pflags.BoolP("qr-code", "Q", false, `Generate QR codes for connection URLs`)
-}
-
-func address(host, port string) string {
-	if port != "" {
-		port = ":" + port
-	}
-
-	return host + port
 }
 
 type outputFormatFlagArg struct {

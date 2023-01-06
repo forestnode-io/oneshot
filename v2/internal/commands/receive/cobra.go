@@ -11,10 +11,10 @@ import (
 	"strings"
 
 	"github.com/jf-tech/iohelper"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/shared"
+	"github.com/raphaelreyna/oneshot/v2/internal/commands"
 	"github.com/raphaelreyna/oneshot/v2/internal/file"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/internal/net/http"
 	"github.com/raphaelreyna/oneshot/v2/internal/out"
-	"github.com/raphaelreyna/oneshot/v2/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -62,7 +62,7 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 	c.csrfToken, _ = flags.GetString("csrf-token")
 
 	c.unixEOLNormalization = eol == "unix"
-	c.header = shared.HeaderFromStringSlice(headerSlice)
+	c.header = oneshothttp.HeaderFromStringSlice(headerSlice)
 	c.file = &file.FileWriter{}
 
 	var (
@@ -167,8 +167,7 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		return tmpl.ExecuteTemplate(w, "oneshot", &sections)
 	}
 
-	srvr := server.NewServer(c.ServeHTTP, c.ServeExpiredHTTP)
-	server.SetServer(ctx, srvr)
+	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil
 }
 

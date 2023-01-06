@@ -8,7 +8,7 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	"github.com/raphaelreyna/oneshot/v2/internal/network"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/internal/net"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/internal/out/fmt"
 )
 
@@ -69,7 +69,7 @@ func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 	}
 
 	if host == "" {
-		addrs, err := network.HostAddresses()
+		addrs, err := oneshotnet.HostAddresses()
 		if err != nil {
 			addr := fmt.Sprintf("%s://localhost%s", scheme, port)
 			fmt.Fprintf(o.Stdout, "%s:\n", addr)
