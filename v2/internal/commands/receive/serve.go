@@ -19,7 +19,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out.Raise(ctx, out.NewHTTPRequest(r))
+	events.Raise(ctx, out.NewHTTPRequest(r))
 
 	var (
 		src io.ReadCloser

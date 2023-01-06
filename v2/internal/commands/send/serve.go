@@ -15,7 +15,7 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx  = s.Cobra().Context()
 		file = s.file
 
-		cmd           = s.cmd
+		cmd           = s.cobraCommand
 		flags         = cmd.Flags()
 		noDownload, _ = flags.GetBool("no-download")
 		status, _     = flags.GetInt("status-code")
@@ -23,7 +23,7 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		header = s.header
 	)
 
-	out.Raise(ctx, out.NewHTTPRequest(r))
+	events.Raise(ctx, out.NewHTTPRequest(r))
 
 	if err := file.Open(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -67,6 +67,9 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() {
 		cancelProgDisp(success)
+		if success {
+			events.Success(ctx)
+		}
 	}()
 
 	// Start writing the file data to the client while timing how long it takes
@@ -83,8 +86,6 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	out.Raise(ctx, eventFile)
-	events.Success(ctx)
-
 	success = true
 }
 

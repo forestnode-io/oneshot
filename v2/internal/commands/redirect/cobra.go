@@ -25,6 +25,13 @@ type Cmd struct {
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
+	if c.header == nil {
+		c.header = make(http.Header)
+	}
+	if c.cobraCommand != nil {
+		return c.cobraCommand
+	}
+
 	c.cobraCommand = &cobra.Command{
 		Use:  "redirect url",
 		RunE: c.runE,

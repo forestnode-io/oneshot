@@ -27,7 +27,7 @@ func (suite *BasicTestSuite) Test_Receive_ToStdout() {
 
 func (suite *BasicTestSuite) Test_Receive_ToFile() {
 	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", ".", "--name=test.txt"}
+	oneshot.Args = []string{"receive", "./test.txt"}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -67,7 +67,7 @@ func (suite *BasicTestSuite) Test_Receive_ToStdout_DecodeBase64() {
 
 func (suite *BasicTestSuite) Test_Receive_ToFile_DecodeBase64() {
 	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", ".", "--name=test.txt", "--decode-b64"}
+	oneshot.Args = []string{"receive", "./test.txt", "--decode-b64"}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 

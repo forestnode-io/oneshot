@@ -26,6 +26,13 @@ func New() *Cmd {
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
+	if c.header == nil {
+		c.header = make(http.Header)
+	}
+	if c.cobraCommand != nil {
+		return c.cobraCommand
+	}
+
 	c.cobraCommand = &cobra.Command{
 		Use:  "exec command",
 		RunE: c.createServer,

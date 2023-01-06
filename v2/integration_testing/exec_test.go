@@ -30,5 +30,5 @@ func (suite *BasicTestSuite) Test_Exec() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "Done")
+	suite.Assert().Contains(string(stdout), "\x1b[?25h")
 }

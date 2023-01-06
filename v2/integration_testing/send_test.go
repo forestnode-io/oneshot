@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -31,7 +30,7 @@ func (suite *BasicTestSuite) Test_Send_FromStdin() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "Done")
+	suite.Assert().Contains(string(stdout), "...success\n\x1b[?25h")
 }
 
 func (suite *BasicTestSuite) Test_Send_File() {
@@ -55,7 +54,7 @@ func (suite *BasicTestSuite) Test_Send_File() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "Done")
+	suite.Assert().Contains(string(stdout), "...success\n\x1b[?25h")
 }
 
 func (suite *BasicTestSuite) Test_Send_StatusCode() {
@@ -79,7 +78,7 @@ func (suite *BasicTestSuite) Test_Send_StatusCode() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "Done")
+	suite.Assert().Contains(string(stdout), "...success\n\x1b[?25h")
 }
 
 func (suite *BasicTestSuite) Test_Send_Directory() {
@@ -106,7 +105,6 @@ func (suite *BasicTestSuite) Test_Send_Directory() {
 	suite.Require().NoError(err)
 
 	tarOut, err := exec.Command("tar", "-xf", tarFileName, "-C", suite.testDir).CombinedOutput()
-	fmt.Println(tarOut)
 	suite.Require().NoError(err, string(tarOut))
 
 	fileBytes, err := os.ReadFile(filepath.Join(suite.testDir, "testDir", "test.txt"))
@@ -119,5 +117,5 @@ func (suite *BasicTestSuite) Test_Send_Directory() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "Done")
+	suite.Assert().Contains(string(stdout), "...success\n\x1b[?25h")
 }

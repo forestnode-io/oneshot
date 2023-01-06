@@ -41,15 +41,18 @@ type output struct {
 func (o *output) run(ctx context.Context) {
 	if !o.servingToStdout {
 		o.Stdout.HideCursor()
-		defer o.Stdout.ShowCursor()
 	}
 
 	switch o.Format {
 	case "":
-		runHuman(o)
+		runHuman(ctx, o)
 	case "json":
 		NewHTTPRequest = events.NewHTTPRequest_WithBody
 		runJSON(ctx, o)
+	}
+
+	if !o.servingToStdout {
+		o.Stdout.ShowCursor()
 	}
 
 	o.doneChan <- struct{}{}

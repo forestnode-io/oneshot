@@ -21,21 +21,28 @@ func New() *Cmd {
 }
 
 type Cmd struct {
-	file   *file.FileReader
-	cmd    *cobra.Command
-	header http.Header
+	file         *file.FileReader
+	cobraCommand *cobra.Command
+	header       http.Header
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
+	if c.header == nil {
+		c.header = make(http.Header)
+	}
+	if c.cobraCommand != nil {
+		return c.cobraCommand
+	}
+
 	c.header = make(http.Header)
-	c.cmd = &cobra.Command{
+	c.cobraCommand = &cobra.Command{
 		Use:   "send [file|dir]",
 		Short: "",
 		Long:  "",
 		RunE:  c.createServer,
 	}
 
-	flags := c.cmd.Flags()
+	flags := c.cobraCommand.Flags()
 	flags.StringP("archive-method", "a", "tar.gz", "Which archive method to use when sending directories.\nRecognized values are \"zip\" and \"tar.gz\".")
 	flags.BoolP("stream", "J", false, "Stream contents when sending stdin, don't wait for EOF.")
 	flags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
@@ -44,7 +51,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags.StringP("name", "n", "", "Name of file presented to client if downloading.\nIf not set, either a random name or the name of the file will be used,depending on if a file was given.")
 	flags.Int("status-code", 200, "HTTP status code sent to client.")
 
-	return c.cmd
+	return c.cobraCommand
 }
 
 func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
