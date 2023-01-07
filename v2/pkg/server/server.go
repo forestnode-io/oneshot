@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/internal/net"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 )
 
 var ErrTimeout = errors.New("timeout")

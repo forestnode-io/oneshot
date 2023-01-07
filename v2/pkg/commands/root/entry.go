@@ -3,13 +3,13 @@ package root
 import (
 	"context"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/commands"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/exec"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/receive"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/redirect"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/send"
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/exec"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/receive"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/out"
 )
 
 func ExecuteContext(ctx context.Context) error {

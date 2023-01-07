@@ -11,10 +11,10 @@ import (
 	"strings"
 
 	"github.com/jf-tech/iohelper"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands"
-	"github.com/raphaelreyna/oneshot/v2/internal/file"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/internal/net/http"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/file"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/out"
 	"github.com/spf13/cobra"
 )
 
@@ -142,7 +142,7 @@ func (c *Cmd) setServer(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// create the writeTemplate func to execute the template into the RequestWriter.
-		tmpl = template.New("internal")
+		tmpl = template.New("pkg")
 		if tmpl, err = tmpl.Parse(receivePageFileSectionTemplate); err != nil {
 			return err
 		}

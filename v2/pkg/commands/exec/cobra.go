@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/cgi"
-	"github.com/raphaelreyna/oneshot/v2/internal/commands"
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/internal/net/http"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/cgi"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/out"
 	"github.com/spf13/cobra"
 )
 

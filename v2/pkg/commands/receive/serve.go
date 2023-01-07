@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	"github.com/raphaelreyna/oneshot/v2/internal/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/out"
 )
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {

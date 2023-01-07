@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/commands"
-	"github.com/raphaelreyna/oneshot/v2/internal/file"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/internal/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/file"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/spf13/cobra"
 )
 

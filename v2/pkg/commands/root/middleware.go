@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/server"
+	"github.com/raphaelreyna/oneshot/v2/pkg/server"
 )
 
 func botsMiddleware(block bool) server.Middleware {

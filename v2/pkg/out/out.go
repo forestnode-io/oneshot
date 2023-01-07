@@ -7,9 +7,9 @@ import (
 
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/internal/net"
-	oneshotfmt "github.com/raphaelreyna/oneshot/v2/internal/out/fmt"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
+	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/out/fmt"
 )
 
 type key struct{}

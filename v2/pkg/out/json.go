@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 )
 
 func runJSON(ctx context.Context, o *output) {

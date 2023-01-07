@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 )
 
 func runHuman(ctx context.Context, o *output) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/internal/commands/root"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/root"
 )
 
 func main() {

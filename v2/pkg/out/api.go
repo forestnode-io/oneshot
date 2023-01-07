@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/muesli/termenv"
-	"github.com/raphaelreyna/oneshot/v2/internal/events"
-	oneshotfmt "github.com/raphaelreyna/oneshot/v2/internal/out/fmt"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/out/fmt"
 )
 
 func WithOut(ctx context.Context) context.Context {
