@@ -28,10 +28,6 @@ func runHuman(ctx context.Context, o *output) {
 					_ = bf()
 				}
 			case *events.HTTPRequest:
-				if o.servingToStdout {
-					continue
-				}
-
 				o.currentClientSession = &clientSession{
 					Request: event,
 				}

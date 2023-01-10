@@ -25,6 +25,7 @@ func getOut(ctx context.Context) *output {
 type output struct {
 	events     chan events.Event
 	Stdout     *termenv.Output
+	Stderr     *termenv.Output
 	Format     string
 	FormatOpts []string
 
@@ -35,33 +36,46 @@ type output struct {
 	cls                  []*clientSession
 	currentClientSession *clientSession
 
+	quiet bool
+
 	doneChan chan struct{}
+
+	stdoutIsTTY bool
+	stderrIsTTY bool
 }
 
-func (o *output) run(ctx context.Context) {
-	if !o.servingToStdout {
-		o.Stdout.HideCursor()
-	}
+func (o *output) run(ctx context.Context) error {
+	if o.quiet {
+		runQuiet(ctx, o)
+	} else {
+		if !o.servingToStdout && o.stderrIsTTY {
+			o.Stderr.HideCursor()
+		}
 
-	switch o.Format {
-	case "":
-		runHuman(ctx, o)
-	case "json":
-		NewHTTPRequest = events.NewHTTPRequest_WithBody
-		runJSON(ctx, o)
-	}
+		switch o.Format {
+		case "":
+			runHuman(ctx, o)
+		case "json":
+			NewHTTPRequest = events.NewHTTPRequest_WithBody
+			runJSON(ctx, o)
+		}
 
-	if !o.servingToStdout {
-		o.Stdout.ShowCursor()
+		if o.servingToStdout {
+			fmt.Fprint(o.Stdout, "\n")
+		} else {
+			if o.stderrIsTTY {
+				o.Stderr.ShowCursor()
+			}
+		}
 	}
-
 	o.doneChan <- struct{}{}
+	return nil
 }
 
 func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 	qrConf := qrterminal.Config{
 		Level:      qrterminal.L,
-		Writer:     o.Stdout,
+		Writer:     o.Stderr,
 		BlackChar:  qrterminal.BLACK,
 		WhiteChar:  qrterminal.WHITE,
 		QuietZone:  1,
@@ -75,22 +89,22 @@ func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 		addrs, err := oneshotnet.HostAddresses()
 		if err != nil {
 			addr := fmt.Sprintf("%s://localhost%s", scheme, port)
-			fmt.Fprintf(o.Stdout, "%s:\n", addr)
+			fmt.Fprintf(o.Stderr, "%s:\n", addr)
 			qrterminal.GenerateWithConfig(addr, qrConf)
 			return
 		}
 
-		fmt.Fprintln(o.Stdout, "listening on: ")
+		fmt.Fprintln(o.Stderr, "listening on: ")
 		for _, addr := range addrs {
 			addr = fmt.Sprintf("%s://%s", scheme, oneshotfmt.Address(addr, port))
-			fmt.Fprintf(o.Stdout, "%s:\n", addr)
+			fmt.Fprintf(o.Stderr, "%s:\n", addr)
 			qrterminal.GenerateWithConfig(addr, qrConf)
 		}
 		return
 	}
 
 	addr := fmt.Sprintf("%s://%s", scheme, oneshotfmt.Address(host, port))
-	fmt.Fprintf(o.Stdout, "%s:\n", addr)
+	fmt.Fprintf(o.Stderr, "%s:\n", addr)
 	qrterminal.GenerateWithConfig(addr, qrConf)
 }
 

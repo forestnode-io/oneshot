@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 func WithOut(ctx context.Context) context.Context {
 	o := output{
 		Stdout:   termenv.DefaultOutput(),
+		Stderr:   termenv.NewOutput(os.Stderr),
 		doneChan: make(chan struct{}),
 		cls:      make([]*clientSession, 0),
 	}
@@ -38,6 +40,10 @@ func SetEventsChan(ctx context.Context, ec chan events.Event) {
 
 func WriteListeningOnQR(ctx context.Context, scheme, host, port string) {
 	getOut(ctx).writeListeningOnQRCode(scheme, host, port)
+}
+
+func Quiet(ctx context.Context) {
+	getOut(ctx).quiet = true
 }
 
 func SetFormat(ctx context.Context, f string) {
@@ -72,8 +78,23 @@ func ReceivingToStdout(ctx context.Context) {
 	}
 }
 
-func Init(ctx context.Context) {
-	go getOut(ctx).run(ctx)
+func Init(ctx context.Context) error {
+	o := getOut(ctx)
+	stat, err := os.Stdout.Stat()
+	if err != nil {
+		return err
+	}
+	o.stdoutIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+
+	stat, err = os.Stderr.Stat()
+	if err != nil {
+		return err
+	}
+	o.stderrIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+
+	go o.run(ctx)
+
+	return nil
 }
 
 func Wait(ctx context.Context) {
@@ -82,22 +103,31 @@ func Wait(ctx context.Context) {
 
 func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Duration, host string, total int64) func(bool) {
 	o := getOut(ctx)
-	if o.servingToStdout || o.Format == "json" {
+	if o.servingToStdout || o.Format == "json" || o.quiet {
 		return func(_ bool) {}
 	}
 
 	var (
 		start  = time.Now()
+		prefix = fmt.Sprintf("%s  %s", start.Format(progDisplayTimeFormat), host)
+	)
+	if !o.stderrIsTTY {
+		return func(succ bool) {
+			if succ {
+				displayProgressSuccessFlush(o, prefix, start, prog.Load())
+			}
+		}
+	}
+
+	var (
 		ticker = time.NewTicker(period)
 		done   = make(chan struct{})
 
 		lastTime = start
 	)
 
-	fmt.Fprintf(o.Stdout, "%s  %s", start.Format(progDisplayTimeFormat), host)
-	o.Stdout.SaveCursorPosition()
-
-	lastTime = displayProgress(o, start, prog, total)
+	o.Stderr.SaveCursorPosition()
+	lastTime = displayProgress(o, prefix, start, prog, total)
 
 	go func() {
 		for {
@@ -106,7 +136,7 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				lastTime = displayProgress(o, start, prog, total)
+				lastTime = displayProgress(o, prefix, start, prog, total)
 			}
 		}
 	}()
@@ -121,22 +151,49 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 		done = nil
 
 		if success {
-			displayProgressSuccessFlush(o, lastTime, prog.Load())
+			displayProgressSuccessFlush(o, prefix, lastTime, prog.Load())
 		}
 	}
 }
 
 const progDisplayTimeFormat = "2006-01-02T15:04:05-0700"
 
-func displayProgressSuccessFlush(o *output, start time.Time, total int64) {
+func displayProgressSuccessFlush(o *output, prefix string, start time.Time, total int64) {
 	const (
 		kb = 1000
 		mb = kb * 1000
 		gb = mb * 1000
 	)
 
-	o.Stdout.ClearLineRight()
-	o.Stdout.RestoreCursorPosition()
+	if o.stderrIsTTY {
+		o.Stderr.ClearLineRight()
+		o.Stderr.RestoreCursorPosition()
+	} else if o.stdoutIsTTY {
+		o.Stderr.ClearLineRight()
+		o.Stderr.RestoreCursorPosition()
+	}
+
+	if !o.stdoutIsTTY && o.stderrIsTTY {
+		fmt.Fprint(o.Stderr, prefix)
+		switch {
+		case total < kb:
+			fmt.Fprintf(o.Stderr, "%8d B  ", total)
+		case total < mb:
+			fmt.Fprintf(o.Stderr, "%8.2f KB  ", float64(total)/kb)
+		case total < gb:
+			fmt.Fprintf(o.Stderr, "%8.2f MB  ", float64(total)/mb)
+		default:
+			fmt.Fprintf(o.Stderr, "%8.2f GB  ", float64(total)/gb)
+		}
+
+		duration := time.Since(start)
+		rate := 1000 * 1000 * 1000 * total / int64(duration)
+		fmt.Fprintf(o.Stderr, "%v  100%%  0s  %v  ...success\n",
+			oneshotfmt.PrettyRate(rate),
+			oneshotfmt.RoundedDurationString(duration, 2),
+		)
+	}
+	fmt.Fprint(o.Stdout, prefix)
 
 	switch {
 	case total < kb:
@@ -157,7 +214,7 @@ func displayProgressSuccessFlush(o *output, start time.Time, total int64) {
 	)
 }
 
-func displayProgress(o *output, start time.Time, prog *atomic.Int64, total int64) time.Time {
+func displayProgress(o *output, prefix string, start time.Time, prog *atomic.Int64, total int64) time.Time {
 	const (
 		kb = 1000
 		mb = kb * 1000
@@ -166,35 +223,37 @@ func displayProgress(o *output, start time.Time, prog *atomic.Int64, total int64
 
 	var progress = prog.Load()
 
-	o.Stdout.ClearLineRight()
-	o.Stdout.RestoreCursorPosition()
+	o.Stderr.ClearLineRight()
+	o.Stderr.RestoreCursorPosition()
+
+	fmt.Fprint(o.Stderr, prefix)
 
 	switch {
 	case progress < kb:
-		fmt.Fprintf(o.Stdout, "%8d B  ", progress)
+		fmt.Fprintf(o.Stderr, "%8d B  ", progress)
 	case progress < mb:
-		fmt.Fprintf(o.Stdout, "%8.2f KB  ", float64(progress)/kb)
+		fmt.Fprintf(o.Stderr, "%8.2f KB  ", float64(progress)/kb)
 	case progress < gb:
-		fmt.Fprintf(o.Stdout, "%8.2f MB  ", float64(progress)/mb)
+		fmt.Fprintf(o.Stderr, "%8.2f MB  ", float64(progress)/mb)
 	default:
-		fmt.Fprintf(o.Stdout, "%8.2f GB  ", float64(progress)/gb)
+		fmt.Fprintf(o.Stderr, "%8.2f GB  ", float64(progress)/gb)
 	}
 
 	duration := time.Since(start)
 	rate := 1000 * 1000 * 1000 * progress / int64(duration)
-	fmt.Fprintf(o.Stdout, "%v  ", oneshotfmt.PrettyRate(rate))
+	fmt.Fprintf(o.Stderr, "%v  ", oneshotfmt.PrettyRate(rate))
 	if total != 0 {
 		percent := 100.0 * float64(progress) / float64(total)
 		if rate != 0 {
 			timeLeft := (total - progress) / rate
-			fmt.Fprintf(o.Stdout, "%8.2f%%  %d  ", percent, timeLeft)
+			fmt.Fprintf(o.Stderr, "%8.2f%%  %d  ", percent, timeLeft)
 		} else {
-			fmt.Fprintf(o.Stdout, "%8.2f%%  n/a  ", percent)
+			fmt.Fprintf(o.Stderr, "%8.2f%%  n/a  ", percent)
 		}
 	} else {
-		fmt.Fprintf(o.Stdout, "n/a  n/a  ")
+		fmt.Fprintf(o.Stderr, "n/a  n/a  ")
 	}
-	fmt.Fprintf(o.Stdout, "%v  ", oneshotfmt.RoundedDurationString(duration, 2))
+	fmt.Fprintf(o.Stderr, "%v  ", oneshotfmt.RoundedDurationString(duration, 2))
 
 	return start
 }

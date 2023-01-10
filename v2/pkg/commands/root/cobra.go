@@ -59,6 +59,7 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 		timeout, _ = flags.GetDuration("timeout")
 		tlsCert, _ = flags.GetString("tls-cert")
 		tlsKey, _  = flags.GetString("tls-key")
+		quiet, _   = flags.GetBool("quiet")
 	)
 
 	if tlsCert != "" && tlsKey == "" {
@@ -86,8 +87,12 @@ func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) erro
 	}
 	defer l.Close()
 
-	out.SetFormat(ctx, r.outFlag.format)
-	out.SetFormatOpts(ctx, r.outFlag.opts...)
+	if quiet {
+		out.Quiet(ctx)
+	} else {
+		out.SetFormat(ctx, r.outFlag.format)
+		out.SetFormatOpts(ctx, r.outFlag.opts...)
+	}
 
 	out.Init(ctx)
 	defer out.Wait(ctx)
@@ -143,10 +148,11 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 func (r *rootCommand) setFlags() {
 	pflags := r.PersistentFlags()
 	/*
-		pflags.BoolP("quiet", "q", false, "Don't show info messages.")
 
 		pflags.BoolP("silent", "Q", false, "Supress all messages, including errors.")
 	*/
+	pflags.BoolP("quiet", "q", false, "Don't show info messages.")
+
 	pflags.String("tls-cert", "", `Certificate file to use for HTTPS.
 		If the empty string ("") is passed to both this flag and --tls-key, then oneshot will generate, self-sign and use a TLS certificate/key pair.
 		Key file must also be provided using the --tls-key flag.
