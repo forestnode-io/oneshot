@@ -1,4 +1,4 @@
-package out
+package output
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
-	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/out/fmt"
+	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 )
 
 type key struct{}
@@ -60,7 +60,7 @@ func (o *output) run(ctx context.Context) error {
 			runJSON(ctx, o)
 		}
 
-		if o.servingToStdout {
+		if o.servingToStdout && o.Format != "json" {
 			fmt.Fprint(o.Stdout, "\n")
 		} else {
 			if o.stderrIsTTY {

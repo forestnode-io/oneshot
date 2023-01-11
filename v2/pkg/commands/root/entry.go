@@ -2,6 +2,8 @@ package root
 
 import (
 	"context"
+	"io"
+	"net/http"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/exec"
@@ -9,14 +11,27 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/out"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/spf13/cobra"
 )
+
+type rootCommand struct {
+	cobra.Command
+	server     server
+	closers    []io.Closer
+	middleware oneshothttp.Middleware
+
+	outFlag outputFormatFlagArg
+
+	handler http.HandlerFunc
+}
 
 func ExecuteContext(ctx context.Context) error {
 	var root rootCommand
 	root.Use = "oneshot"
-	root.PersistentPreRunE = root.persistentPreRunE
-	root.PersistentPostRunE = root.persistentPostRunE
+	root.PersistentPreRun = root.init
+	root.PersistentPostRunE = root.runServer
 
 	root.setFlags()
 	root.AddCommand(exec.New().Cobra())
@@ -25,11 +40,11 @@ func ExecuteContext(ctx context.Context) error {
 	root.AddCommand(send.New().Cobra())
 
 	ctx = events.WithEvents(ctx)
-	ctx = out.WithOut(ctx)
+	ctx = output.WithOutput(ctx)
 	ctx = commands.WithHTTPHandlerFuncSetter(ctx, &root.handler)
 	ctx = commands.WithClosers(ctx, &root.closers)
 
-	events.RegisterEventListener(ctx, out.SetEventsChan)
+	events.RegisterEventListener(ctx, output.SetEventsChan)
 
 	defer func() {
 		for _, closer := range root.closers {

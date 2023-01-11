@@ -7,6 +7,7 @@ import (
 	"github.com/jackpal/gateway"
 )
 
+// HostAddresses returns all available ip addresses from all interfaces
 func HostAddresses() ([]string, error) {
 	ifaceAddrs, err := net.InterfaceAddrs()
 	if err != nil {

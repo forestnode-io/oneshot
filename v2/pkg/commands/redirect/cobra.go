@@ -7,7 +7,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	"github.com/raphaelreyna/oneshot/v2/pkg/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +34,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 
 	c.cobraCommand = &cobra.Command{
 		Use:  "redirect url",
-		RunE: c.runE,
+		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("redirect url required")
@@ -52,7 +52,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	return c.cobraCommand
 }
 
-func (c *Cmd) runE(cmd *cobra.Command, args []string) error {
+func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
 
@@ -75,7 +75,7 @@ func (c *Cmd) runE(cmd *cobra.Command, args []string) error {
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := c.cobraCommand.Context()
-	out.Raise(ctx, out.NewHTTPRequest(r))
+	output.Raise(ctx, output.NewHTTPRequest(r))
 
 	var header = c.header
 	for key := range header {

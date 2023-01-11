@@ -3,115 +3,28 @@ package root
 import (
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"os"
 	"strings"
 	"syscall"
 
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
-	"github.com/raphaelreyna/oneshot/v2/pkg/out"
-	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/out/fmt"
-	"github.com/raphaelreyna/oneshot/v2/pkg/server"
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 )
 
-type rootCommand struct {
-	cobra.Command
-	server     *server.Server
-	closers    []io.Closer
-	middleware server.Middleware
-
-	outFlag outputFormatFlagArg
-
-	handler http.HandlerFunc
-}
-
-func (r *rootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
+func tlsCertAndKey(flags *pflag.FlagSet) (string, string, error) {
 	var (
-		flags                  = cmd.Flags()
-		allowBots, _           = flags.GetBool("allow-bots")
-		unauthenticatedHandler = http.HandlerFunc(nil)
-		uname, passwd, err     = usernamePassword(flags)
-	)
-	if err != nil {
-		return err
-	}
-
-	r.middleware = r.middleware.
-		Chain(botsMiddleware(allowBots)).
-		Chain(authMiddleware(unauthenticatedHandler, uname, passwd))
-
-	return nil
-}
-
-func (r *rootCommand) persistentPostRunE(cmd *cobra.Command, args []string) error {
-	var (
-		ctx = cmd.Context()
-
-		flags      = cmd.Flags()
-		host, _    = flags.GetString("host")
-		port, _    = flags.GetString("port")
-		jopts, _   = flags.GetString("json")
-		timeout, _ = flags.GetDuration("timeout")
 		tlsCert, _ = flags.GetString("tls-cert")
 		tlsKey, _  = flags.GetString("tls-key")
-		quiet, _   = flags.GetBool("quiet")
 	)
-
 	if tlsCert != "" && tlsKey == "" {
-		return fmt.Errorf("tls cert provided without a key")
+		return "", "", fmt.Errorf("tls cert provided without a key")
 	}
 
 	if tlsKey != "" && tlsCert == "" {
-		return fmt.Errorf("tls key provided without a cert")
+		return "", "", fmt.Errorf("tls key provided without a cert")
 	}
 
-	r.server = &server.Server{
-		HandlerFunc:       r.handler,
-		TLSCert:           tlsCert,
-		TLSKey:            tlsKey,
-		Timeout:           timeout,
-		BufferRequestBody: strings.Contains(jopts, "include-body"),
-		Middleware: []server.Middleware{
-			r.middleware,
-		},
-	}
-
-	l, err := net.Listen("tcp", oneshotfmt.Address(host, port))
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-
-	if quiet {
-		out.Quiet(ctx)
-	} else {
-		out.SetFormat(ctx, r.outFlag.format)
-		out.SetFormatOpts(ctx, r.outFlag.opts...)
-	}
-
-	out.Init(ctx)
-	defer out.Wait(ctx)
-
-	if qr, _ := flags.GetBool("qr-code"); qr {
-		if host == "" {
-			hostIP, err := oneshotnet.GetSourceIP("", "")
-			if err == nil {
-				host = hostIP
-			}
-		}
-		out.WriteListeningOnQR(ctx, "http", host, port)
-	}
-
-	if err := r.server.Serve(ctx, 1, l); err != nil {
-		return err
-	}
-
-	return nil
+	return tlsCert, tlsKey, nil
 }
 
 func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
@@ -147,11 +60,7 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 
 func (r *rootCommand) setFlags() {
 	pflags := r.PersistentFlags()
-	/*
-
-		pflags.BoolP("silent", "Q", false, "Supress all messages, including errors.")
-	*/
-	pflags.BoolP("quiet", "q", false, "Don't show info messages.")
+	pflags.BoolP("quiet", "q", false, "Silence all messages.")
 
 	pflags.String("tls-cert", "", `Certificate file to use for HTTPS.
 		If the empty string ("") is passed to both this flag and --tls-key, then oneshot will generate, self-sign and use a TLS certificate/key pair.

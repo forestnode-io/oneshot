@@ -1,13 +1,58 @@
-package root
+package http
 
 import (
 	"net/http"
 	"strings"
-
-	"github.com/raphaelreyna/oneshot/v2/pkg/server"
 )
 
-func botsMiddleware(block bool) server.Middleware {
+type Middleware func(http.HandlerFunc) http.HandlerFunc
+
+func (mw Middleware) Chain(m Middleware) Middleware {
+	if mw == nil {
+		return m
+	}
+	return func(hf http.HandlerFunc) http.HandlerFunc {
+		hf = mw(hf)
+		return m(hf)
+	}
+}
+
+func Demux(queueSize int64, next http.HandlerFunc) (http.HandlerFunc, func()) {
+	type _wr struct {
+		w    http.ResponseWriter
+		r    *http.Request
+		done func()
+	}
+
+	requestsQueue := make(chan _wr, queueSize)
+
+	go func() {
+		for wr := range requestsQueue {
+			next(wr.w, wr.r)
+			wr.done()
+		}
+	}()
+
+	mw := func(w http.ResponseWriter, r *http.Request) {
+		doneChan := make(chan struct{})
+		wr := _wr{
+			w: w,
+			r: r,
+			done: func() {
+				close(doneChan)
+			},
+		}
+
+		requestsQueue <- wr
+		<-doneChan
+	}
+
+	return mw, func() {
+		close(requestsQueue)
+	}
+}
+
+func BotsMiddleware(block bool) Middleware {
 	if !block {
 		return func(hf http.HandlerFunc) http.HandlerFunc {
 			return hf
@@ -27,7 +72,7 @@ func botsMiddleware(block bool) server.Middleware {
 	}
 }
 
-func authMiddleware(unauthenticated http.HandlerFunc, username, password string) server.Middleware {
+func BasicAuthMiddleware(unauthenticated http.HandlerFunc, username, password string) Middleware {
 	if username == "" && password == "" {
 		return func(hf http.HandlerFunc) http.HandlerFunc {
 			return hf

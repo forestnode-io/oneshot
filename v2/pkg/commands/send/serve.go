@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
 func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -23,11 +23,11 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		header = s.header
 	)
 
-	events.Raise(ctx, out.NewHTTPRequest(r))
+	events.Raise(ctx, output.NewHTTPRequest(r))
 
 	if err := file.Open(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		out.ClientDisconnected(ctx, err)
+		output.ClientDisconnected(ctx, err)
 		return
 	}
 	defer func() {
@@ -57,36 +57,30 @@ func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Size: file.GetSize(),
 	}
 
-	success := false
-	cancelProgDisp := out.DisplayProgress(
+	cancelProgDisp := output.DisplayProgress(
 		cmd.Context(),
 		&file.Progress,
 		125*time.Millisecond,
 		r.RemoteAddr,
 		file.GetSize(),
 	)
-	defer func() {
-		cancelProgDisp(success)
-		if success {
-			events.Success(ctx)
-		}
-	}()
+	defer cancelProgDisp()
 
 	// Start writing the file data to the client while timing how long it takes
 	n, err := io.Copy(w, file)
 	writeSize := n
 	if err != nil {
-		out.ClientDisconnected(ctx, err)
+		output.ClientDisconnected(ctx, err)
 		return
 	}
 
 	if writeSize != eventFile.Size {
-		out.ClientDisconnected(ctx, err)
+		output.ClientDisconnected(ctx, err)
 		return
 	}
 
-	out.Raise(ctx, eventFile)
-	success = true
+	output.Raise(ctx, eventFile)
+	events.Success(ctx)
 }
 
 func (d *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {

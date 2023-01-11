@@ -9,7 +9,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	"github.com/raphaelreyna/oneshot/v2/pkg/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 
 	c.cobraCommand = &cobra.Command{
 		Use:  "exec command",
-		RunE: c.createServer,
+		RunE: c.setHandlerFunc,
 	}
 
 	flags := c.cobraCommand.LocalFlags()
@@ -48,7 +48,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	return c.cobraCommand
 }
 
-func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
+func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
 
@@ -103,7 +103,7 @@ func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
 
 func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := s.cobraCommand.Context()
-	out.Raise(ctx, out.NewHTTPRequest(r))
+	output.Raise(ctx, output.NewHTTPRequest(r))
 
 	s.handler.ServeHTTP(w, r)
 	events.Success(ctx)

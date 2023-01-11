@@ -39,7 +39,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:   "send [file|dir]",
 		Short: "",
 		Long:  "",
-		RunE:  c.createServer,
+		RunE:  c.setHandlerFunc,
 	}
 
 	flags := c.cobraCommand.Flags()
@@ -54,7 +54,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	return c.cobraCommand
 }
 
-func (c *Cmd) createServer(cmd *cobra.Command, args []string) error {
+func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
 		ctx   = cmd.Context()
 		paths = args

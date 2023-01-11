@@ -1,4 +1,4 @@
-package out
+package output
 
 import (
 	"context"

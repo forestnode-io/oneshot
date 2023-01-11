@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/out"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -19,11 +19,10 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events.Raise(ctx, out.NewHTTPRequest(r))
+	events.Raise(ctx, output.NewHTTPRequest(r))
 
 	var (
-		src io.ReadCloser
-		cl  int64 // content-length
+		rb  *requestBody
 		err error
 	)
 
@@ -32,85 +31,75 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rct := r.Header.Get("Content-Type")
 	switch {
 	case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
-		src, cl, err = c.readCloserFromMultipartFormData(r)
+		rb, err = c.readCloserFromMultipartFormData(r)
 	case strings.Contains(rct, "application/x-www-form-urlencoded"): // User uploaded text from HTML text box
-		src, cl, err = c.readCloserFromApplicationWWWForm(r)
+		rb, err = c.readCloserFromApplicationWWWForm(r)
 	default: // Could not determine how file upload was initiated, grabbing the request body
-		src, cl, err = c.readCloserFromRawBody(r)
+		rb, err = c.readCloserFromRawBody(r)
 	}
 	defer r.Body.Close()
 
 	if err != nil {
 		http.Error(w, err.Error(), err.(*httpError).stat)
-		out.ClientDisconnected(ctx, err)
+		output.ClientDisconnected(ctx, err)
 		return
 	}
 
-	if c.decodeBase64Output && 0 < cl {
+	src := rb.r
+	if c.decodeBase64Output && 0 < rb.size {
 		src = io.NopCloser(base64.NewDecoder(base64.StdEncoding, src))
 	}
 
-	c.file.Lock()
-	defer c.file.Unlock()
-
-	if fileSize := int(cl); fileSize != 0 {
+	fileSize := int(rb.size)
+	if fileSize != 0 {
 		// if decoding base64
 		if c.decodeBase64Output {
-			cl = int64(base64.StdEncoding.DecodedLen(fileSize))
+			fileSize = base64.StdEncoding.DecodedLen(fileSize)
 		}
-		c.file.SetSize(cl)
 	}
 
-	// open the file we are writing to
-	if err = c.file.Open(ctx); err != nil {
+	wts, err := c.fileTransferConfig.NewWriteTransferSession(ctx, rb.name, rb.mime)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		out.ClientDisconnected(ctx, err)
+		output.ClientDisconnected(ctx, err)
 		return
 	}
+	defer wts.Close()
 
-	success := false
-	cancelProgDisp := out.DisplayProgress(
+	cancelProgDisp := output.DisplayProgress(
 		ctx,
-		&c.file.Progress,
+		&wts.Progress,
 		125*time.Millisecond,
 		r.RemoteAddr,
-		c.file.GetSize(),
+		int64(fileSize),
 	)
-	defer func() {
-		cancelProgDisp(success)
-	}()
+	defer cancelProgDisp()
 
-	file, getBufBytes := out.NewBufferedWriter(ctx, c.file)
+	file, getBufBytes := output.NewBufferedWriter(ctx, wts)
 	fileReport := events.File{
-		MIME: c.file.MIMEType,
-		Size: c.file.GetSize(),
-		Name: c.file.ClientProvidedName(),
-
+		MIME:              rb.mime,
+		Size:              int64(fileSize),
+		Name:              rb.name,
 		TransferStartTime: time.Now(),
 	}
 
 	fileReport.TransferSize, err = io.Copy(file, src)
 	if err != nil {
 		fileReport.TransferEndTime = time.Now()
-		out.ClientDisconnected(ctx, err)
+		output.ClientDisconnected(ctx, err)
 
-		cancelProgDisp(false)
-		c.file.Reset()
-
-		out.Raise(ctx, events.ClientDisconnected{
+		output.Raise(ctx, events.ClientDisconnected{
 			Err: err,
 		})
 		return
 	}
-	c.file.Close()
 
-	fileReport.Path = c.file.Path
+	fileReport.Path = wts.WroteTo()
 	fileReport.Content = getBufBytes
 	fileReport.TransferEndTime = time.Now()
-	out.Raise(ctx, &fileReport)
+	output.Raise(ctx, &fileReport)
 
 	events.Success(ctx)
-	success = true
 }
 
 func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
@@ -120,8 +109,4 @@ func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 		withJS = false
 	}
 	c.writeTemplate(w, withJS)
-}
-
-func (c *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("expired hello from server"))
 }
