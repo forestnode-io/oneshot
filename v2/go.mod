@@ -29,6 +29,7 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/moby/moby v20.10.22+incompatible
 	github.com/muesli/termenv v0.13.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/term v0.4.0

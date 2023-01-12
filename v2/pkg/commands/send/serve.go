@@ -7,79 +7,60 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
-func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var (
-		ctx  = s.Cobra().Context()
-		file = s.file
+		ctx = c.Cobra().Context()
 
-		cmd           = s.cobraCommand
-		flags         = cmd.Flags()
-		noDownload, _ = flags.GetBool("no-download")
-		status, _     = flags.GetInt("status-code")
+		cmd = c.cobraCommand
 
-		header = s.header
+		header = c.header
 	)
 
-	events.Raise(ctx, output.NewHTTPRequest(r))
-
-	if err := file.Open(); err != nil {
+	rts, err := c.rtc.NewReaderTransferSession(ctx)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		output.ClientDisconnected(ctx, err)
 		return
 	}
-	defer func() {
-		file.Reset()
-	}()
-
-	// Are we triggering a file download on the users browser?
-	if !noDownload {
-		w.Header().Set("Content-Disposition",
-			fmt.Sprintf("attachment;filename=%s", file.Name),
-		)
+	defer rts.Close()
+	size, err := rts.Size()
+	if err == nil {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
 	}
 
-	// Set standard Content headers
-	w.Header().Set("Content-Type", file.MimeType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", file.GetSize()))
-
-	// Set any additional headers added by the user via flags
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}
-	w.WriteHeader(status)
+	w.WriteHeader(c.status)
 
-	eventFile := &events.File{
-		Name: file.Name,
-		MIME: file.MimeType,
-		Size: file.GetSize(),
+	if !file.IsTTY(c.rtc) {
+		cancelProgDisp := output.DisplayProgress(
+			cmd.Context(),
+			&rts.Progress,
+			125*time.Millisecond,
+			r.RemoteAddr,
+			0,
+		)
+		defer cancelProgDisp()
 	}
 
-	cancelProgDisp := output.DisplayProgress(
-		cmd.Context(),
-		&file.Progress,
-		125*time.Millisecond,
-		r.RemoteAddr,
-		file.GetSize(),
-	)
-	defer cancelProgDisp()
-
 	// Start writing the file data to the client while timing how long it takes
-	n, err := io.Copy(w, file)
+	n, err := io.Copy(w, rts)
 	writeSize := n
 	if err != nil {
 		output.ClientDisconnected(ctx, err)
 		return
 	}
 
-	if writeSize != eventFile.Size {
+	if writeSize < size {
 		output.ClientDisconnected(ctx, err)
 		return
 	}
 
-	output.Raise(ctx, eventFile)
 	events.Success(ctx)
 }
 
