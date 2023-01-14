@@ -28,7 +28,10 @@ type rootCommand struct {
 }
 
 func ExecuteContext(ctx context.Context) error {
-	var root rootCommand
+	var (
+		root rootCommand
+		err  error
+	)
 	root.Use = "oneshot"
 	root.PersistentPreRun = root.init
 	root.PersistentPostRunE = root.runServer
@@ -40,7 +43,10 @@ func ExecuteContext(ctx context.Context) error {
 	root.AddCommand(send.New().Cobra())
 
 	ctx = events.WithEvents(ctx)
-	ctx = output.WithOutput(ctx)
+	ctx, err = output.WithOutput(ctx)
+	if err != nil {
+		return err
+	}
 	ctx = commands.WithHTTPHandlerFuncSetter(ctx, &root.handler)
 	ctx = commands.WithClosers(ctx, &root.closers)
 

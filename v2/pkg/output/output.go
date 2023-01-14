@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"text/tabwriter"
+	"time"
 
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
@@ -14,7 +16,7 @@ import (
 
 type key struct{}
 
-func getOut(ctx context.Context) *output {
+func getOutput(ctx context.Context) *output {
 	o, _ := ctx.Value(key{}).(*output)
 	if o == nil {
 		panic("no output set")
@@ -23,11 +25,13 @@ func getOut(ctx context.Context) *output {
 }
 
 type output struct {
-	events     chan events.Event
-	Stdout     *termenv.Output
-	Stderr     *termenv.Output
-	Format     string
-	FormatOpts []string
+	events       chan events.Event
+	Stdout       *termenv.Output
+	Stderr       *termenv.Output
+	tabbedStdout *tabwriter.Writer
+	tabbedStderr *tabwriter.Writer
+	Format       string
+	FormatOpts   []string
 
 	skipSummary     bool
 	servingToStdout bool
@@ -42,6 +46,13 @@ type output struct {
 
 	stdoutIsTTY bool
 	stderrIsTTY bool
+
+	displayProgresssPeriod    time.Duration
+	lastProgressDisplayAmount int64
+
+	restoreConsole  func()
+	stdoutFailColor termenv.Color
+	stderrFailColor termenv.Color
 }
 
 func (o *output) run(ctx context.Context) error {
@@ -68,6 +79,7 @@ func (o *output) run(ctx context.Context) error {
 			}
 		}
 	}
+	o.restoreConsole()
 	o.doneChan <- struct{}{}
 	return nil
 }
@@ -116,4 +128,9 @@ type clientSession struct {
 type report struct {
 	Success  *clientSession
 	Attempts []*clientSession
+}
+
+func bytesPerSecond(bytes int64, dt time.Duration) float64 {
+	const floatSecond = float64(time.Second)
+	return float64(bytes) / float64(dt) * floatSecond
 }

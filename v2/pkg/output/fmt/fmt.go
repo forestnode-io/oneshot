@@ -38,22 +38,23 @@ func PrettySize(n int64) string {
 	// Create the size string using appropriate units: B, KB, MB, and GB
 	switch {
 	case size < kb:
-		str = fmt.Sprintf("%d B", n)
+		str = fmt.Sprintf("%dB", n)
 	case size < mb:
 		size = size / kb
-		str = fmt.Sprintf("%.3f KB", size)
+		str = fmt.Sprintf("%.2fKB", size)
 	case size < gb:
 		size = size / mb
-		str = fmt.Sprintf("%.3f MB", size)
+		str = fmt.Sprintf("%.2fMB", size)
 	default:
 		size = size / gb
-		str = fmt.Sprintf("%.3f GB", size)
+		str = fmt.Sprintf("%.2fGB", size)
 	}
 
 	return str
 }
 
-func PrettyRate(n int64) string {
+// PrettyRate returns a pretty version of n, where n is in bytes per nanosecond
+func PrettyRate(n float64) string {
 	var (
 		str  string
 		rate = float64(n)
@@ -62,19 +63,30 @@ func PrettyRate(n int64) string {
 	// Create the size string using appropriate units: B, KB, MB, and GB
 	switch {
 	case rate < kb:
-		str = fmt.Sprintf("%.2f B/s", rate)
+		str = fmt.Sprintf("%.2fB/s", rate)
 	case rate < mb:
 		rate = rate / kb
-		str = fmt.Sprintf("%.2f KB/s", rate)
+		str = fmt.Sprintf("%.2fKB/s", rate)
 	case rate < gb:
 		rate = rate / mb
-		str = fmt.Sprintf("%.2f MB/s", rate)
+		str = fmt.Sprintf("%.2fMB/s", rate)
 	default:
 		rate = rate / gb
-		str = fmt.Sprintf("%.2f GB/s", rate)
+		str = fmt.Sprintf("%.2fGB/s", rate)
 	}
 
 	return str
+}
+
+type Number interface {
+	~float32 | ~float64 | ~int | ~int32 | ~int64
+}
+
+func PrettyPercent[T Number](x, total T) string {
+	if total == 0 {
+		return "n/a"
+	}
+	return fmt.Sprintf("%.2f%%", float64(100*x/total))
 }
 
 func Address(host, port string) string {

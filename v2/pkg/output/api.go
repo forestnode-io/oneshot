@@ -7,20 +7,57 @@ import (
 	"io"
 	"os"
 	"sync/atomic"
+	"text/tabwriter"
 	"time"
 
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 )
 
-func WithOutput(ctx context.Context) context.Context {
+func WithOutput(ctx context.Context) (context.Context, error) {
 	o := output{
 		Stdout:   termenv.DefaultOutput(),
 		Stderr:   termenv.NewOutput(os.Stderr),
 		doneChan: make(chan struct{}),
 		cls:      make([]*clientSession, 0),
 	}
-	return context.WithValue(ctx, key{}, &o)
+
+	restoreStdout, err := termenv.EnableVirtualTerminalProcessing(o.Stdout)
+	if err != nil {
+		return nil, err
+	}
+	if !o.Stdout.EnvNoColor() {
+		o.stdoutFailColor = o.Stdout.Color("#ff0000")
+	}
+
+	restoreStderr, err := termenv.EnableVirtualTerminalProcessing(o.Stderr)
+	if err != nil {
+		return nil, err
+	}
+	if !o.Stderr.EnvNoColor() {
+		o.stderrFailColor = o.Stderr.Color("#ff0000")
+	}
+
+	o.restoreConsole = func() {
+		restoreStdout()
+		restoreStderr()
+	}
+
+	stat, err := os.Stdout.Stat()
+	if err != nil {
+		return nil, err
+	}
+	o.stdoutIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+	o.tabbedStdout = tabwriter.NewWriter(o.Stdout, 12, 2, 2, ' ', 0)
+
+	stat, err = os.Stderr.Stat()
+	if err != nil {
+		return nil, err
+	}
+	o.stderrIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+	o.tabbedStderr = tabwriter.NewWriter(o.Stderr, 12, 2, 2, ' ', 0)
+
+	return context.WithValue(ctx, key{}, &o), nil
 }
 
 func ClientDisconnected(ctx context.Context, err error) {
@@ -30,43 +67,43 @@ func ClientDisconnected(ctx context.Context, err error) {
 }
 
 func Raise(ctx context.Context, e events.Event) {
-	getOut(ctx).events <- e
+	getOutput(ctx).events <- e
 }
 
 func SetEventsChan(ctx context.Context, ec chan events.Event) {
-	getOut(ctx).events = ec
+	getOutput(ctx).events = ec
 }
 
 func WriteListeningOnQR(ctx context.Context, scheme, host, port string) {
-	getOut(ctx).writeListeningOnQRCode(scheme, host, port)
+	getOutput(ctx).writeListeningOnQRCode(scheme, host, port)
 }
 
 func Quiet(ctx context.Context) {
-	getOut(ctx).quiet = true
+	getOutput(ctx).quiet = true
 }
 
 func SetFormat(ctx context.Context, f string) {
-	getOut(ctx).Format = f
+	getOutput(ctx).Format = f
 }
 
 func SetFormatOpts(ctx context.Context, opts ...string) {
-	getOut(ctx).FormatOpts = opts
+	getOutput(ctx).FormatOpts = opts
 }
 
 func GetFormatAndOpts(ctx context.Context) (string, []string) {
-	o := getOut(ctx)
+	o := getOutput(ctx)
 	return o.Format, o.FormatOpts
 }
 
 func IsServingToStdout(ctx context.Context) bool {
-	return getOut(ctx).servingToStdout
+	return getOutput(ctx).servingToStdout
 }
 
 // ReceivingToStdout ensures that only the appropriate content is sent to stdout.
 // The summary is flagged to be skipped and if outputting json, make sure we have initiated the buffer
 // that holds the received content.
 func ReceivingToStdout(ctx context.Context) {
-	o := getOut(ctx)
+	o := getOutput(ctx)
 
 	o.skipSummary = true
 	o.servingToStdout = true
@@ -78,47 +115,35 @@ func ReceivingToStdout(ctx context.Context) {
 }
 
 func Init(ctx context.Context) error {
-	o := getOut(ctx)
-	stat, err := os.Stdout.Stat()
-	if err != nil {
-		return err
-	}
-	o.stdoutIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
-
-	stat, err = os.Stderr.Stat()
-	if err != nil {
-		return err
-	}
-	o.stderrIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
-
-	go o.run(ctx)
-
+	go getOutput(ctx).run(ctx)
 	return nil
 }
 
 func Wait(ctx context.Context) {
-	<-getOut(ctx).doneChan
+	<-getOutput(ctx).doneChan
 }
 
 func GetWriteCloser(ctx context.Context) io.WriteCloser {
-	o := getOut(ctx)
+	o := getOutput(ctx)
 	return &writer{o.Stdout, o.receivedBuf}
 }
 
 func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Duration, host string, total int64) func() {
-	o := getOut(ctx)
+	o := getOutput(ctx)
 	if o.servingToStdout || o.Format == "json" || o.quiet {
 		return func() {}
 	}
 
 	var (
 		start  = time.Now()
-		prefix = fmt.Sprintf("%s  %s", start.Format(progDisplayTimeFormat), host)
+		prefix = fmt.Sprintf("%s\t%s", start.Format(progDisplayTimeFormat), host)
 	)
 	if !o.stderrIsTTY {
 		return func() {
 			if events.Succeeded(ctx) {
 				displayProgressSuccessFlush(o, prefix, start, prog.Load())
+			} else {
+				displayProgressFailFlush(o, prefix, start, prog.Load(), total)
 			}
 		}
 	}
@@ -130,7 +155,7 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 		lastTime = start
 	)
 
-	o.Stderr.SaveCursorPosition()
+	o.displayProgresssPeriod = period
 	lastTime = displayProgress(o, prefix, start, prog, total)
 
 	go func() {
@@ -156,12 +181,14 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 
 		if events.Succeeded(ctx) {
 			displayProgressSuccessFlush(o, prefix, lastTime, prog.Load())
+		} else {
+			displayProgressFailFlush(o, prefix, start, prog.Load(), total)
 		}
 	}
 }
 
 func NewBufferedWriter(ctx context.Context, w io.Writer) (io.Writer, func() []byte) {
-	o := getOut(ctx)
+	o := getOutput(ctx)
 	if o.Format != "json" {
 		return w, nil
 	}

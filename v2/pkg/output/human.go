@@ -17,9 +17,6 @@ func runHuman(ctx context.Context, o *output) {
 		case event := <-o.events:
 			switch event := event.(type) {
 			case *events.ClientDisconnected:
-				if !o.servingToStdout {
-					fmt.Fprintf(o.Stdout, "...disconnected\n")
-				}
 				o.cls = append(o.cls, o.currentClientSession)
 				o.currentClientSession = nil
 			case *events.File:
