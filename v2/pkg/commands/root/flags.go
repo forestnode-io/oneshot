@@ -104,6 +104,7 @@ func (r *rootCommand) setFlags() {
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
 
 	pflags.BoolP("qr-code", "Q", false, `Generate QR codes for connection URLs`)
+	pflags.Bool("no-color", false, `Don't use color`)
 }
 
 type outputFormatFlagArg struct {

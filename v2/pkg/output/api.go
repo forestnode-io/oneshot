@@ -99,6 +99,12 @@ func IsServingToStdout(ctx context.Context) bool {
 	return getOutput(ctx).servingToStdout
 }
 
+func NoColor(ctx context.Context) {
+	o := getOutput(ctx)
+	o.stdoutFailColor = nil
+	o.stderrFailColor = nil
+}
+
 // ReceivingToStdout ensures that only the appropriate content is sent to stdout.
 // The summary is flagged to be skipped and if outputting json, make sure we have initiated the buffer
 // that holds the received content.

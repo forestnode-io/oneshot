@@ -31,6 +31,9 @@ func (r *rootCommand) init(cmd *cobra.Command, args []string) {
 		output.SetFormat(ctx, r.outFlag.format)
 		output.SetFormatOpts(ctx, r.outFlag.opts...)
 	}
+	if noColor, _ := flags.GetBool("no-color"); noColor {
+		output.NoColor(ctx)
+	}
 }
 
 // runServer starts the actual oneshot http server.
