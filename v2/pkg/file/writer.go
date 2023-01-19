@@ -36,7 +36,7 @@ func NewWriteTransferConfig(ctx context.Context, location string) (*WriteTransfe
 			wtc.w = null{}
 		} else {
 			// otherwise write the content to stdout
-			wtc.w = output.GetWriteCloser(ctx)
+			wtc.w = output.GetBufferedWriteCloser(ctx)
 		}
 		return &wtc, nil
 	}

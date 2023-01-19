@@ -118,16 +118,15 @@ func ReceivingToStdout(ctx context.Context) {
 	}
 }
 
-func Init(ctx context.Context) error {
+func Init(ctx context.Context) {
 	go getOutput(ctx).run(ctx)
-	return nil
 }
 
 func Wait(ctx context.Context) {
 	<-getOutput(ctx).doneChan
 }
 
-func GetWriteCloser(ctx context.Context) io.WriteCloser {
+func GetBufferedWriteCloser(ctx context.Context) io.WriteCloser {
 	o := getOutput(ctx)
 	return &writer{os.Stdout, o.receivedBuf}
 }
@@ -139,20 +138,18 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 	}
 
 	var (
+		done chan struct{}
+
 		start  = time.Now()
 		prefix = fmt.Sprintf("%s\t%s", start.Format(progDisplayTimeFormat), host)
 	)
 
-	var (
-		ticker = time.NewTicker(period)
-		done   = make(chan struct{})
-
-		lastTime = start
-	)
-
 	if o.dynamicOutput != nil {
 		o.displayProgresssPeriod = period
-		lastTime = displayProgress(o, prefix, start, prog, total)
+		displayDynamicProgress(o, prefix, start, prog, total)
+
+		done = make(chan struct{})
+		ticker := time.NewTicker(period)
 
 		go func() {
 			for {
@@ -161,31 +158,24 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					lastTime = displayProgress(o, prefix, start, prog, total)
+					displayDynamicProgress(o, prefix, start, prog, total)
 				}
 			}
-		}()
-	} else {
-		go func() {
-			<-done
-			ticker.Stop()
 		}()
 	}
 
 	return func() {
-		if done == nil {
-			return
+		if done != nil {
+			done <- struct{}{}
+			close(done)
+			done = nil
 		}
 
 		if events.Succeeded(ctx) {
-			displayProgressSuccessFlush(o, prefix, lastTime, prog.Load())
+			displayProgressSuccessFlush(o, prefix, start, prog.Load())
 		} else {
 			displayProgressFailFlush(o, prefix, start, prog.Load(), total)
 		}
-
-		done <- struct{}{}
-		close(done)
-		done = nil
 	}
 }
 

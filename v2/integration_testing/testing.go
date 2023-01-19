@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/stretchr/testify/suite"
@@ -60,7 +61,7 @@ type RetryClient struct {
 	Suite  *suite.Suite
 }
 
-func (rc *RetryClient) Post(url, mime string, body io.Reader) *http.Response {
+func (rc *RetryClient) Post(url, mime string, body io.Reader) (*http.Response, error) {
 	var response *http.Response
 
 	if rc.client == nil {
@@ -74,12 +75,14 @@ func (rc *RetryClient) Post(url, mime string, body io.Reader) *http.Response {
 		}
 		req.Header.Set("Content-Type", mime)
 		response, err = rc.client.RoundTrip(req)
-		if err != nil && rc.Suite != nil {
-			rc.Suite.T().Logf("(*RetryClient)Post: error: %s", err.Error())
+		if err != nil {
+			if !strings.Contains(err.Error(), "refused") {
+				return nil, err
+			}
 		}
 	}
 
-	return response
+	return response, nil
 }
 
 func (rc *RetryClient) Get(url string) (*http.Response, error) {
@@ -94,8 +97,13 @@ func (rc *RetryClient) Get(url string) (*http.Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		response, _ = rc.client.RoundTrip(req)
-		time.Sleep(10 * time.Millisecond)
+		response, err = rc.client.RoundTrip(req)
+		if err != nil {
+			if !strings.Contains(err.Error(), "refused") {
+				return nil, err
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	return response, nil

@@ -17,7 +17,7 @@ const (
 	gb = mb * 1000
 )
 
-func displayProgress(o *output, prefix string, start time.Time, prog *atomic.Int64, total int64) time.Time {
+func displayDynamicProgress(o *output, prefix string, start time.Time, prog *atomic.Int64, total int64) time.Time {
 	var (
 		progress = prog.Load()
 		out      = o.dynamicOutput

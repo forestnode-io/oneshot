@@ -23,7 +23,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 	client := itest.RetryClient{
 		Suite: &suite.Suite,
 	}
-	resp := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	resp, err := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	suite.Require().NoError(err)
 	suite.Require().NotNil(resp)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
@@ -48,7 +49,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrNONTTY() {
 	client := itest.RetryClient{
 		Suite: &suite.Suite,
 	}
-	resp := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	resp, err := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	suite.Require().NoError(err)
 	suite.Require().NotNil(resp)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
@@ -74,7 +76,8 @@ func (suite *ts) Test_FROM_ANY_TO_File__StdoutTTY_StderrTTY() {
 	client := itest.RetryClient{
 		Suite: &suite.Suite,
 	}
-	resp := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	resp, err := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	suite.Require().NoError(err)
 	suite.Require().NotNil(resp)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
@@ -103,7 +106,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY_DecodeBase64() {
 	)
 	base64.StdEncoding.Encode(encodedPayload, payload)
 	client := itest.RetryClient{}
-	resp := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader(encodedPayload))
+	resp, err := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader(encodedPayload))
+	suite.Require().NoError(err)
 	suite.Require().NotNil(resp)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
@@ -125,7 +129,8 @@ func (suite *ts) Test_FROM_ANY_TO_File_DecodeBase64() {
 	)
 	base64.StdEncoding.Encode(encodedPayload, payload)
 	client := itest.RetryClient{}
-	resp := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader(encodedPayload))
+	resp, err := client.Post("http://127.0.0.1:8080", "text/plain", bytes.NewReader(encodedPayload))
+	suite.Require().NoError(err)
 	suite.Require().NotNil(resp)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 	resp.Body.Close()

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
@@ -139,25 +138,26 @@ func (s *server) serve(ctx context.Context, queueSize int64, l net.Listener) err
 		l = oneshotnet.NewListenerTimer(l, s.Timeout)
 	}
 
+	errs := make(chan error, 1)
 	go func() {
-		<-ctx.Done()
-		s.Server.Close()
+		if s.TLSKey != "" {
+			errs <- s.Server.ServeTLS(l, s.TLSCert, s.TLSKey)
+		} else {
+			errs <- s.Server.Serve(l)
+		}
 	}()
 
-	var err error
-	if s.TLSKey != "" {
-		err = s.Server.ServeTLS(l, s.TLSCert, s.TLSKey)
-	} else {
-		err = s.Server.Serve(l)
-	}
-	if err != nil {
-		if errors.Is(err, http.ErrServerClosed) {
-			if err := events.GetCancellationError(ctx); err != nil {
-				// TODO(raphaelreyna) improve this
-				panic(err)
-			}
-		}
+	<-ctx.Done()
+
+	//shutdown gracefully
+	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	_ = s.Server.Shutdown(ctx)
+	cancel()
+
+	err := <-errs
+	if errors.Is(err, http.ErrServerClosed) {
+		err = nil
 	}
 
-	return nil
+	return err
 }
