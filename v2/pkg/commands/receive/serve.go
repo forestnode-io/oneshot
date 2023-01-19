@@ -94,6 +94,8 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(c.statusCode)
+
 	fileReport.Path = wts.WroteTo()
 	fileReport.Content = getBufBytes
 	fileReport.TransferEndTime = time.Now()

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"text/tabwriter"
+	"os"
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
@@ -25,13 +25,15 @@ func getOutput(ctx context.Context) *output {
 }
 
 type output struct {
-	events       chan events.Event
-	Stdout       *termenv.Output
-	Stderr       *termenv.Output
-	tabbedStdout *tabwriter.Writer
-	tabbedStderr *tabwriter.Writer
-	Format       string
-	FormatOpts   []string
+	events chan events.Event
+
+	stdoutTTY *termenv.Output
+	stderrTTY *termenv.Output
+
+	dynamicOutput *tabbedDynamicOutput
+
+	Format     string
+	FormatOpts []string
 
 	skipSummary     bool
 	servingToStdout bool
@@ -44,13 +46,12 @@ type output struct {
 
 	doneChan chan struct{}
 
-	stdoutIsTTY bool
-	stderrIsTTY bool
+	stdinIsTTY bool
 
 	displayProgresssPeriod    time.Duration
 	lastProgressDisplayAmount int64
 
-	restoreConsole  func()
+	restoreConsole  []func() error
 	stdoutFailColor termenv.Color
 	stderrFailColor termenv.Color
 }
@@ -59,10 +60,6 @@ func (o *output) run(ctx context.Context) error {
 	if o.quiet {
 		runQuiet(ctx, o)
 	} else {
-		if !o.servingToStdout && o.stderrIsTTY {
-			o.Stderr.HideCursor()
-		}
-
 		switch o.Format {
 		case "":
 			runHuman(ctx, o)
@@ -71,15 +68,18 @@ func (o *output) run(ctx context.Context) error {
 			runJSON(ctx, o)
 		}
 
+		// is outputting human readable content to stdout
 		if o.servingToStdout && o.Format != "json" {
-			fmt.Fprint(o.Stdout, "\n")
-		} else {
-			if o.stderrIsTTY {
-				o.Stderr.ShowCursor()
-			}
+			// add a newline.
+			// some shells will add a EOF character otherwise
+			fmt.Fprint(os.Stdout, "\n")
 		}
 	}
-	o.restoreConsole()
+
+	for _, f := range o.restoreConsole {
+		f()
+	}
+
 	o.doneChan <- struct{}{}
 	return nil
 }
@@ -87,7 +87,7 @@ func (o *output) run(ctx context.Context) error {
 func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 	qrConf := qrterminal.Config{
 		Level:      qrterminal.L,
-		Writer:     o.Stderr,
+		Writer:     os.Stderr,
 		BlackChar:  qrterminal.BLACK,
 		WhiteChar:  qrterminal.WHITE,
 		QuietZone:  1,
@@ -101,23 +101,111 @@ func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 		addrs, err := oneshotnet.HostAddresses()
 		if err != nil {
 			addr := fmt.Sprintf("%s://localhost%s", scheme, port)
-			fmt.Fprintf(o.Stderr, "%s:\n", addr)
+			fmt.Fprintf(os.Stderr, "%s:\n", addr)
 			qrterminal.GenerateWithConfig(addr, qrConf)
 			return
 		}
 
-		fmt.Fprintln(o.Stderr, "listening on: ")
+		fmt.Fprintln(os.Stderr, "listening on: ")
 		for _, addr := range addrs {
 			addr = fmt.Sprintf("%s://%s", scheme, oneshotfmt.Address(addr, port))
-			fmt.Fprintf(o.Stderr, "%s:\n", addr)
+			fmt.Fprintf(os.Stderr, "%s:\n", addr)
 			qrterminal.GenerateWithConfig(addr, qrConf)
 		}
 		return
 	}
 
 	addr := fmt.Sprintf("%s://%s", scheme, oneshotfmt.Address(host, port))
-	fmt.Fprintf(o.Stderr, "%s:\n", addr)
+	fmt.Fprintf(os.Stderr, "%s:\n", addr)
 	qrterminal.GenerateWithConfig(addr, qrConf)
+}
+
+// ttyCheck checks if stdin, stdout, and stderr are ttys
+// and records it in o.
+func (o *output) ttyCheck() error {
+	stat, err := os.Stdout.Stat()
+	if err != nil {
+		return err
+	}
+	stdoutIsTTY := (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+	//o.tabbedStdout = tabwriter.NewWriter(o.Stdout, 12, 2, 2, ' ', 0)
+
+	stat, err = os.Stderr.Stat()
+	if err != nil {
+		return err
+	}
+	stderrIsTTY := (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+
+	stat, err = os.Stderr.Stat()
+	if err != nil {
+		return err
+	}
+	o.stdinIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+
+	if os.Getenv("ONESHOT_TESTING_TTY_STDOUT") != "" {
+		stdoutIsTTY = true
+	}
+
+	if os.Getenv("ONESHOT_TESTING_TTY_STDERR") != "" {
+		stderrIsTTY = true
+	}
+
+	if os.Getenv("ONESHOT_TESTING_TTY_STDIN") != "" {
+		o.stdinIsTTY = true
+	}
+
+	if stdoutIsTTY {
+		o.stdoutTTY = termenv.DefaultOutput()
+		restoreStdout, err := termenv.EnableVirtualTerminalProcessing(o.stdoutTTY)
+		if err != nil {
+			return err
+		}
+		if !o.stdoutTTY.EnvNoColor() {
+			o.stdoutFailColor = o.stdoutTTY.Color("#ff0000")
+		}
+		o.restoreConsole = append(o.restoreConsole, restoreStdout)
+	}
+
+	if stderrIsTTY {
+		o.stderrTTY = termenv.NewOutput(os.Stderr)
+		restoreStderr, err := termenv.EnableVirtualTerminalProcessing(o.stderrTTY)
+		if err != nil {
+			return err
+		}
+		if !o.stderrTTY.EnvNoColor() {
+			o.stderrFailColor = o.stderrTTY.Color("#ff0000")
+		}
+		o.restoreConsole = append(o.restoreConsole, restoreStderr)
+	}
+
+	return nil
+}
+
+func (o *output) enableDynamicOutput(te *termenv.Output) {
+	if te == nil {
+		if o.stdoutTTY != nil {
+			te = o.stdoutTTY
+		} else if o.stderrTTY != nil {
+			te = o.stderrTTY
+		}
+	}
+
+	if te != nil {
+		o.dynamicOutput = newTabbedDynamicOutput(te)
+	}
+
+	if o.dynamicOutput == nil {
+		return
+	}
+
+	o.dynamicOutput.HideCursor()
+	o.restoreConsole = append(o.restoreConsole, func() error {
+		if o.dynamicOutput != nil {
+			o.dynamicOutput.ShowCursor()
+			o.dynamicOutput = nil
+		}
+		return nil
+	})
 }
 
 type clientSession struct {

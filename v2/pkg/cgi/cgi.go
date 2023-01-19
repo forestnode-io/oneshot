@@ -89,7 +89,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	internalError := func(err error) {
 		fmt.Fprintf(h.stderr, "internal server error: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	cmd := &exec.Cmd{
@@ -105,12 +105,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	stdoutRead, err := cmd.StdoutPipe()
 	if err != nil {
-		internalError(err)
+		internalError(fmt.Errorf("unable to get cmd stdout pipe: %w", err))
 		return
 	}
 	err = cmd.Start()
 	if err != nil {
-		internalError(err)
+		internalError(fmt.Errorf("unable to get start cmd: %w", err))
 		return
 	}
 

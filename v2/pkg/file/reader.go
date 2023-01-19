@@ -86,7 +86,7 @@ func NewReadTransferConfig(locations ...string) (ReadTransferConfig, error) {
 	// determine what we're sending and what needs to be archived
 	switch len(locations) {
 	case 0: // transferring from stdin
-		if isatty.IsTerminal(os.Stdin.Fd()) {
+		if isatty.IsTerminal(os.Stdin.Fd()) || os.Getenv("ONESHOT_TESTING_TTY_STDIN") != "" {
 			rc = &stdinTTYReaderConfig{}
 		} else {
 			// could be either a file or pipe

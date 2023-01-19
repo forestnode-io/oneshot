@@ -2,10 +2,11 @@ package output
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
+	"text/tabwriter"
 	"time"
 
-	"github.com/muesli/termenv"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 )
 
@@ -19,14 +20,14 @@ const (
 func displayProgress(o *output, prefix string, start time.Time, prog *atomic.Int64, total int64) time.Time {
 	var (
 		progress = prog.Load()
-		out      = o.tabbedStderr
+		out      = o.dynamicOutput
 		rate     float64
 	)
 
 	rate = bytesPerSecond(progress-o.lastProgressDisplayAmount, o.displayProgresssPeriod)
 	o.lastProgressDisplayAmount = progress
 
-	_displayResetLine(o.Stderr)
+	o.dynamicOutput.resetLine()
 	fmt.Fprint(out, prefix)
 
 	var (
@@ -49,7 +50,7 @@ func displayProgress(o *output, prefix string, start time.Time, prog *atomic.Int
 		fmt.Fprintf(out, "\t%v\t%v\tn/a\t%s\tn/a", sizeString, rateString, durationString)
 	}
 
-	out.Flush()
+	out.flush()
 
 	return start
 }
@@ -75,37 +76,50 @@ func displayProgressFailFlush(o *output, prefix string, start time.Time, prog, t
 	_displayFlush(o, prefix+tail, false)
 }
 
-func _displayResetLine(o *termenv.Output) {
-	o.WriteString("\r")
-	o.ClearLineRight()
-}
-
 func _displayFlush(o *output, s string, success bool) {
-	// if we were dynamically displaying progress
-	if o.stderrIsTTY {
-		// and stderr is the only tty
-		if !o.stdoutIsTTY {
-			// update the progress via stderr
-			_displayResetLine(o.Stderr)
-			if color := o.stderrFailColor; !success && color != nil {
-				payload := o.Stderr.String(s)
-				payload = payload.Foreground(color)
-				fmt.Fprint(o.tabbedStderr, payload)
-			} else {
-				fmt.Fprint(o.tabbedStderr, s)
-			}
-			o.tabbedStderr.Flush()
+	// if we were dynamically displaying progress to stderr
+	var printedToStderr bool
+	if o.dynamicOutput != nil && o.stdoutTTY == nil {
+		// update the progress there
+		o.dynamicOutput.resetLine()
+		if color := o.stderrFailColor; !success && color != nil {
+			payload := o.dynamicOutput.String(s)
+			payload = payload.Foreground(color)
+			fmt.Fprint(o.dynamicOutput, payload)
+		} else {
+			fmt.Fprint(o.dynamicOutput, s)
 		}
+
+		o.dynamicOutput.flush()
+		printedToStderr = true
 	}
 
+	// if serving to stdout
+	if o.servingToStdout && !printedToStderr {
+		// but not to the tty
+		if o.stdoutTTY == nil {
+			// output info to stderr
+			tw := tabwriter.NewWriter(os.Stderr, 12, 2, 2, ' ', 0)
+			fmt.Fprint(tw, s)
+			tw.Flush()
+		} else if o.stderrTTY == nil {
+			// output info to stderr
+			tw := tabwriter.NewWriter(os.Stderr, 12, 2, 2, ' ', 0)
+			fmt.Fprint(tw, s)
+			tw.Flush()
+		}
+		return
+	}
 	// print to stdout
-	if o.stdoutIsTTY {
-		_displayResetLine(o.Stdout)
+	if o.stdoutTTY != nil {
+		fmt.Fprint(o.stdoutTTY, "\r")
+		o.stdoutTTY.ClearLine()
 		if color := o.stdoutFailColor; !success && color != nil {
-			s = o.Stdout.String(s).Foreground(color).String()
+			s = o.stdoutTTY.String(s).Foreground(color).String()
 		}
 	}
 
-	fmt.Fprint(o.tabbedStdout, s)
-	o.tabbedStdout.Flush()
+	tw := tabwriter.NewWriter(os.Stdout, 12, 2, 2, ' ', 0)
+	fmt.Fprint(tw, s)
+	tw.Flush()
 }

@@ -16,48 +16,46 @@ import (
 
 func WithOutput(ctx context.Context) (context.Context, error) {
 	o := output{
-		Stdout:   termenv.DefaultOutput(),
-		Stderr:   termenv.NewOutput(os.Stderr),
 		doneChan: make(chan struct{}),
 		cls:      make([]*clientSession, 0),
 	}
 
-	restoreStdout, err := termenv.EnableVirtualTerminalProcessing(o.Stdout)
-	if err != nil {
+	if err := o.ttyCheck(); err != nil {
 		return nil, err
 	}
-	if !o.Stdout.EnvNoColor() {
-		o.stdoutFailColor = o.Stdout.Color("#ff0000")
-	}
-
-	restoreStderr, err := termenv.EnableVirtualTerminalProcessing(o.Stderr)
-	if err != nil {
-		return nil, err
-	}
-	if !o.Stderr.EnvNoColor() {
-		o.stderrFailColor = o.Stderr.Color("#ff0000")
-	}
-
-	o.restoreConsole = func() {
-		restoreStdout()
-		restoreStderr()
-	}
-
-	stat, err := os.Stdout.Stat()
-	if err != nil {
-		return nil, err
-	}
-	o.stdoutIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
-	o.tabbedStdout = tabwriter.NewWriter(o.Stdout, 12, 2, 2, ' ', 0)
-
-	stat, err = os.Stderr.Stat()
-	if err != nil {
-		return nil, err
-	}
-	o.stderrIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
-	o.tabbedStderr = tabwriter.NewWriter(o.Stderr, 12, 2, 2, ' ', 0)
 
 	return context.WithValue(ctx, key{}, &o), nil
+}
+
+func InvocationInfo(ctx context.Context, cmdName string, argc int) {
+	o := getOutput(ctx)
+	switch cmdName {
+	case "send":
+		switch argc {
+		case 0: // sending from stdin
+			// if stdin is not a tty we can try dynamic output to the tty
+			if !o.stdinIsTTY {
+				o.enableDynamicOutput(nil)
+			}
+		default: // sending file(s)
+			o.enableDynamicOutput(nil)
+		}
+	case "receive":
+		switch argc {
+		case 0: // receiving to stdout
+			// try to fallback to stderr for dynamic out output but only if
+			// stdout is not a tty since the stderr tty is usually the same as the stdout tty.
+			if o.dynamicOutput != nil {
+				o.dynamicOutput = nil
+				if o.stdoutTTY == nil && o.stderrTTY != nil {
+					o.enableDynamicOutput(o.stderrTTY)
+				}
+			}
+		default: // receiving to file
+			o.enableDynamicOutput(nil)
+		}
+	default:
+	}
 }
 
 func ClientDisconnected(ctx context.Context, err error) {
@@ -131,12 +129,12 @@ func Wait(ctx context.Context) {
 
 func GetWriteCloser(ctx context.Context) io.WriteCloser {
 	o := getOutput(ctx)
-	return &writer{o.Stdout, o.receivedBuf}
+	return &writer{os.Stdout, o.receivedBuf}
 }
 
 func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Duration, host string, total int64) func() {
 	o := getOutput(ctx)
-	if o.servingToStdout || o.Format == "json" || o.quiet {
+	if o.quiet {
 		return func() {}
 	}
 
@@ -144,15 +142,6 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 		start  = time.Now()
 		prefix = fmt.Sprintf("%s\t%s", start.Format(progDisplayTimeFormat), host)
 	)
-	if !o.stderrIsTTY {
-		return func() {
-			if events.Succeeded(ctx) {
-				displayProgressSuccessFlush(o, prefix, start, prog.Load())
-			} else {
-				displayProgressFailFlush(o, prefix, start, prog.Load(), total)
-			}
-		}
-	}
 
 	var (
 		ticker = time.NewTicker(period)
@@ -161,35 +150,42 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 		lastTime = start
 	)
 
-	o.displayProgresssPeriod = period
-	lastTime = displayProgress(o, prefix, start, prog, total)
+	if o.dynamicOutput != nil {
+		o.displayProgresssPeriod = period
+		lastTime = displayProgress(o, prefix, start, prog, total)
 
-	go func() {
-		for {
-			select {
-			case <-done:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				lastTime = displayProgress(o, prefix, start, prog, total)
+		go func() {
+			for {
+				select {
+				case <-done:
+					ticker.Stop()
+					return
+				case <-ticker.C:
+					lastTime = displayProgress(o, prefix, start, prog, total)
+				}
 			}
-		}
-	}()
+		}()
+	} else {
+		go func() {
+			<-done
+			ticker.Stop()
+		}()
+	}
 
 	return func() {
 		if done == nil {
 			return
 		}
 
-		done <- struct{}{}
-		close(done)
-		done = nil
-
 		if events.Succeeded(ctx) {
 			displayProgressSuccessFlush(o, prefix, lastTime, prog.Load())
 		} else {
 			displayProgressFailFlush(o, prefix, start, prog.Load(), total)
 		}
+
+		done <- struct{}{}
+		close(done)
+		done = nil
 	}
 }
 
@@ -237,4 +233,49 @@ func (w *writer) Write(p []byte) (int, error) {
 
 func (*writer) Close() error {
 	return nil
+}
+
+type tabbedDynamicOutput struct {
+	tw *tabwriter.Writer
+	te *termenv.Output
+}
+
+func newTabbedDynamicOutput(te *termenv.Output) *tabbedDynamicOutput {
+	return &tabbedDynamicOutput{
+		tw: tabwriter.NewWriter(te, 12, 2, 2, ' ', 0),
+		te: termenv.NewOutput(te),
+	}
+}
+
+func (o *tabbedDynamicOutput) resetLine() {
+	o.te.WriteString("\r")
+	o.te.ClearLineRight()
+}
+
+func (o *tabbedDynamicOutput) flush() error {
+	return o.tw.Flush()
+}
+
+func (o *tabbedDynamicOutput) Write(p []byte) (int, error) {
+	return o.tw.Write(p)
+}
+
+func (o *tabbedDynamicOutput) ShowCursor() {
+	o.te.ShowCursor()
+}
+
+func (o *tabbedDynamicOutput) HideCursor() {
+	o.te.HideCursor()
+}
+
+func (o *tabbedDynamicOutput) EnvNoColor() bool {
+	return o.te.EnvNoColor()
+}
+
+func (o *tabbedDynamicOutput) Color(s string) termenv.Color {
+	return o.te.Color(s)
+}
+
+func (o *tabbedDynamicOutput) String(s string) termenv.Style {
+	return o.te.String(s)
 }

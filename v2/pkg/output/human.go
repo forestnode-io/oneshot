@@ -9,11 +9,12 @@ import (
 )
 
 func runHuman(ctx context.Context, o *output) {
+outer:
 	for {
 		select {
 		case <-ctx.Done():
 			_human_handleContextDone(ctx, o)
-			return
+			break outer
 		case event := <-o.events:
 			switch event := event.(type) {
 			case *events.ClientDisconnected:

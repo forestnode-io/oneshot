@@ -31,6 +31,7 @@ type Cmd struct {
 	csrfToken            string
 	unixEOLNormalization bool
 	decodeBase64Output   bool
+	statusCode           int
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -51,6 +52,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags.String("eol", "unix", "How to parse EOLs in the received file. 'unix': '\\n', 'dos': '\\r\\n' ")
 	flags.StringP("ui", "U", "", "Name of ui file to use")
 	flags.Bool("decode-b64", false, "Decode base-64")
+	flags.Int("status-code", 200, "HTTP status code sent to client.")
 
 	return c.cobraCommand
 }
@@ -65,6 +67,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 		err error
 	)
+	output.InvocationInfo(ctx, cmd.Name(), len(args))
 
 	// if writing to stdout
 	if writingTostdout {
@@ -72,6 +75,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		output.ReceivingToStdout(ctx)
 	}
 
+	c.statusCode, _ = flags.GetInt("status-code")
 	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
 	c.csrfToken, _ = flags.GetString("csrf-token")
 	c.unixEOLNormalization = eol == "unix"
@@ -81,6 +85,9 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		location = args[0]
 	}
 	c.fileTransferConfig, err = file.NewWriteTransferConfig(ctx, location)
+	if err != nil {
+		return err
+	}
 
 	var (
 		tmpl = template.New("base")

@@ -9,6 +9,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -65,6 +66,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		noDownload, _    = flags.GetBool("no-download")
 		//stream, _        = flags.GetBool("stream")
 	)
+	output.InvocationInfo(ctx, cmd.Name(), len(args))
 
 	c.status, _ = flags.GetInt("status-code")
 
