@@ -1,17 +1,20 @@
-package main
+package itest
 
 import (
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type FilesMap map[string][]byte
 
-func (fm FilesMap) projectInto(dir string) error {
+func (fm FilesMap) ProjectInto(dir string) error {
 	for path, contents := range fm {
 		var (
 			path      = filepath.Join(dir, path)
@@ -52,11 +55,12 @@ func (sp *stdinPayload) Read(p []byte) (int, error) {
 	return sp.r.Read(p)
 }
 
-type retryClient struct {
+type RetryClient struct {
 	client http.RoundTripper
+	Suite  *suite.Suite
 }
 
-func (rc *retryClient) post(url, mime string, body io.Reader) *http.Response {
+func (rc *RetryClient) Post(url, mime string, body io.Reader) *http.Response {
 	var response *http.Response
 
 	if rc.client == nil {
@@ -69,13 +73,16 @@ func (rc *retryClient) post(url, mime string, body io.Reader) *http.Response {
 			panic(fmt.Sprintf("invalid url: %v", err))
 		}
 		req.Header.Set("Content-Type", mime)
-		response, _ = rc.client.RoundTrip(req)
+		response, err = rc.client.RoundTrip(req)
+		if err != nil && rc.Suite != nil {
+			rc.Suite.T().Logf("(*RetryClient)Post: error: %s", err.Error())
+		}
 	}
 
 	return response
 }
 
-func (rc *retryClient) get(url string) (*http.Response, error) {
+func (rc *RetryClient) Get(url string) (*http.Response, error) {
 	var response *http.Response
 
 	if rc.client == nil {
@@ -92,4 +99,41 @@ func (rc *retryClient) get(url string) (*http.Response, error) {
 	}
 
 	return response, nil
+}
+
+type TestSuite struct {
+	suite.Suite
+	TestDir string
+}
+
+func (suite *TestSuite) SetupSuite() {
+	tempDir, err := os.MkdirTemp("", "")
+	suite.Require().NoError(err)
+
+	suite.Require().NoError(err)
+	suite.TestDir = tempDir
+
+	cmdPath, err := filepath.EvalSymlinks("../../build-output/oneshot")
+	suite.Require().NoError(err)
+
+	newCmdPath := filepath.Join(filepath.Dir(suite.TestDir), "oneshot.testing")
+	_, err = exec.Command("cp", cmdPath, newCmdPath).CombinedOutput()
+	suite.Require().NoError(err)
+
+	err = os.Chdir(suite.TestDir)
+	suite.Require().NoError(err)
+}
+
+func (suite *TestSuite) TearDownSuite() {
+	err := os.RemoveAll(suite.TestDir)
+	suite.Require().NoError(err)
+}
+
+func (suite *TestSuite) NewOneshot() *Oneshot {
+	dir, err := os.MkdirTemp(suite.TestDir, "subtest*")
+	suite.Require().NoError(err)
+	return &Oneshot{
+		T:          suite.T(),
+		WorkingDir: dir,
+	}
 }

@@ -1,4 +1,4 @@
-package main
+package itest
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 
 type Oneshot struct {
 	T          *testing.T
+	Env        []string
 	Args       []string
 	Files      FilesMap
 	Stdin      io.Reader
@@ -19,7 +20,7 @@ type Oneshot struct {
 	Stderr     io.Writer
 	WorkingDir string
 
-	cmd       *exec.Cmd
+	Cmd       *exec.Cmd
 	stdoutBuf *bytes.Buffer
 	stderrBuf *bytes.Buffer
 }
@@ -28,7 +29,7 @@ func (o *Oneshot) Cleanup() {}
 
 func (o *Oneshot) Start() {
 	if o.Files != nil {
-		o.Files.projectInto(o.WorkingDir)
+		o.Files.ProjectInto(o.WorkingDir)
 	}
 
 	if o.Stdout == nil {
@@ -41,18 +42,19 @@ func (o *Oneshot) Start() {
 		o.Stderr = o.stderrBuf
 	}
 
-	if o.cmd == nil {
-		o.cmd = exec.Command(
-			filepath.Join(o.WorkingDir, "../oneshot.testing"),
+	if o.Cmd == nil {
+		o.Cmd = exec.Command(
+			filepath.Join(o.WorkingDir, "../../oneshot.testing"),
 			o.Args...,
 		)
-		o.cmd.Stdin = o.Stdin
-		o.cmd.Stdout = o.Stdout
-		o.cmd.Stderr = o.Stderr
-		o.cmd.Dir = o.WorkingDir
+		o.Cmd.Stdin = o.Stdin
+		o.Cmd.Stdout = o.Stdout
+		o.Cmd.Stderr = o.Stderr
+		o.Cmd.Dir = o.WorkingDir
+		o.Cmd.Env = append(os.Environ(), o.Env...)
 	}
 
-	if err := o.cmd.Start(); err != nil {
+	if err := o.Cmd.Start(); err != nil {
 		o.T.Fatalf("unable to start oneshot exec: %v\n", err)
 	}
 
@@ -60,14 +62,14 @@ func (o *Oneshot) Start() {
 }
 
 func (o *Oneshot) Wait() {
-	if o.cmd == nil {
+	if o.Cmd == nil {
 		o.T.Fatal("attempting to exit oneshot but oneshot it not running")
 	}
-	o.cmd.Wait()
+	o.Cmd.Wait()
 }
 
 func (o *Oneshot) Signal(sig os.Signal) {
-	if o.cmd != nil {
-		o.cmd.Process.Signal(sig)
+	if o.Cmd != nil {
+		o.Cmd.Process.Signal(sig)
 	}
 }

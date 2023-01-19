@@ -6,18 +6,25 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+
+	itest "github.com/raphaelreyna/oneshot/v2/integration_testing"
 )
 
-func (suite *BasicTestSuite) Test_Exec() {
+func (suite *ts) Test_StdinTTY_StderrTTY() {
 	var oneshot = suite.NewOneshot()
 	oneshot.Args = []string{"exec", "go", "env", "GOOS"}
+	oneshot.Env = []string{
+		"ONESHOT_TESTING_TTY_STDIN=true",
+		"ONESHOT_TESTING_TTY_STDOUT=true",
+		"ONESHOT_TESTING_TTY_STDERR=true",
+	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
 	// ---
 
-	client := retryClient{}
-	resp, err := client.get("http://127.0.0.1:8080")
+	client := itest.RetryClient{}
+	resp, err := client.Get("http://127.0.0.1:8080")
 	suite.Require().NoError(err)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 
@@ -30,5 +37,8 @@ func (suite *BasicTestSuite) Test_Exec() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "\x1b[?25h")
+	suite.Assert().Equal("", string(stdout))
+
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Equal("", string(stderr))
 }
