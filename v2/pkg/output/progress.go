@@ -113,7 +113,7 @@ func _displayFlush(o *output, s string, success bool) {
 	// print to stdout
 	if o.stdoutTTY != nil {
 		fmt.Fprint(o.stdoutTTY, "\r")
-		o.stdoutTTY.ClearLine()
+		o.stdoutTTY.ClearLineRight()
 		if color := o.stdoutFailColor; !success && color != nil {
 			s = o.stdoutTTY.String(s).Foreground(color).String()
 		}
