@@ -164,7 +164,6 @@ var OutputHandlerReplacer OutputHandler = func(w http.ResponseWriter, r *http.Re
 		parts := strings.SplitN(string(line), ":", 2)
 		if len(parts) < 2 {
 			// This line is not a header, add it to the head of the body and break
-			readBytes = line
 			readBytes = append(line, '\n')
 			break
 		}

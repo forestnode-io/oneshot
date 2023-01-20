@@ -176,7 +176,7 @@ func (c *archiveReaderConfig) NewReaderTransferSession(ctx context.Context) (*Re
 	if c.buf == nil {
 		r, w := io.Pipe()
 		go func() {
-			tarball(c.paths, w)
+			_ = tarball(c.paths, w)
 			w.Close()
 		}()
 		return &ReadTransferSession{

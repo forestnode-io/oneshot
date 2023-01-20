@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -77,7 +78,9 @@ func (o *output) run(ctx context.Context) error {
 	}
 
 	for _, f := range o.restoreConsole {
-		f()
+		if err := f(); err != nil {
+			log.Println("error from console restore func:", err)
+		}
 	}
 
 	o.doneChan <- struct{}{}

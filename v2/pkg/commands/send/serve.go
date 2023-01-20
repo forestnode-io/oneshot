@@ -53,7 +53,3 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	events.Success(ctx)
 }
-
-func (d *Cmd) ServeExpiredHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("expired hello from server"))
-}

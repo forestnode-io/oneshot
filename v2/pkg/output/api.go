@@ -126,7 +126,11 @@ func ReceivingToStdout(ctx context.Context) {
 }
 
 func Init(ctx context.Context) {
-	go getOutput(ctx).run(ctx)
+	go func() {
+		if err := getOutput(ctx).run(ctx); err != nil {
+			log.Printf("error running output system: %v", err)
+		}
+	}()
 }
 
 func Wait(ctx context.Context) {
@@ -245,7 +249,10 @@ func newTabbedDynamicOutput(te *termenv.Output) *tabbedDynamicOutput {
 }
 
 func (o *tabbedDynamicOutput) resetLine() {
-	o.te.WriteString("\r")
+	_, err := o.te.WriteString("\r")
+	if err != nil {
+		log.Printf("error writing carriage-return character: %v", err)
+	}
 	o.te.ClearLineRight()
 }
 

@@ -3,6 +3,7 @@ package receive
 import (
 	"encoding/base64"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -110,5 +111,9 @@ func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(ua, "curl") || strings.Contains(ua, "wget") {
 		withJS = false
 	}
-	c.writeTemplate(w, withJS)
+	if err := c.writeTemplate(w, withJS); err != nil {
+		log.Printf("error writing template: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

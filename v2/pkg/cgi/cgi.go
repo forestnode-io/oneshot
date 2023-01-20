@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type OutputHandler func(w http.ResponseWriter, r *http.Request, h *Handler, stdoutReader io.Reader)
@@ -83,7 +85,7 @@ func NewHandler(conf HandlerConfig) (*Handler, error) {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(r.TransferEncoding) > 0 && r.TransferEncoding[0] == "chunked" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Chunked request bodies are not supported by CGI."))
+		_, _ = w.Write([]byte("Chunked request bodies are not supported by CGI."))
 		return
 	}
 
@@ -114,11 +116,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer cmd.Wait()
+	defer func() {
+		if err := cmd.Wait(); err != nil {
+			internalError(fmt.Errorf("cmd failed %s: %w", cmd.Path+strings.Join(cmd.Args, " "), err))
+		}
+	}()
 	defer stdoutRead.Close()
 
 	h.outputHandler(w, r, h, stdoutRead)
 
 	// Make sure the process is good and dead before exiting
-	cmd.Process.Kill()
+	if err := cmd.Process.Kill(); err != nil {
+		log.Printf("unable to kill process %d: %v", cmd.Process.Pid, err)
+	}
 }
