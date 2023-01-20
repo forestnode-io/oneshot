@@ -45,6 +45,10 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		flags = cmd.Flags()
 	)
 
+	if r.handler == nil {
+		return nil
+	}
+
 	defer output.Wait(ctx)
 
 	if err := r.configureServer(flags); err != nil {

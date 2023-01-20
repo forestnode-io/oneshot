@@ -10,6 +10,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/receive"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/version"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
@@ -41,6 +42,7 @@ func ExecuteContext(ctx context.Context) error {
 	root.AddCommand(receive.New().Cobra())
 	root.AddCommand(redirect.New().Cobra())
 	root.AddCommand(send.New().Cobra())
+	root.AddCommand(version.New().Cobra())
 
 	ctx = events.WithEvents(ctx)
 	ctx, err = output.WithOutput(ctx)
@@ -59,4 +61,18 @@ func ExecuteContext(ctx context.Context) error {
 	}()
 
 	return root.ExecuteContext(ctx)
+}
+
+func CobraCommand() *cobra.Command {
+	var root rootCommand
+	root.Use = "oneshot"
+
+	root.setFlags()
+	root.AddCommand(exec.New().Cobra())
+	root.AddCommand(receive.New().Cobra())
+	root.AddCommand(redirect.New().Cobra())
+	root.AddCommand(send.New().Cobra())
+	root.AddCommand(version.New().Cobra())
+
+	return &root.Command
 }
