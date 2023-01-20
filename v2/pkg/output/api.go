@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sync/atomic"
 	"text/tabwriter"
@@ -30,7 +31,12 @@ func WithOutput(ctx context.Context) (context.Context, error) {
 func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 	o := getOutput(ctx)
 	switch cmdName {
+	case "exec":
+		log.SetPrefix("oneshot exec: ")
+	case "redirect":
+		log.SetPrefix("oneshot redirect: ")
 	case "send":
+		log.SetPrefix("oneshot send: ")
 		switch argc {
 		case 0: // sending from stdin
 			// if stdin is not a tty we can try dynamic output to the tty
@@ -41,6 +47,7 @@ func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 			o.enableDynamicOutput(nil)
 		}
 	case "receive":
+		log.SetPrefix("oneshot receive: ")
 		switch argc {
 		case 0: // receiving to stdout
 			// try to fallback to stderr for dynamic out output but only if

@@ -2,6 +2,7 @@ package output
 
 import (
 	"context"
+	"log"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 )
@@ -11,8 +12,7 @@ func runQuiet(ctx context.Context, o *output) {
 		select {
 		case <-ctx.Done():
 			if err := events.GetCancellationError(ctx); err != nil {
-				// TODO(raphaelreyna): handle this more gracefully
-				panic(err)
+				log.Printf("connection cancellation error: %s", err.Error())
 			}
 			return
 		case event := <-o.events:

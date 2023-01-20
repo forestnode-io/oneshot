@@ -4,6 +4,7 @@ import (
 	"errors"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -126,7 +127,9 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	// execute template to run config funcs it may have set
 	if ui != "" {
-		_ = tmpl.ExecuteTemplate(io.Discard, "oneshot", nil)
+		if err := tmpl.ExecuteTemplate(io.Discard, "oneshot", nil); err != nil {
+			log.Printf("error during initial template execution (running config funcs): %s", err.Error())
+		}
 	}
 
 	sections := struct {

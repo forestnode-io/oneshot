@@ -3,6 +3,7 @@ package output
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
@@ -39,7 +40,6 @@ func _json_handleEvent(o *output, e events.Event) {
 					o.currentClientSession.File.Content = bf()
 				} else {
 					// otherwise, dump the contents
-					// TODO(raphaelreyna): look into if this is ever even not nil
 					_ = bf()
 					o.currentClientSession.File.Content = nil
 				}
@@ -50,16 +50,14 @@ func _json_handleEvent(o *output, e events.Event) {
 
 func _json_handleContextDone(ctx context.Context, o *output) {
 	if err := events.GetCancellationError(ctx); err != nil {
-		// TODO(raphaelreyna): handle this more gracefully
-		panic(err)
+		log.Printf("connection cancellation error: %s", err.Error())
 	}
 
 	// if serving to stdout
 	if o.servingToStdout {
 		// then read in the body since it wasnt written to disk
 		if err := o.currentClientSession.Request.ReadBody(); err != nil {
-			// TODO(raphaelreyna): handle this more gracefully
-			panic(err)
+			log.Printf("error reading request body buffer: %s", err.Error())
 		}
 	} else {
 		// otherwise, theres no point in showing the content again in stdout
@@ -72,7 +70,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		if o.servingToStdout {
 			// then read in the body since it wasnt written to disk
 			if err := s.Request.ReadBody(); err != nil {
-				panic(err)
+				log.Printf("error reading request body buffer: %s", err.Error())
 			}
 		} else {
 			// otherwise, theres no point in showing the content again in stdout
@@ -85,7 +83,6 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		Attempts: o.cls,
 	})
 	if err != nil {
-		// TODO(raphaelreyna): handle this more gracefully
-		panic(err)
+		log.Printf("error encoding json to stdout: %s", err.Error())
 	}
 }

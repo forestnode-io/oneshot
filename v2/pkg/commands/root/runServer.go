@@ -3,6 +3,7 @@ package root
 import (
 	"context"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -151,7 +152,11 @@ func (s *server) serve(ctx context.Context, queueSize int64, l net.Listener) err
 
 	//shutdown gracefully
 	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
-	_ = s.Server.Shutdown(ctx)
+	if err := s.Server.Shutdown(ctx); err != nil {
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("error while shutting down http server: %s", err.Error())
+		}
+	}
 	cancel()
 
 	err := <-errs

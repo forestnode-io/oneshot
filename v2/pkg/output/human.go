@@ -3,6 +3,7 @@ package output
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
@@ -44,7 +45,6 @@ outer:
 
 func _human_handleContextDone(ctx context.Context, o *output) {
 	if err := events.GetCancellationError(ctx); err != nil {
-		// TODO(raphaelreyna): handle this more gracefully
-		panic(err)
+		log.Printf("connection cancellation error: %s", err.Error())
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"mime"
 	"os"
@@ -124,8 +125,9 @@ func (ts *WriteTransferSession) Close() error {
 	if !events.Succeeded(ts.ctx) {
 		if file, ok := ts.w.(*os.File); ok && file != nil {
 			if file != os.Stdout {
-				// TODO(raphaelreyna): handle this
-				_ = os.Remove(file.Name())
+				if err = os.Remove(file.Name()); err != nil {
+					log.Printf("error removing file %s: %s", file.Name(), err.Error())
+				}
 			}
 		}
 	}

@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -17,6 +20,11 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	ctx := context.Background()
 
+	status := 1
+	defer func() {
+		os.Exit(status)
+	}()
+
 	sigs := []os.Signal{
 		os.Interrupt,
 		os.Kill,
@@ -27,11 +35,40 @@ func main() {
 	ctx, cancel := signal.NotifyContext(ctx, sigs...)
 	defer cancel()
 
+	ld := os.Getenv("ONESHOT_LOG_DIR")
+	if ld == "" {
+		if cacheDir, _ := os.UserCacheDir(); cacheDir != "" {
+			ld = filepath.Join(cacheDir, "oneshot")
+			if err := os.Mkdir(ld, os.ModeDir|0700); err != nil {
+				if !os.IsExist(err) {
+					ld = ""
+				}
+			}
+		}
+	}
+
+	if ld != "" {
+		lp := filepath.Join(ld, "oneshot.log")
+
+		logFile, err := os.OpenFile(lp, os.O_CREATE|os.O_APPEND, os.ModePerm)
+		if err != nil {
+			fmt.Printf("unable to open log file in %s (ONESHOT_LOG_DIR)", ld)
+			return
+		}
+		defer logFile.Close()
+
+		log.SetOutput(logFile)
+		log.SetFlags(log.LstdFlags | log.Llongfile)
+	} else {
+		log.SetOutput(io.Discard)
+	}
+
 	if err := root.ExecuteContext(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
+		return
 	}
-	os.Exit(0)
+
+	status = 0
 }
 
 // copied from https://github.com/golang/go/blob/ebb572d82f97d19d0016a49956eb1fddc658eb76/src/go/build/syslist.go#L38

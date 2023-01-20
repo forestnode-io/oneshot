@@ -46,14 +46,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancelProgDisp()
 
 	// Start writing the file data to the client while timing how long it takes
-	n, err := io.Copy(w, rts)
-	writeSize := n
-	if err != nil {
-		output.ClientDisconnected(ctx, err)
-		return
-	}
-
-	if writeSize < size {
+	if _, err = io.Copy(w, rts); err != nil {
 		output.ClientDisconnected(ctx, err)
 		return
 	}
