@@ -95,31 +95,32 @@ func _displayFlush(o *output, s string, success bool) {
 	}
 
 	// if serving to stdout
-	if o.servingToStdout && !printedToStderr {
-		// but not to the tty
-		if o.stdoutTTY == nil {
-			// output info to stderr
-			tw := tabwriter.NewWriter(os.Stderr, 12, 2, 2, ' ', 0)
-			fmt.Fprint(tw, s)
-			tw.Flush()
-		} else if o.stderrTTY == nil {
-			// output info to stderr
-			tw := tabwriter.NewWriter(os.Stderr, 12, 2, 2, ' ', 0)
-			fmt.Fprint(tw, s)
-			tw.Flush()
-		}
-		return
-	}
-	// print to stdout
-	if o.stdoutTTY != nil {
-		fmt.Fprint(o.stdoutTTY, "\r")
-		o.stdoutTTY.ClearLineRight()
-		if color := o.stdoutFailColor; !success && color != nil {
-			s = o.stdoutTTY.String(s).Foreground(color).String()
+	if o.servingToStdout {
+		// but not to the tty or if it is the tty but stderr is not
+		if o.stdoutTTY == nil || (o.stdoutTTY != nil && o.stderrTTY == nil) {
+			// and we haven't already printed to stderr
+			if !printedToStderr {
+				// output info to stderr
+				tw := tabwriter.NewWriter(os.Stderr, 12, 2, 2, ' ', 0)
+				fmt.Fprint(tw, s)
+				tw.Flush()
+				return
+			}
 		}
 	}
 
-	tw := tabwriter.NewWriter(os.Stdout, 12, 2, 2, ' ', 0)
-	fmt.Fprint(tw, s)
-	tw.Flush()
+	// print to stdout
+	if !o.servingToStdout {
+		if o.stdoutTTY != nil {
+			fmt.Fprint(o.stdoutTTY, "\r")
+			o.stdoutTTY.ClearLineRight()
+			if color := o.stdoutFailColor; !success && color != nil {
+				s = o.stdoutTTY.String(s).Foreground(color).String()
+			}
+		}
+
+		tw := tabwriter.NewWriter(os.Stdout, 12, 2, 2, ' ', 0)
+		fmt.Fprint(tw, s)
+		tw.Flush()
+	}
 }

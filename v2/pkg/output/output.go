@@ -142,6 +142,12 @@ func (o *output) ttyCheck() error {
 	}
 	o.stdinIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
 
+	// if we're running in a docker container, assume both stdout and stderr are ttys
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		stdoutIsTTY = true
+		stderrIsTTY = true
+	}
+
 	if os.Getenv("ONESHOT_TESTING_TTY_STDOUT") != "" {
 		stdoutIsTTY = true
 	}
