@@ -2,11 +2,15 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"sync"
+	"time"
 
 	itest "github.com/raphaelreyna/oneshot/v2/integration_testing"
 )
@@ -226,4 +230,57 @@ func (suite *ts) Test_Send_Directory() {
 	suite.Assert().Equal("SUCCESS2", string(fileBytes))
 
 	oneshot.Wait()
+}
+
+func (suite *ts) Test_MultipleClients() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"send"}
+	oneshot.Stdin = io.LimitReader(rand.Reader, 1<<15)
+	oneshot.Env = []string{
+		"ONESHOT_TESTING_TTY_STDIN=true",
+		"ONESHOT_TESTING_TTY_STDOUT=true",
+		"ONESHOT_TESTING_TTY_STDERR=true",
+	}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	m := sync.Mutex{}
+	c := sync.NewCond(&m)
+
+	responses := make(chan int, runtime.NumCPU())
+	wg := sync.WaitGroup{}
+	for i := 1; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+		go func(index int) {
+			c.L.Lock()
+			c.Wait()
+			c.L.Unlock()
+
+			resp, _ := http.Get("http://127.0.0.1:8080")
+			if resp != nil {
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+				responses <- resp.StatusCode
+			} else {
+				responses <- 0
+			}
+			wg.Done()
+		}(i)
+	}
+	time.Sleep(1500 * time.Millisecond)
+	c.L.Lock()
+	c.Broadcast()
+	c.L.Unlock()
+
+	wg.Wait()
+	close(responses)
+
+	oks := 0
+	for code := range responses {
+		if code == 200 {
+			oks++
+		}
+	}
+	suite.Assert().Equal(1, oks)
 }
