@@ -61,6 +61,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		dir, _            = flags.GetString("dir")
 		replaceHeaders, _ = flags.GetBool("replace-headers")
 	)
+	output.InvocationInfo(ctx, cmd.Name(), len(args))
 
 	handlerConf := cgi.HandlerConfig{
 		Cmd:           args,
