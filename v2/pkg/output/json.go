@@ -39,6 +39,9 @@ func _json_handleEvent(o *output, e events.Event) {
 			if bf, ok := o.currentClientSession.File.Content.(func() []byte); ok {
 				if includeFileContent {
 					o.currentClientSession.File.Content = bf()
+					if o.currentClientSession.File.TransferSize == 0 {
+						o.currentClientSession.File.TransferSize = int64(len(o.currentClientSession.File.Content.([]byte)))
+					}
 				} else {
 					// otherwise, dump the contents
 					_ = bf()

@@ -89,7 +89,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		output.ClientDisconnected(ctx, err)
 
-		output.Raise(ctx, events.ClientDisconnected{
+		events.Raise(ctx, events.ClientDisconnected{
 			Err: err,
 		})
 		return
@@ -97,9 +97,9 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(c.statusCode)
 
-	fileReport.Path = wts.WroteTo()
+	fileReport.Path = wts.Path()
 	fileReport.Content = getBufBytes
-	output.Raise(ctx, &fileReport)
+	events.Raise(ctx, &fileReport)
 
 	events.Success(ctx)
 }

@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/cgi"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
@@ -104,8 +105,46 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 func (s *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := s.cobraCommand.Context()
-	output.Raise(ctx, output.NewHTTPRequest(r))
+	events.Raise(ctx, output.NewHTTPRequest(r))
 
-	s.handler.ServeHTTP(w, r)
+	bw, getBufBytes := output.NewBufferedWriter(ctx, w)
+	brw := bufferedResponseWriter{
+		w:  w,
+		bw: bw,
+	}
+	fileReport := events.File{
+		TransferStartTime: time.Now(),
+	}
+
+	s.handler.ServeHTTP(&brw, r)
+
+	fileReport.TransferEndTime = time.Now()
+	fileReport.Content = getBufBytes
+
+	events.Raise(ctx, &fileReport)
+
 	events.Success(ctx)
+}
+
+type bufferedResponseWriter struct {
+	w           http.ResponseWriter
+	bw          io.Writer
+	wroteHeader bool
+}
+
+func (b *bufferedResponseWriter) Header() http.Header {
+	return b.w.Header()
+}
+
+func (b *bufferedResponseWriter) Write(p []byte) (int, error) {
+	if !b.wroteHeader {
+		b.w.WriteHeader(http.StatusOK)
+		b.wroteHeader = true
+	}
+	return b.bw.Write(p)
+}
+
+func (b *bufferedResponseWriter) WriteHeader(statusCode int) {
+	b.w.WriteHeader(statusCode)
+	b.wroteHeader = true
 }

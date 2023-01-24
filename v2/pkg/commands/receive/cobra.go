@@ -296,6 +296,6 @@ func (c *Cmd) readCloserFromRawBody(r *http.Request) (*requestBody, error) {
 		r:    r.Body,
 		name: fileName(cd),
 		size: contentLength,
-		mime: r.Header.Get("Content-Length"),
+		mime: r.Header.Get("Content-Type"),
 	}, nil
 }

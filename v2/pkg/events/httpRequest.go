@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"net/url"
 )
 
 type HTTPRequest struct {
 	Method     string              `json:",omitempty"`
-	URL        URL                 `json:",omitempty"`
+	RequestURI string              `json:",omitempty"`
+	Path       string              `json:",omitempty"`
+	Query      map[string][]string `json:",omitempty"`
 	Protocol   string              `json:",omitempty"`
 	Header     map[string][]string `json:",omitempty"`
 	Host       string              `json:",omitempty"`
 	Trailer    map[string][]string `json:",omitempty"`
 	RemoteAddr string              `json:",omitempty"`
-	RequestURI string              `json:",omitempty"`
 
 	Body any `json:",omitempty"`
 
@@ -44,13 +44,14 @@ func (hr *HTTPRequest) ReadBody() error {
 func NewHTTPRequest(r *http.Request) *HTTPRequest {
 	return &HTTPRequest{
 		Method:     r.Method,
-		URL:        newURL(r.URL),
+		RequestURI: r.RequestURI,
+		Path:       r.URL.Path,
+		Query:      r.URL.Query(),
 		Protocol:   r.Proto,
 		Header:     r.Header,
 		Host:       r.Host,
 		Trailer:    r.Trailer,
 		RemoteAddr: r.RemoteAddr,
-		RequestURI: r.RequestURI,
 	}
 }
 
@@ -67,23 +68,3 @@ func NewHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 }
 
 func (*HTTPRequest) isEvent() {}
-
-type URL struct {
-	Scheme   string              `json:",omitempty"`
-	User     string              `json:",omitempty"`
-	Host     string              `json:",omitempty"`
-	Path     string              `json:",omitempty"`
-	Fragment string              `json:",omitempty"`
-	Query    map[string][]string `json:",omitempty"`
-}
-
-func newURL(u *url.URL) URL {
-	return URL{
-		Scheme:   u.Scheme,
-		User:     u.User.String(),
-		Host:     u.Host,
-		Path:     u.Path,
-		Fragment: u.Fragment,
-		Query:    u.Query(),
-	}
-}

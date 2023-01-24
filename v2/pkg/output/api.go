@@ -34,6 +34,13 @@ func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 	switch cmdName {
 	case "exec":
 		log.SetPrefix("oneshot exec: ")
+		if o.Format == "json" {
+			// if outputting json report and executing a command, include the sent body in the report
+			// since the user may not have a copy of it laying around
+			if _, exclude := o.FormatOpts["exclude-file-contents"]; !exclude {
+				o.FormatOpts["include-file-contents"] = struct{}{}
+			}
+		}
 	case "redirect":
 		log.SetPrefix("oneshot redirect: ")
 	case "send":
@@ -76,6 +83,12 @@ func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 						o.enableDynamicOutput(o.stderrTTY)
 					}
 				}
+			} else {
+				// if outputting json report and receiving to stdout, include the received body in the report
+				// since the user may not have a copy of it laying around
+				if _, exclude := o.FormatOpts["exclude-file-contents"]; !exclude {
+					o.FormatOpts["include-file-contents"] = struct{}{}
+				}
 			}
 		default: // receiving to file
 			if o.Format != "json" {
@@ -86,14 +99,11 @@ func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 	}
 }
 
+// TODO(raphaelreyna): move this into the events package
 func ClientDisconnected(ctx context.Context, err error) {
-	Raise(ctx, &events.ClientDisconnected{
+	getOutput(ctx).events <- &events.ClientDisconnected{
 		Err: err,
-	})
-}
-
-func Raise(ctx context.Context, e events.Event) {
-	getOutput(ctx).events <- e
+	}
 }
 
 func SetEventsChan(ctx context.Context, ec chan events.Event) {

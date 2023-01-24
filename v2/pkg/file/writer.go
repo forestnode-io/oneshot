@@ -134,11 +134,7 @@ func (ts *WriteTransferSession) Close() error {
 	return err
 }
 
-func (ts *WriteTransferSession) WroteTo() string {
-	if !events.Succeeded(ts.ctx) {
-		return ""
-	}
-
+func (ts *WriteTransferSession) Path() string {
 	if file, ok := ts.w.(*os.File); ok && file != nil {
 		if file != os.Stdout {
 			return file.Name()
