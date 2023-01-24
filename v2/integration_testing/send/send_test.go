@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	itest "github.com/raphaelreyna/oneshot/v2/integration_testing"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
 func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutTTY_StdoutErrTTY() {
@@ -42,10 +44,10 @@ func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutTTY_StdoutErrTTY() {
 	oneshot.Wait()
 
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "")
+	suite.Assert().Equal("\n", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Equal("", string(stderr))
 }
 
 func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutNONTTY_StderrTTY() {
@@ -177,6 +179,36 @@ func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrNONTTY() {
 	suite.Assert().Equal("", string(stderr))
 }
 
+func (suite *ts) Test_FROM_File_TO_ANY__JSON() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"send", "--output", "json", "./test.txt"}
+	oneshot.Files = itest.FilesMap{"./test.txt": []byte("SUCCESS")}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	// ---
+
+	client := itest.RetryClient{}
+	resp, err := client.Get("http://127.0.0.1:8080")
+	suite.Require().NoError(err)
+	suite.Assert().Equal(resp.StatusCode, http.StatusOK)
+
+	body, err := io.ReadAll(resp.Body)
+	suite.Assert().NoError(err)
+	resp.Body.Close()
+	suite.Assert().Equal(string(body), "SUCCESS")
+
+	oneshot.Wait()
+	// expect no dynamic out, only static outpu ton stdout
+	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
+	var report output.Report
+	err = json.Unmarshal(stdout, &report)
+	suite.Assert().NoError(err)
+
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Equal("", string(stderr))
+}
+
 func (suite *ts) Test_StatusCode() {
 	var oneshot = suite.NewOneshot()
 	oneshot.Args = []string{"send", "--status-code", "418"}
@@ -237,7 +269,6 @@ func (suite *ts) Test_MultipleClients() {
 	oneshot.Args = []string{"send"}
 	oneshot.Stdin = io.LimitReader(rand.Reader, 1<<15)
 	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
 		"ONESHOT_TESTING_TTY_STDOUT=true",
 		"ONESHOT_TESTING_TTY_STDERR=true",
 	}
@@ -268,7 +299,7 @@ func (suite *ts) Test_MultipleClients() {
 			wg.Done()
 		}(i)
 	}
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	c.L.Lock()
 	c.Broadcast()
 	c.L.Unlock()
@@ -277,10 +308,21 @@ func (suite *ts) Test_MultipleClients() {
 	close(responses)
 
 	oks := 0
+	gones := 0
 	for code := range responses {
 		if code == 200 {
 			oks++
+		} else if code == http.StatusGone {
+			gones++
 		}
 	}
 	suite.Assert().Equal(1, oks)
+	suite.Assert().Equal(runtime.NumCPU()-2, gones)
+
+	oneshot.Wait()
+	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
+	suite.Assert().Contains(string(stdout), "success\n\x1b[?25h")
+
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Contains(string(stderr), "")
 }

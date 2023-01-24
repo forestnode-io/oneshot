@@ -22,7 +22,11 @@ func main() {
 
 	status := 1
 	defer func() {
-		os.Exit(status)
+		if r := recover(); r != nil {
+			panic(r)
+		} else {
+			os.Exit(status)
+		}
 	}()
 
 	sigs := []os.Signal{

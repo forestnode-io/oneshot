@@ -15,6 +15,8 @@ import (
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 )
 
+var NewHTTPRequest = events.NewHTTPRequest
+
 type key struct{}
 
 func getOutput(ctx context.Context) *output {
@@ -34,11 +36,11 @@ type output struct {
 	dynamicOutput *tabbedDynamicOutput
 
 	Format     string
-	FormatOpts []string
+	FormatOpts map[string]struct{}
 
-	skipSummary     bool
-	servingToStdout bool
-	receivedBuf     *bytes.Buffer
+	skipSummary       bool
+	ttyForContentOnly bool
+	receivedBuf       *bytes.Buffer
 
 	cls                  []*clientSession
 	currentClientSession *clientSession
@@ -70,7 +72,7 @@ func (o *output) run(ctx context.Context) error {
 		}
 
 		// is outputting human readable content to stdout
-		if o.servingToStdout && o.Format != "json" {
+		if o.ttyForContentOnly && o.Format != "json" {
 			// add a newline.
 			// some shells will add a EOF character otherwise
 			fmt.Fprint(os.Stdout, "\n")
@@ -131,7 +133,6 @@ func (o *output) ttyCheck() error {
 		return err
 	}
 	stdoutIsTTY := (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
-	//o.tabbedStdout = tabwriter.NewWriter(o.Stdout, 12, 2, 2, ' ', 0)
 
 	stat, err = os.Stderr.Stat()
 	if err != nil {
@@ -222,9 +223,9 @@ type clientSession struct {
 	File    *events.File        `json:",omitempty"`
 }
 
-type report struct {
-	Success  *clientSession
-	Attempts []*clientSession
+type Report struct {
+	Success  *clientSession   `json:",omitempty"`
+	Attempts []*clientSession `json:",omitempty"`
 }
 
 func bytesPerSecond(bytes int64, dt time.Duration) float64 {

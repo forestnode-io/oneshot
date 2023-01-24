@@ -35,12 +35,16 @@ type HTTPRequestBody func() ([]byte, error)
 func (HTTPRequestBody) isEvent() {}
 
 func WithEvents(ctx context.Context) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
 	b := bundle{
 		eventsChan: make(chan Event, 1),
+		cancel:     cancel,
 	}
+	go func() {
+		<-ctx.Done()
+		close(b.eventsChan)
+	}()
 	ctx = context.WithValue(ctx, bundleKey{}, &b)
-	ctx, cancel := context.WithCancel(ctx)
-	b.cancel = cancel
 
 	return ctx
 }
@@ -51,10 +55,6 @@ func eventChan(ctx context.Context) chan Event {
 
 func Success(ctx context.Context) {
 	b := bndl(ctx)
-	b.cancel()
-	close(b.eventsChan)
-	b.eventsChan = nil
-	b.cancel = nil
 	b.success = true
 }
 
@@ -66,12 +66,17 @@ func Raise(ctx context.Context, e Event) {
 	eventChan(ctx) <- e
 }
 
+func Stop(ctx context.Context) {
+	b := bndl(ctx)
+	b.cancel()
+}
+
 type bundleKey struct{}
 type bundle struct {
 	eventsChan chan Event
-	cancel     func()
 	err        error
 	success    bool
+	cancel     func()
 }
 
 func bndl(ctx context.Context) *bundle {

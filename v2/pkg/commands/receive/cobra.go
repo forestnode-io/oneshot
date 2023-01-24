@@ -60,21 +60,14 @@ func (c *Cmd) Cobra() *cobra.Command {
 
 func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
-		ctx             = cmd.Context()
-		flags           = cmd.Flags()
-		headerSlice, _  = flags.GetStringSlice("header")
-		eol, _          = flags.GetString("eol")
-		writingTostdout = len(args) == 0
+		ctx            = cmd.Context()
+		flags          = cmd.Flags()
+		headerSlice, _ = flags.GetStringSlice("header")
+		eol, _         = flags.GetString("eol")
 
 		err error
 	)
 	output.InvocationInfo(ctx, cmd.Name(), len(args))
-
-	// if writing to stdout
-	if writingTostdout {
-		// let the out package know
-		output.ReceivingToStdout(ctx)
-	}
 
 	c.statusCode, _ = flags.GetInt("status-code")
 	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
@@ -82,7 +75,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	c.unixEOLNormalization = eol == "unix"
 	c.header = oneshothttp.HeaderFromStringSlice(headerSlice)
 	var location string
-	if !writingTostdout {
+	if 0 < len(args) {
 		location = args[0]
 	}
 	c.fileTransferConfig, err = file.NewWriteTransferConfig(ctx, location)

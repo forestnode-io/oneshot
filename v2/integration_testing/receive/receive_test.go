@@ -100,6 +100,9 @@ func (suite *ts) Test_FROM_ANY_TO_File__StdoutTTY_StderrTTY() {
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY_DecodeBase64() {
 	var oneshot = suite.NewOneshot()
 	oneshot.Args = []string{"receive", "--decode-b64"}
+	oneshot.Env = []string{
+		"ONESHOT_TESTING_TTY_STDOUT=true",
+	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -188,12 +191,16 @@ func (suite *ts) Test_MultipleClients() {
 	close(responses)
 
 	oks := 0
+	gones := 0
 	for code := range responses {
 		if code == 200 {
 			oks++
+		} else if code == http.StatusGone {
+			gones++
 		}
 	}
 	suite.Assert().Equal(1, oks)
+	suite.Assert().Equal(runtime.NumCPU()-2, gones)
 
 	oneshot.Wait()
 	fileContents, err := os.ReadFile(filepath.Join(oneshot.WorkingDir, "test.txt"))

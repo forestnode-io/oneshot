@@ -19,6 +19,8 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		header = c.header
 	)
 
+	events.Raise(ctx, output.NewHTTPRequest(r))
+
 	rts, err := c.rtc.NewReaderTransferSession(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -46,10 +48,22 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancelProgDisp()
 
 	// Start writing the file data to the client while timing how long it takes
-	if _, err = io.Copy(w, rts); err != nil {
+	bw, getBufBytes := output.NewBufferedWriter(ctx, w)
+	fileReport := events.File{
+		Size:              int64(size),
+		TransferStartTime: time.Now(),
+	}
+	n, err := io.Copy(bw, rts)
+	fileReport.TransferSize = n
+	fileReport.TransferEndTime = time.Now()
+	if err != nil {
+		events.Raise(ctx, &fileReport)
 		output.ClientDisconnected(ctx, err)
 		return
 	}
+
+	fileReport.Content = getBufBytes
+	events.Raise(ctx, &fileReport)
 
 	events.Success(ctx)
 }

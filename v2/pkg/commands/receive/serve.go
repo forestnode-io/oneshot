@@ -85,8 +85,8 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fileReport.TransferSize, err = io.Copy(file, src)
+	fileReport.TransferEndTime = time.Now()
 	if err != nil {
-		fileReport.TransferEndTime = time.Now()
 		output.ClientDisconnected(ctx, err)
 
 		output.Raise(ctx, events.ClientDisconnected{
@@ -99,7 +99,6 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fileReport.Path = wts.WroteTo()
 	fileReport.Content = getBufBytes
-	fileReport.TransferEndTime = time.Now()
 	output.Raise(ctx, &fileReport)
 
 	events.Success(ctx)

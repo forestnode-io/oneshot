@@ -99,7 +99,17 @@ func (r *rootCommand) setFlags() {
 
 	pflags.Duration("timeout", 0, `How long to wait for client. A value of zero will cause oneshot to wait indefinitely.`)
 
-	pflags.VarP(&r.outFlag, "output", "o", `Set output format.`)
+	pflags.VarP(&r.outFlag, "output", "o", `Set output format. Valid formats are: json[=opts].
+		Valid json opts are:
+			- pretty
+				Enables tabbed, pretty printed json.
+			- include-file-contents
+				Includes the contents of files in the json output.
+				This is on by default when sending from stdin or receiving to stdout.
+			- exclude-file-contents
+				Excludes the contents of files in the json output.
+				This is on by default when sending or receiving to or from disk.
+`)
 	pflags.Bool("allow-bots", false, `Don't block bots.`)
 	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
 
@@ -129,6 +139,7 @@ func (o *outputFormatFlagArg) Set(v string) error {
 			return nil
 		}
 		o.opts = strings.Split(parts[1], ",")
+		return nil
 	}
 	return errors.New(`must be "json[=opts...]"`)
 }

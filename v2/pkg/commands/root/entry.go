@@ -19,7 +19,7 @@ import (
 
 type rootCommand struct {
 	cobra.Command
-	server     server
+	server     *oneshothttp.Server
 	closers    []io.Closer
 	middleware oneshothttp.Middleware
 
@@ -54,13 +54,16 @@ func ExecuteContext(ctx context.Context) error {
 
 	events.RegisterEventListener(ctx, output.SetEventsChan)
 
-	defer func() {
-		for _, closer := range root.closers {
-			closer.Close()
-		}
-	}()
+	err = root.ExecuteContext(ctx)
+	for _, closer := range root.closers {
+		closer.Close()
+	}
 
-	return root.ExecuteContext(ctx)
+	events.Stop(ctx)
+
+	output.Wait(ctx)
+
+	return err
 }
 
 func CobraCommand() *cobra.Command {

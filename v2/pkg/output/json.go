@@ -10,18 +10,21 @@ import (
 )
 
 func runJSON(ctx context.Context, o *output) {
-	for {
-		select {
-		case <-ctx.Done():
-			_json_handleContextDone(ctx, o)
-			return
-		case event := <-o.events:
-			_json_handleEvent(o, event)
-		}
+	for event := range o.events {
+		_json_handleEvent(o, event)
 	}
+	_json_handleContextDone(ctx, o)
 }
 
 func _json_handleEvent(o *output, e events.Event) {
+	_, includeFileContent := o.FormatOpts["include-file-contents"]
+	// if the user want to receive to stdout then the received content wont be saved to disk
+	// so we include it in the json report which is going to stdout
+	includeFileContent = includeFileContent || o.ttyForContentOnly
+	if _, exclude := o.FormatOpts["exclude-file-contents"]; exclude {
+		includeFileContent = false
+	}
+
 	switch event := e.(type) {
 	case *events.ClientDisconnected:
 		o.cls = append(o.cls, o.currentClientSession)
@@ -34,9 +37,7 @@ func _json_handleEvent(o *output, e events.Event) {
 		if o.currentClientSession != nil {
 			o.currentClientSession.File = event
 			if bf, ok := o.currentClientSession.File.Content.(func() []byte); ok {
-				// if the user want to receive to stdout then the received content wont be saved to disk
-				if o.servingToStdout {
-					// so we include it in the json report which is going to stdout
+				if includeFileContent {
 					o.currentClientSession.File.Content = bf()
 				} else {
 					// otherwise, dump the contents
@@ -54,20 +55,26 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 	}
 
 	// if serving to stdout
-	if o.servingToStdout {
+	if o.ttyForContentOnly {
 		// then read in the body since it wasnt written to disk
 		if err := o.currentClientSession.Request.ReadBody(); err != nil {
 			log.Printf("error reading request body buffer: %s", err.Error())
 		}
-	} else {
-		// otherwise, theres no point in showing the content again in stdout
-		o.currentClientSession.Request.Body = nil
+	} else if o.currentClientSession != nil {
+		if o.currentClientSession.Request != nil {
+			// otherwise, theres no point in showing the content again in stdout
+			o.currentClientSession.Request.Body = nil
+		}
 	}
-	o.currentClientSession.File.ComputeTransferFields()
+	if o.currentClientSession != nil {
+		if o.currentClientSession.File != nil {
+			o.currentClientSession.File.ComputeTransferFields()
+		}
+	}
 
 	for _, s := range o.cls {
 		// if serving to stdout
-		if o.servingToStdout {
+		if o.ttyForContentOnly {
 			// then read in the body since it wasnt written to disk
 			if err := s.Request.ReadBody(); err != nil {
 				log.Printf("error reading request body buffer: %s", err.Error())
@@ -78,7 +85,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		}
 		s.File.ComputeTransferFields()
 	}
-	err := json.NewEncoder(os.Stdout).Encode(report{
+	err := json.NewEncoder(os.Stdout).Encode(Report{
 		Success:  o.currentClientSession,
 		Attempts: o.cls,
 	})

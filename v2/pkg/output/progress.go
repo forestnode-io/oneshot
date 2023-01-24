@@ -94,23 +94,29 @@ func _displayFlush(o *output, s string, success bool) {
 		printedToStderr = true
 	}
 
-	// if serving to stdout
-	if o.servingToStdout {
-		// but not to the tty or if it is the tty but stderr is not
-		if o.stdoutTTY == nil || (o.stdoutTTY != nil && o.stderrTTY == nil) {
-			// and we haven't already printed to stderr
+	// if tty is for content only
+	if o.ttyForContentOnly {
+		// try to find a non tty to output to
+		nonTTY := os.Stdout
+		if o.stdoutTTY != nil {
+			nonTTY = nil
+		}
+		if nonTTY == nil && o.stderrTTY == nil {
 			if !printedToStderr {
-				// output info to stderr
-				tw := tabwriter.NewWriter(os.Stderr, 12, 2, 2, ' ', 0)
-				fmt.Fprint(tw, s)
-				tw.Flush()
-				return
+				nonTTY = os.Stderr
 			}
+		}
+		if nonTTY != nil {
+			// output info to stderr
+			tw := tabwriter.NewWriter(nonTTY, 12, 2, 2, ' ', 0)
+			fmt.Fprint(tw, s)
+			tw.Flush()
+			return
 		}
 	}
 
 	// print to stdout
-	if !o.servingToStdout {
+	if !o.ttyForContentOnly {
 		if o.stdoutTTY != nil {
 			fmt.Fprint(o.stdoutTTY, "\r")
 			o.stdoutTTY.ClearLineRight()

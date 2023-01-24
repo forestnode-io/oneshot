@@ -17,8 +17,9 @@ import (
 
 func WithOutput(ctx context.Context) (context.Context, error) {
 	o := output{
-		doneChan: make(chan struct{}),
-		cls:      make([]*clientSession, 0),
+		doneChan:   make(chan struct{}),
+		cls:        make([]*clientSession, 0),
+		FormatOpts: map[string]struct{}{},
 	}
 
 	if err := o.ttyCheck(); err != nil {
@@ -39,27 +40,47 @@ func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 		log.SetPrefix("oneshot send: ")
 		switch argc {
 		case 0: // sending from stdin
-			// if stdin is not a tty we can try dynamic output to the tty
-			if !o.stdinIsTTY {
-				o.enableDynamicOutput(nil)
+			if o.Format != "json" {
+				// if stdin is not a tty we can try dynamic output to the tty
+				if !o.stdinIsTTY {
+					o.enableDynamicOutput(nil)
+				} else {
+					o.ttyForContentOnly = true
+				}
+			} else {
+				// if outputting json report and sending from stdin, include the sent body in the report
+				// since the user may not have a copy of it laying around
+				if _, exclude := o.FormatOpts["exclude-file-contents"]; !exclude {
+					o.FormatOpts["include-file-contents"] = struct{}{}
+				}
 			}
 		default: // sending file(s)
-			o.enableDynamicOutput(nil)
+			if o.Format != "json" {
+				o.enableDynamicOutput(nil)
+			}
 		}
 	case "receive":
 		log.SetPrefix("oneshot receive: ")
 		switch argc {
 		case 0: // receiving to stdout
-			// try to fallback to stderr for dynamic out output but only if
-			// stdout is not a tty since the stderr tty is usually the same as the stdout tty.
-			if o.dynamicOutput != nil {
-				o.dynamicOutput = nil
-				if o.stdoutTTY == nil && o.stderrTTY != nil {
-					o.enableDynamicOutput(o.stderrTTY)
+			if o.Format != "json" {
+				if o.stdoutTTY != nil {
+					o.ttyForContentOnly = true
+				}
+
+				// try to fallback to stderr for dynamic out output but only if
+				// stdout is not a tty since the stderr tty is usually the same as the stdout tty.
+				if o.dynamicOutput != nil {
+					o.dynamicOutput = nil
+					if o.stdoutTTY == nil && o.stderrTTY != nil {
+						o.enableDynamicOutput(o.stderrTTY)
+					}
 				}
 			}
 		default: // receiving to file
-			o.enableDynamicOutput(nil)
+			if o.Format != "json" {
+				o.enableDynamicOutput(nil)
+			}
 		}
 	default:
 	}
@@ -92,16 +113,19 @@ func SetFormat(ctx context.Context, f string) {
 }
 
 func SetFormatOpts(ctx context.Context, opts ...string) {
-	getOutput(ctx).FormatOpts = opts
+	o := getOutput(ctx)
+	for _, opt := range opts {
+		o.FormatOpts[opt] = struct{}{}
+	}
 }
 
-func GetFormatAndOpts(ctx context.Context) (string, []string) {
+func GetFormatAndOpts(ctx context.Context) (string, map[string]struct{}) {
 	o := getOutput(ctx)
 	return o.Format, o.FormatOpts
 }
 
 func IsServingToStdout(ctx context.Context) bool {
-	return getOutput(ctx).servingToStdout
+	return getOutput(ctx).ttyForContentOnly
 }
 
 func NoColor(ctx context.Context) {
@@ -117,7 +141,7 @@ func ReceivingToStdout(ctx context.Context) {
 	o := getOutput(ctx)
 
 	o.skipSummary = true
-	o.servingToStdout = true
+	o.ttyForContentOnly = true
 	if o.Format == "json" {
 		if o.receivedBuf == nil {
 			o.receivedBuf = bytes.NewBuffer(nil)
@@ -144,7 +168,7 @@ func GetBufferedWriteCloser(ctx context.Context) io.WriteCloser {
 
 func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Duration, host string, total int64) func() {
 	o := getOutput(ctx)
-	if o.quiet {
+	if o.quiet || o.Format == "json" {
 		return func() {}
 	}
 
