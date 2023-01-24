@@ -189,7 +189,7 @@ func (suite *ts) Test_FROM_File_TO_ANY__JSON() {
 	// ---
 
 	client := itest.RetryClient{}
-	resp, err := client.Get("http://127.0.0.1:8080")
+	resp, err := client.Get("http://127.0.0.1:8080/?q=1")
 	suite.Require().NoError(err)
 	suite.Assert().Equal(resp.StatusCode, http.StatusOK)
 
@@ -199,11 +199,41 @@ func (suite *ts) Test_FROM_File_TO_ANY__JSON() {
 	suite.Assert().Equal(string(body), "SUCCESS")
 
 	oneshot.Wait()
-	// expect no dynamic out, only static outpu ton stdout
+	// expect no dynamic out, only static output on stdout
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
 	var report output.Report
 	err = json.Unmarshal(stdout, &report)
 	suite.Assert().NoError(err)
+	suite.Assert().NotNil(report.Success)
+	suite.Assert().Equal(0, len(report.Attempts))
+
+	req := report.Success.Request
+	suite.Require().Equal("GET", req.Method)
+	suite.Require().Equal("HTTP/1.1", req.Protocol)
+	suite.Require().Equal(map[string][]string{
+		"Accept-Encoding": {"gzip"},
+		"User-Agent":      {"Go-http-client/1.1"},
+	}, req.Header)
+	suite.Require().Equal("127.0.0.1:8080", req.Host)
+	suite.Require().Empty(req.Trailer)
+	suite.Require().NotEmpty(req.RemoteAddr)
+	suite.Require().Equal("/?q=1", req.RequestURI)
+	suite.Require().Equal("/", req.Path)
+	suite.Require().Equal(map[string][]string{
+		"q": {"1"},
+	}, req.Query)
+
+	file := report.Success.File
+	now := time.Now()
+	suite.Require().Equal(len("SUCCESS"), int(file.Size))
+	suite.Require().Equal(file.Size, file.TransferSize)
+	suite.Require().WithinDuration(now, file.TransferStartTime, 5*time.Second)
+	suite.Require().WithinDuration(now, file.TransferEndTime, 5*time.Second)
+	suite.Require().Less(time.Duration(0), file.TransferDuration)
+	suite.Require().Nil(file.Content)
+	suite.Require().Empty(file.Name)
+	suite.Require().Empty(file.Path)
+	suite.Require().Empty(file.MIME)
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
 	suite.Assert().Equal("", string(stderr))

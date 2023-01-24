@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	itest "github.com/raphaelreyna/oneshot/v2/integration_testing"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
@@ -145,6 +148,128 @@ func (suite *ts) Test_FROM_ANY_TO_File_DecodeBase64() {
 	fileContents, err := os.ReadFile(filepath.Join(oneshot.WorkingDir, "test.txt"))
 	suite.Require().NoError(err)
 	suite.Assert().Equal("SUCCESS", string(fileContents))
+}
+
+func (suite *ts) Test_FROM_ANY_TO_FILE__JSON() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"receive", "./test.txt", "--output", "json"}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	// ---
+
+	client := itest.RetryClient{
+		Suite: &suite.Suite,
+	}
+	resp, err := client.Post("http://127.0.0.1:8080/?q=1", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	suite.Require().NoError(err)
+	suite.Require().NotNil(resp)
+	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
+	resp.Body.Close()
+
+	oneshot.Wait()
+
+	// expect no dynamic out, only static output on stdout
+	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
+	var report output.Report
+	err = json.Unmarshal(stdout, &report)
+	suite.Assert().NoError(err)
+	suite.Assert().NotNil(report.Success)
+	suite.Assert().Equal(0, len(report.Attempts))
+
+	req := report.Success.Request
+	suite.Require().Equal("POST", req.Method)
+	suite.Require().Equal("HTTP/1.1", req.Protocol)
+	suite.Require().Equal(map[string][]string{
+		"Accept-Encoding": {"gzip"},
+		"User-Agent":      {"Go-http-client/1.1"},
+		"Content-Type":    {"text/plain"},
+		"Content-Length":  {fmt.Sprintf("%d", len("SUCCESS"))},
+	}, req.Header)
+	suite.Require().Equal("127.0.0.1:8080", req.Host)
+	suite.Require().Empty(req.Trailer)
+	suite.Require().NotEmpty(req.RemoteAddr)
+	suite.Require().Equal("/?q=1", req.RequestURI)
+	suite.Require().Equal("/", req.Path)
+	suite.Require().Equal(map[string][]string{
+		"q": {"1"},
+	}, req.Query)
+
+	file := report.Success.File
+	now := time.Now()
+	suite.Require().Equal(len("SUCCESS"), int(file.Size))
+	suite.Require().Equal(file.Size, file.TransferSize)
+	suite.Require().WithinDuration(now, file.TransferStartTime, 5*time.Second)
+	suite.Require().WithinDuration(now, file.TransferEndTime, 5*time.Second)
+	suite.Require().Less(time.Duration(0), file.TransferDuration)
+	suite.Require().NotEmpty(file.Path)
+	suite.Require().Equal("text/plain", file.MIME)
+	suite.Require().Nil(file.Content)
+	suite.Require().Empty(file.Name)
+
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Equal("", string(stderr))
+}
+
+func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"receive", "--output", "json"}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	// ---
+
+	client := itest.RetryClient{
+		Suite: &suite.Suite,
+	}
+	resp, err := client.Post("http://127.0.0.1:8080/?q=1", "text/plain", bytes.NewReader([]byte("SUCCESS")))
+	suite.Require().NoError(err)
+	suite.Require().NotNil(resp)
+	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
+	resp.Body.Close()
+
+	oneshot.Wait()
+
+	// expect no dynamic out, only static output on stdout
+	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
+	var report output.Report
+	err = json.Unmarshal(stdout, &report)
+	suite.Assert().NoError(err)
+	suite.Assert().NotNil(report.Success)
+	suite.Assert().Equal(0, len(report.Attempts))
+
+	req := report.Success.Request
+	suite.Require().Equal("POST", req.Method)
+	suite.Require().Equal("HTTP/1.1", req.Protocol)
+	suite.Require().Equal(map[string][]string{
+		"Accept-Encoding": {"gzip"},
+		"User-Agent":      {"Go-http-client/1.1"},
+		"Content-Type":    {"text/plain"},
+		"Content-Length":  {fmt.Sprintf("%d", len("SUCCESS"))},
+	}, req.Header)
+	suite.Require().Equal("127.0.0.1:8080", req.Host)
+	suite.Require().Empty(req.Trailer)
+	suite.Require().NotEmpty(req.RemoteAddr)
+	suite.Require().Equal("/?q=1", req.RequestURI)
+	suite.Require().Equal("/", req.Path)
+	suite.Require().Equal(map[string][]string{
+		"q": {"1"},
+	}, req.Query)
+
+	file := report.Success.File
+	now := time.Now()
+	suite.Require().Equal(len("SUCCESS"), int(file.Size))
+	suite.Require().Equal(file.Size, file.TransferSize)
+	suite.Require().WithinDuration(now, file.TransferStartTime, 5*time.Second)
+	suite.Require().WithinDuration(now, file.TransferEndTime, 5*time.Second)
+	suite.Require().Less(time.Duration(0), file.TransferDuration)
+	suite.Require().Empty(file.Path)
+	suite.Require().Equal("text/plain", file.MIME)
+	suite.Require().NotNil(file.Content)
+	suite.Require().Empty(file.Name)
+
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Equal("", string(stderr))
 }
 
 func (suite *ts) Test_MultipleClients() {
