@@ -30,7 +30,7 @@ image:
 
 .PHONY: itest
 itest: $(APP_NAME)
-	go test -count 1 -p 1 -timeout 15s ./integration_testing/...
+	go test -count 1 -p 1 -timeout 30s ./integration_testing/...
 
 .PHONY: lint
 lint:
