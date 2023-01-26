@@ -1,7 +1,6 @@
 package root
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -203,37 +202,6 @@ func corsOptionsFromFlagSet(fs *pflag.FlagSet) *cors.Options {
 	})
 
 	return opts
-}
-
-type outputFormatFlagArg struct {
-	format string
-	opts   []string
-}
-
-func (o *outputFormatFlagArg) String() string {
-	s := o.format
-	if 0 < len(o.opts) {
-		s += "=" + strings.Join(o.opts, ",")
-	}
-	return s
-}
-
-func (o *outputFormatFlagArg) Set(v string) error {
-	switch {
-	case strings.HasPrefix(v, "json"):
-		o.format = "json"
-		parts := strings.Split(v, "=")
-		if len(parts) < 2 {
-			return nil
-		}
-		o.opts = strings.Split(parts[1], ",")
-		return nil
-	}
-	return errors.New(`must be "json[=opts...]"`)
-}
-
-func (o *outputFormatFlagArg) Type() string {
-	return "string"
 }
 
 func wrappedFlagUsages(flags *pflag.FlagSet) string {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime"
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
@@ -23,6 +24,8 @@ type Cmd struct {
 	cobraCommand *cobra.Command
 	header       http.Header
 	status       int
+
+	archiveMethod archiveFlag
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -45,8 +48,13 @@ If a directory is given, it will be archived and sent to the client; oneshot doe
 	}
 
 	flags := c.cobraCommand.Flags()
-	flags.StringP("archive-method", "a", "tar.gz", `Which archive method to use when sending directories.
-Recognized values are "zip" and "tar.gz".`)
+	flags.VarP(&c.archiveMethod, "archive-method", "a", `Which archive method to use when sending directories.
+Recognized values are "zip", "tar" and "tar.gz".`)
+	if runtime.GOOS == "windows" {
+		flags.Lookup("archive-method").DefValue = "zip"
+	} else {
+		flags.Lookup("archive-method").DefValue = "tar.gz"
+	}
 
 	flags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
 
@@ -56,7 +64,7 @@ If not set, either no MIME type or the mime/type of the file will be user, depen
 	flags.StringP("name", "n", "", `Name of file presented to client if downloading.
 If not set, either a random name or the name of the file will be used, depending on if a file was given.`)
 
-	flags.Int("status-code", 200, "HTTP status code sent to client.")
+	flags.Int("status-code", http.StatusOK, "HTTP status code sent to client.")
 
 	return c.cobraCommand
 }
@@ -66,12 +74,11 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx   = cmd.Context()
 		paths = args
 
-		flags            = cmd.Flags()
-		headerSlice, _   = flags.GetStringSlice("header")
-		fileName, _      = flags.GetString("name")
-		fileMime, _      = flags.GetString("mime")
-		archiveMethod, _ = flags.GetString("archive-method")
-		noDownload, _    = flags.GetBool("no-download")
+		flags          = cmd.Flags()
+		headerSlice, _ = flags.GetStringSlice("header")
+		fileName, _    = flags.GetString("name")
+		fileMime, _    = flags.GetString("mime")
+		noDownload, _  = flags.GetBool("no-download")
 	)
 
 	c.status, _ = flags.GetInt("status-code")
@@ -84,16 +91,17 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
+	archiveMethod := string(c.archiveMethod)
+	if archiveMethod == "" {
+		archiveMethod = flags.Lookup("archive-method").DefValue
+	}
+
 	var err error
-	c.rtc, err = file.NewReadTransferConfig(args...)
+	c.rtc, err = file.NewReadTransferConfig(archiveMethod, args...)
 	if err != nil {
 		return err
 	}
 
-	// TODO(raphaelreyna): Only accept zip and tar.gz
-	if archiveMethod != "zip" && archiveMethod != "tar.gz" {
-		archiveMethod = "tar.gz"
-	}
 	if file.IsArchive(c.rtc) {
 		fileName += "." + archiveMethod
 	}
@@ -109,4 +117,24 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil
+}
+
+type archiveFlag string
+
+func (a *archiveFlag) String() string {
+	return string(*a)
+}
+
+func (a *archiveFlag) Set(value string) error {
+	switch value {
+	case "zip", "tar", "tar.gz":
+		*a = archiveFlag(value)
+		return nil
+	default:
+		return fmt.Errorf(`invalid archive method %q, must be "zip", "tar" or "tar.gz`, value)
+	}
+}
+
+func (a archiveFlag) Type() string {
+	return "string"
 }

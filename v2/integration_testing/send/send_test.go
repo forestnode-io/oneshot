@@ -1,9 +1,11 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -267,7 +269,7 @@ func (suite *ts) Test_StatusCode() {
 	suite.Assert().Equal(resp.StatusCode, http.StatusTeapot)
 }
 
-func (suite *ts) Test_Send_Directory() {
+func (suite *ts) Test_Send_Directory_targz() {
 	var oneshot = suite.NewOneshot()
 	oneshot.Args = []string{"send", "./testDir"}
 	oneshot.Files = itest.FilesMap{
@@ -284,13 +286,13 @@ func (suite *ts) Test_Send_Directory() {
 	suite.Require().NoError(err)
 	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
 
-	tarFileName := filepath.Join(suite.TestDir, "test.tar")
+	tarFileName := filepath.Join(suite.TestDir, "test.tar.gz")
 	bufBytes, err := io.ReadAll(resp.Body)
 	suite.Require().NoError(err)
 	err = os.WriteFile(tarFileName, bufBytes, 0600)
 	suite.Require().NoError(err)
 
-	tarOut, err := exec.Command("tar", "-xf", tarFileName, "-C", suite.TestDir).CombinedOutput()
+	tarOut, err := exec.Command("tar", "-xzf", tarFileName, "-C", suite.TestDir).CombinedOutput()
 	suite.Require().NoError(err, string(tarOut))
 
 	fileBytes, err := os.ReadFile(filepath.Join(suite.TestDir, "testDir", "test.txt"))
@@ -300,6 +302,59 @@ func (suite *ts) Test_Send_Directory() {
 	fileBytes, err = os.ReadFile(filepath.Join(suite.TestDir, "testDir", "test2.txt"))
 	suite.Require().NoError(err)
 	suite.Assert().Equal("SUCCESS2", string(fileBytes))
+
+	oneshot.Wait()
+}
+
+func (suite *ts) Test_Send_Directory_zip() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"send", "-a", "zip", "./testDir"}
+	oneshot.Files = itest.FilesMap{
+		"./testDir/test.txt":  []byte("SUCCESS"),
+		"./testDir/test2.txt": []byte("SUCCESS2"),
+	}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	// ---
+
+	client := itest.RetryClient{}
+	resp, err := client.Get("http://127.0.0.1:8080")
+	suite.Require().NoError(err)
+	suite.Assert().Equal(http.StatusOK, resp.StatusCode)
+
+	bufBytes, err := io.ReadAll(resp.Body)
+	suite.Require().NoError(err)
+	bodyBuf := bytes.NewReader(bufBytes)
+
+	zr, err := zip.NewReader(bodyBuf, resp.ContentLength)
+	suite.Require().NoError(err)
+
+	files := map[string]string{
+		"testDir/test.txt":  "",
+		"testDir/test2.txt": "",
+	}
+	for _, f := range zr.File {
+		fc, err := f.Open()
+		suite.Require().NoError(err)
+		if _, ok := files[f.Name]; ok {
+			content := make([]byte, f.UncompressedSize64)
+			_, err = fc.Read(content)
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+			suite.Require().NoError(err)
+			files[f.Name] = string(content)
+		} else {
+			suite.Fail("unexpected file in zip", f.Name)
+		}
+	}
+
+	for name, content := range oneshot.Files {
+		zContent, ok := files[filepath.Clean(name)]
+		suite.Require().True(ok)
+		suite.Assert().Equal(string(content), zContent)
+	}
 
 	oneshot.Wait()
 }

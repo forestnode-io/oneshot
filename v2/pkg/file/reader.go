@@ -81,7 +81,7 @@ func IsArchive(rtc ReadTransferConfig) bool {
 	return ok
 }
 
-func NewReadTransferConfig(locations ...string) (ReadTransferConfig, error) {
+func NewReadTransferConfig(archiveFormat string, locations ...string) (ReadTransferConfig, error) {
 	var rc ReadTransferConfig
 	// determine what we're sending and what needs to be archived
 	switch len(locations) {
@@ -120,7 +120,8 @@ func NewReadTransferConfig(locations ...string) (ReadTransferConfig, error) {
 
 		if stat.IsDir() {
 			rc = &archiveReaderConfig{
-				paths: locations,
+				format: archiveFormat,
+				paths:  locations,
 			}
 		} else {
 			rc = &fileReaderConfig{
@@ -135,7 +136,8 @@ func NewReadTransferConfig(locations ...string) (ReadTransferConfig, error) {
 			}
 		}
 		rc = &archiveReaderConfig{
-			paths: locations,
+			format: archiveFormat,
+			paths:  locations,
 		}
 	}
 
@@ -168,15 +170,23 @@ func (c *fileReaderConfig) NewReaderTransferSession(ctx context.Context) (*ReadT
 
 // fileReaderConfig defaults to lazy-buffering its input under a certain size
 type archiveReaderConfig struct {
-	paths []string
-	buf   []byte
+	format string
+	paths  []string
+	buf    []byte
 }
 
 func (c *archiveReaderConfig) NewReaderTransferSession(ctx context.Context) (*ReadTransferSession, error) {
 	if c.buf == nil {
 		r, w := io.Pipe()
 		go func() {
-			_ = tarball(c.paths, w)
+			switch c.format {
+			case "zip":
+				_ = zip(c.paths, w)
+			case "tar":
+				_ = tarball(false, c.paths, w)
+			default:
+				_ = tarball(true, c.paths, w)
+			}
 			w.Close()
 		}()
 		return &ReadTransferSession{
@@ -188,9 +198,21 @@ func (c *archiveReaderConfig) NewReaderTransferSession(ctx context.Context) (*Re
 	}
 
 	buf := bytes.NewBuffer(c.buf)
-	if err := tarball(c.paths, buf); err != nil {
-		return nil, err
+	switch c.format {
+	case "zip":
+		if err := zip(c.paths, buf); err != nil {
+			return nil, err
+		}
+	case "tar":
+		if err := tarball(false, c.paths, buf); err != nil {
+			return nil, err
+		}
+	default:
+		if err := tarball(true, c.paths, buf); err != nil {
+			return nil, err
+		}
 	}
+
 	return &ReadTransferSession{
 		r: io.NopCloser(buf),
 		Size: func() (int64, error) {

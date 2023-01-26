@@ -9,10 +9,15 @@ import (
 	"strings"
 )
 
-func tarball(paths []string, w io.Writer) error {
-	gw := gzip.NewWriter(w)
-	defer gw.Close()
-	tw := tar.NewWriter(gw)
+func tarball(compress bool, paths []string, w io.Writer) error {
+	var tw *tar.Writer
+	if compress {
+		gw := gzip.NewWriter(w)
+		defer gw.Close()
+		tw = tar.NewWriter(gw)
+	} else {
+		tw = tar.NewWriter(w)
+	}
 	defer tw.Close()
 
 	formatName := func(name string) string {

@@ -26,8 +26,8 @@ func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
 	if quiet, _ := flags.GetBool("quiet"); quiet {
 		output.Quiet(ctx)
 	} else {
-		output.SetFormat(ctx, r.outFlag.format)
-		output.SetFormatOpts(ctx, r.outFlag.opts...)
+		output.SetFormat(ctx, r.outFlag.Format)
+		output.SetFormatOpts(ctx, r.outFlag.Opts...)
 	}
 	if noColor, _ := flags.GetBool("no-color"); noColor {
 		output.NoColor(ctx)

@@ -24,7 +24,7 @@ type rootCommand struct {
 	closers    []io.Closer
 	middleware oneshothttp.Middleware
 
-	outFlag outputFormatFlagArg
+	outFlag commands.OutputFlagArg
 
 	handler http.HandlerFunc
 }
