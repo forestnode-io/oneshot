@@ -10,11 +10,21 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"testing"
 	"time"
 
 	itest "github.com/raphaelreyna/oneshot/v2/integration_testing"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/stretchr/testify/suite"
 )
+
+func TestBasicTestSuite(t *testing.T) {
+	suite.Run(t, new(ts))
+}
+
+type ts struct {
+	itest.TestSuite
+}
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 	var oneshot = suite.NewOneshot()
