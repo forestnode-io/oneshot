@@ -100,12 +100,13 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 		corsMW = cors.New(*copts).Handler
 	}
 
+	noLoginTrigger, _ := flags.GetBool("dont-trigger-login")
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
 			Chain(middlewareShim(corsMW)).
 			Chain(oneshothttp.BotsMiddleware(allowBots)).
 			Chain(oneshothttp.BasicAuthMiddleware(
-				unauthenticatedHandler(unauthenticatedStatus, unauthenticatedViewBytes),
+				unauthenticatedHandler(!noLoginTrigger, unauthenticatedStatus, unauthenticatedViewBytes),
 				uname, passwd)),
 	}...)
 	r.server.TLSCert = tlsCert
@@ -142,17 +143,23 @@ func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) 
 
 var ErrTimeout = errors.New("timeout")
 
-func unauthenticatedHandler(statCode int, content []byte) http.HandlerFunc {
+func unauthenticatedHandler(triggerLogin bool, statCode int, content []byte) http.HandlerFunc {
 	if statCode == 0 {
 		statCode = http.StatusUnauthorized
 	}
 	if content == nil {
 		return func(w http.ResponseWriter, r *http.Request) {
+			if triggerLogin {
+				w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
+			}
 			w.WriteHeader(statCode)
 		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if triggerLogin {
+			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
+		}
 		w.WriteHeader(statCode)
 		_, _ = w.Write(content)
 	}

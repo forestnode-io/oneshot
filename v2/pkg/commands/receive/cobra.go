@@ -65,6 +65,13 @@ Web interfaces can provide this information by setting the Content-Length header
 If a file is being uploaded as a multipart form, the content length can be provided by setting the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header in the request.
 Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be of the form <FILE NAME>=<CONTENT LENGTH>.
 `,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return errors.New("too many arguments")
+			}
+
+			return nil
+		},
 	}
 
 	flags := c.cobraCommand.Flags()

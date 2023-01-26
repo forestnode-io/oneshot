@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -40,6 +41,13 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Long: `Execute a command for each request, passing in the body to stdin and returning the stdout to the client.
 Commands may be CGI complaint but do not have to be. CGI compliance can be enforced with the --enforce-cgi flag.`,
 		RunE: c.setHandlerFunc,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return errors.New("missing command")
+			}
+
+			return nil
+		},
 	}
 
 	flags := c.cobraCommand.LocalFlags()

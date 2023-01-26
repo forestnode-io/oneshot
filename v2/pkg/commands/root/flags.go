@@ -65,7 +65,7 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 func (r *rootCommand) setFlags() {
 	pflags := r.PersistentFlags()
 
-	flags := pflag.NewFlagSet("Global Flags", pflag.ContinueOnError)
+	flags := pflag.NewFlagSet("Output Flags", pflag.ContinueOnError)
 	flags.BoolP("quiet", "q", false, "Silence all messages.")
 
 	flags.VarP(&r.outFlag, "output", "o", `Set output format. Valid formats are: json[=opts].
@@ -112,11 +112,9 @@ Setting a value for 'Content-Type' will override the -M, --mime flag.`)
 
 	bafs := pflag.NewFlagSet("Basic Authentication", pflag.ContinueOnError)
 	bafs.StringP("username", "u", "", `Username for basic authentication.
-If an empty username ("") is set then a random, easy to remember username will be used.
 If a password is not also provided then the client may enter any password.`)
 
 	bafs.StringP("password", "P", "", `Password for basic authentication.
-If an empty password ("") is set then a random secure will be used.
 If a username is not also provided using the --username flag then the client may enter any username.
 If either the --prompt-password or --password-file flags are set, this flag will be ignored.`)
 
@@ -131,6 +129,9 @@ If the --prompt-password flag is set, this flags will be ignored.`)
 If a username or password is not provided, this flag will be ignored.`)
 
 	bafs.Int("unauthenticated-status", 401, `Status code that will be sent to unauthenticated users.
+If a username or password is not provided, this flag will be ignored.`)
+
+	bafs.Bool("dont-trigger-login", false, `Don't trigger login dialog for unauthenticated users.
 If a username or password is not provided, this flag will be ignored.`)
 
 	pflags.AddFlagSet(bafs)
