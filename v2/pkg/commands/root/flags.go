@@ -10,7 +10,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	xterm "golang.org/x/term"
+	"golang.org/x/term"
 )
 
 func tlsCertAndKey(flags *pflag.FlagSet) (string, string, error) {
@@ -50,7 +50,7 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 
 	if x, _ := flags.GetBool("prompt-password"); x {
 		fmt.Print("Enter Password: ")
-		passwdBytes, err := xterm.ReadPassword(int(syscall.Stdin))
+		passwdBytes, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return "", "", err
 		}
@@ -236,13 +236,8 @@ func (o *outputFormatFlagArg) Type() string {
 	return "string"
 }
 
-func setHelpFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP("help", "h", false, "Show this help message and exit.\n")
-	return cmd
-}
-
 func wrappedFlagUsages(flags *pflag.FlagSet) string {
-	w, _, err := xterm.GetSize(0)
+	w, _, err := term.GetSize(0)
 	if err != nil {
 		w = 80
 	}

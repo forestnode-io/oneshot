@@ -39,11 +39,7 @@ func ExecuteContext(ctx context.Context) error {
 	root.PersistentPostRunE = root.runServer
 
 	root.setFlags()
-	root.AddCommand(exec.New().Cobra())
-	root.AddCommand(receive.New().Cobra())
-	root.AddCommand(redirect.New().Cobra())
-	root.AddCommand(send.New().Cobra())
-	root.AddCommand(version.New().Cobra())
+	root.setSubCommands()
 
 	ctx = events.WithEvents(ctx)
 	ctx, err = output.WithOutput(ctx)
@@ -77,11 +73,29 @@ func CobraCommand() *cobra.Command {
 	root.Use = "oneshot"
 
 	root.setFlags()
-	root.AddCommand(exec.New().Cobra())
-	root.AddCommand(receive.New().Cobra())
-	root.AddCommand(redirect.New().Cobra())
-	root.AddCommand(send.New().Cobra())
-	root.AddCommand(version.New().Cobra())
+	root.setSubCommands()
 
 	return &root.Command
+}
+
+func (r *rootCommand) setSubCommands() {
+	for _, sc := range subCommands() {
+		if reFunc := sc.RunE; reFunc != nil {
+			sc.RunE = func(cmd *cobra.Command, args []string) error {
+				output.InvocationInfo(cmd.Context(), cmd, args)
+				return reFunc(cmd, args)
+			}
+		}
+		r.AddCommand(sc)
+	}
+}
+
+func subCommands() []*cobra.Command {
+	return []*cobra.Command{
+		exec.New().Cobra(),
+		receive.New().Cobra(),
+		redirect.New().Cobra(),
+		send.New().Cobra(),
+		version.New().Cobra(),
+	}
 }

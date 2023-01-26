@@ -62,8 +62,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		headerSlice, _       = flags.GetStringSlice("header")
 	)
 
-	output.InvocationInfo(ctx, cmd.Name(), len(args))
-
 	if statCodeOk != nil {
 		statCode = http.StatusTemporaryRedirect
 	}

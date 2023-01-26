@@ -13,6 +13,7 @@ import (
 
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/spf13/cobra"
 )
 
 func WithOutput(ctx context.Context) (context.Context, error) {
@@ -29,74 +30,9 @@ func WithOutput(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, key{}, &o), nil
 }
 
-func InvocationInfo(ctx context.Context, cmdName string, argc int) {
+func InvocationInfo(ctx context.Context, cmd *cobra.Command, args []string) {
 	o := getOutput(ctx)
-	switch cmdName {
-	case "exec":
-		log.SetPrefix("oneshot exec: ")
-		if o.Format == "json" {
-			// if outputting json report and executing a command, include the sent body in the report
-			// since the user may not have a copy of it laying around
-			if _, exclude := o.FormatOpts["exclude-file-contents"]; !exclude {
-				o.FormatOpts["include-file-contents"] = struct{}{}
-			}
-		}
-	case "redirect":
-		log.SetPrefix("oneshot redirect: ")
-	case "send":
-		log.SetPrefix("oneshot send: ")
-		switch argc {
-		case 0: // sending from stdin
-			if o.Format != "json" {
-				// if stdin is not a tty we can try dynamic output to the tty
-				if !o.stdinIsTTY {
-					o.enableDynamicOutput(nil)
-				} else {
-					o.ttyForContentOnly = true
-				}
-			} else {
-				// if outputting json report and sending from stdin, include the sent body in the report
-				// since the user may not have a copy of it laying around
-				if _, exclude := o.FormatOpts["exclude-file-contents"]; !exclude {
-					o.FormatOpts["include-file-contents"] = struct{}{}
-				}
-			}
-		default: // sending file(s)
-			if o.Format != "json" {
-				o.enableDynamicOutput(nil)
-			}
-		}
-	case "receive":
-		log.SetPrefix("oneshot receive: ")
-		switch argc {
-		case 0: // receiving to stdout
-			if o.Format != "json" {
-				if o.stdoutTTY != nil {
-					o.ttyForContentOnly = true
-				}
-
-				// try to fallback to stderr for dynamic out output but only if
-				// stdout is not a tty since the stderr tty is usually the same as the stdout tty.
-				if o.dynamicOutput != nil {
-					o.dynamicOutput = nil
-					if o.stdoutTTY == nil && o.stderrTTY != nil {
-						o.enableDynamicOutput(o.stderrTTY)
-					}
-				}
-			} else {
-				// if outputting json report and receiving to stdout, include the received body in the report
-				// since the user may not have a copy of it laying around
-				if _, exclude := o.FormatOpts["exclude-file-contents"]; !exclude {
-					o.FormatOpts["include-file-contents"] = struct{}{}
-				}
-			}
-		default: // receiving to file
-			if o.Format != "json" {
-				o.enableDynamicOutput(nil)
-			}
-		}
-	default:
-	}
+	o.setCommandInvocation(cmd, args)
 
 	go func() {
 		if err := getOutput(ctx).run(ctx); err != nil {

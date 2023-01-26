@@ -13,7 +13,6 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -94,7 +93,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 		err error
 	)
-	output.InvocationInfo(ctx, cmd.Name(), len(args))
 
 	c.statusCode, _ = flags.GetInt("status-code")
 	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
