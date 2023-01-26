@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/exec"
@@ -56,6 +57,12 @@ func ExecuteContext(ctx context.Context) error {
 
 	root.SetHelpTemplate(helpTemplate)
 	root.SetUsageTemplate(usageTemplate)
+
+	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
+	cobra.AddTemplateFunc("indent", func(p int, s string) string {
+		padding := strings.Repeat(" ", p)
+		return padding + strings.ReplaceAll(s, "\n", "\n"+padding)
+	})
 
 	err = root.ExecuteContext(ctx)
 	for _, closer := range root.closers {

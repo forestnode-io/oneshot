@@ -7,8 +7,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Masterminds/sprig/v3"
-	"github.com/moby/term"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -160,9 +158,6 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	cobra.AddTemplateFunc("corsFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return cfs
 	})
-
-	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
-	cobra.AddTemplateFuncs(sprig.FuncMap())
 }
 
 // newCorsConfig returns a new corsConfig from the given flag set.
@@ -247,9 +242,10 @@ func setHelpFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func wrappedFlagUsages(flags *pflag.FlagSet) string {
-	width := 80
-	if ws, err := term.GetWinsize(0); err == nil {
-		width = int(ws.Width)
+	w, _, err := xterm.GetSize(0)
+	if err != nil {
+		w = 80
 	}
-	return flags.FlagUsagesWrapped(width)
+
+	return flags.FlagUsagesWrapped(w)
 }
