@@ -54,14 +54,13 @@ func ExecuteContext(ctx context.Context) error {
 
 	events.RegisterEventListener(ctx, output.SetEventsChan)
 
+	root.SetHelpTemplate(helpTemplate)
+	root.SetUsageTemplate(usageTemplate)
+
 	err = root.ExecuteContext(ctx)
 	for _, closer := range root.closers {
 		closer.Close()
 	}
-
-	events.Stop(ctx)
-
-	output.Wait(ctx)
 
 	return err
 }

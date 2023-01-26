@@ -40,6 +40,7 @@ func WithEvents(ctx context.Context) context.Context {
 		eventsChan: make(chan Event, 1),
 		cancel:     cancel,
 	}
+
 	go func() {
 		<-ctx.Done()
 		close(b.eventsChan)

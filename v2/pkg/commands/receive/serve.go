@@ -42,7 +42,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, err.Error(), err.(*httpError).stat)
-		output.ClientDisconnected(ctx, err)
+		events.Raise(ctx, events.ClientDisconnected{Err: err})
 		return
 	}
 
@@ -62,7 +62,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wts, err := c.fileTransferConfig.NewWriteTransferSession(ctx, rb.name, rb.mime)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		output.ClientDisconnected(ctx, err)
+		events.Raise(ctx, events.ClientDisconnected{Err: err})
 		return
 	}
 	defer wts.Close()
@@ -87,7 +87,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fileReport.TransferSize, err = io.Copy(file, src)
 	fileReport.TransferEndTime = time.Now()
 	if err != nil {
-		output.ClientDisconnected(ctx, err)
+		events.Raise(ctx, events.ClientDisconnected{Err: err})
 
 		events.Raise(ctx, events.ClientDisconnected{
 			Err: err,

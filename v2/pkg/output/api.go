@@ -97,13 +97,12 @@ func InvocationInfo(ctx context.Context, cmdName string, argc int) {
 		}
 	default:
 	}
-}
 
-// TODO(raphaelreyna): move this into the events package
-func ClientDisconnected(ctx context.Context, err error) {
-	getOutput(ctx).events <- &events.ClientDisconnected{
-		Err: err,
-	}
+	go func() {
+		if err := getOutput(ctx).run(ctx); err != nil {
+			log.Printf("error running output system: %v", err)
+		}
+	}()
 }
 
 func SetEventsChan(ctx context.Context, ec chan events.Event) {
@@ -157,14 +156,6 @@ func ReceivingToStdout(ctx context.Context) {
 			o.receivedBuf = bytes.NewBuffer(nil)
 		}
 	}
-}
-
-func Init(ctx context.Context) {
-	go func() {
-		if err := getOutput(ctx).run(ctx); err != nil {
-			log.Printf("error running output system: %v", err)
-		}
-	}()
 }
 
 func Wait(ctx context.Context) {

@@ -37,17 +37,26 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.header = make(http.Header)
 	c.cobraCommand = &cobra.Command{
 		Use:   "send [file|dir]",
-		Short: "",
-		Long:  "",
-		RunE:  c.setHandlerFunc,
+		Short: "Send a file or directory to the client",
+		Long: `Send a file or directory to the client. If no file or directory is given, stdin will be used.
+When sending from stdin, requests are blocked until an EOF is received; content from stdin is buffered for subsequent requests.
+If a directory is given, it will be archived and sent to the client; oneshot does not support sending unarchived directories.
+`,
+		RunE: c.setHandlerFunc,
 	}
 
 	flags := c.cobraCommand.Flags()
-	flags.StringP("archive-method", "a", "tar.gz", "Which archive method to use when sending directories.\nRecognized values are \"zip\" and \"tar.gz\".")
-	flags.BoolP("stream", "J", false, "Stream contents when sending stdin, don't wait for EOF.")
+	flags.StringP("archive-method", "a", "tar.gz", `Which archive method to use when sending directories.
+Recognized values are "zip" and "tar.gz".`)
+
 	flags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
-	flags.StringP("mime", "m", "", "MIME type of file presented to client.\nIf not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.")
-	flags.StringP("name", "n", "", "Name of file presented to client if downloading.\nIf not set, either a random name or the name of the file will be used,depending on if a file was given.")
+
+	flags.StringP("mime", "m", "", `MIME type of file presented to client.
+If not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.`)
+
+	flags.StringP("name", "n", "", `Name of file presented to client if downloading.
+If not set, either a random name or the name of the file will be used, depending on if a file was given.`)
+
 	flags.Int("status-code", 200, "HTTP status code sent to client.")
 
 	return c.cobraCommand
@@ -64,7 +73,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileMime, _      = flags.GetString("mime")
 		archiveMethod, _ = flags.GetString("archive-method")
 		noDownload, _    = flags.GetBool("no-download")
-		//stream, _        = flags.GetBool("stream")
 	)
 	output.InvocationInfo(ctx, cmd.Name(), len(args))
 

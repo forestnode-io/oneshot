@@ -35,16 +35,19 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:  "exec command",
+		Use:   "exec -- command",
+		Short: "Execute a command for each request, passing in the body to stdin and returning the stdout to the client",
+		Long: `Execute a command for each request, passing in the body to stdin and returning the stdout to the client.
+Commands may be CGI complaint but do not have to be. CGI compliance can be enforced with the --enforce-cgi flag.`,
 		RunE: c.setHandlerFunc,
 	}
 
 	flags := c.cobraCommand.LocalFlags()
 	flags.Bool("enforce-cgi", false, "The exec must conform to the CGI.")
-	flags.StringSliceP("env", "e", []string{}, "Set an environment variable")
-	flags.String("dir", "", "Set the working directory")
-	flags.String("stderr", "", "Where to send exec stderr")
-	flags.Bool("replace-headers", false, "Allow exec to replace header values")
+	flags.StringSliceP("env", "e", []string{}, "Set an environment variable.")
+	flags.String("dir", "", "Set the working directory.")
+	flags.String("stderr", "", "Where to send exec stderr.")
+	flags.Bool("replace-headers", false, "Allow command to replace header values.")
 
 	return c.cobraCommand
 }

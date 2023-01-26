@@ -24,7 +24,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rts, err := c.rtc.NewReaderTransferSession(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		output.ClientDisconnected(ctx, err)
+		events.Raise(ctx, events.ClientDisconnected{Err: err})
 		return
 	}
 	defer rts.Close()
@@ -58,7 +58,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fileReport.TransferEndTime = time.Now()
 	if err != nil {
 		events.Raise(ctx, &fileReport)
-		output.ClientDisconnected(ctx, err)
+		events.Raise(ctx, events.ClientDisconnected{Err: err})
 		return
 	}
 

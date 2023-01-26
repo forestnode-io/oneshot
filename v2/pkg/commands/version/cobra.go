@@ -20,7 +20,8 @@ func (c *Cmd) Cobra() *cobra.Command {
 		return c.cobraCommand
 	}
 	c.cobraCommand = &cobra.Command{
-		Use: "version",
+		Use:   "version",
+		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			if version := linkersetvalues.Version; version != "" {
 				fmt.Printf("version: %s\n", version)

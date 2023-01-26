@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -44,15 +43,36 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:  "receive [dir]",
-		RunE: c.setHandlerFunc,
+		Use:   "receive [file]",
+		RunE:  c.setHandlerFunc,
+		Short: "Receive a file from the client",
+		Long: `Receive a file from the client. If file is not specified, the content will be sent to stdout.
+
+A simple web interface is served by default to GET requests to allow users to upload files from their browser.
+Users are not required to use the web interface to upload files, they can use any HTTP client to upload files to the server via a POST request.
+Uploading files via the web interface can be restricted to a specific CSRF token by using the --csrf-token flag.
+
+The web interface can be customized by providing a ui file or path glob via the --ui flag.
+These files are parsed as Go templates.
+The CSRF token (if one is being used) can be accessed through the template variable ` + "`.CSRFToken`" + `
+
+A web interface template can also instruct oneshot to decode base64 encoded uploads by calling the ` + "`.enableBase64Decoding`" + ` function in the template.
+This is useful for web interfaces that upload files that are base64 encoded such as an image or video.
+These encoded files will be saved decoded to disk.
+
+In order to display dynamic transfer information, oneshot needs to know the total size of the file being uploaded.
+Web interfaces can provide this information by setting the Content-Length header on the POST request.
+If a file is being uploaded as a multipart form, the content length can be provided by setting the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header in the request.
+Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be of the form <FILE NAME>=<CONTENT LENGTH>.
+`,
 	}
 
 	flags := c.cobraCommand.Flags()
-	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated")
-	flags.String("eol", "unix", "How to parse EOLs in the received file. 'unix': '\\n', 'dos': '\\r\\n' ")
-	flags.StringP("ui", "U", "", "Name of ui file to use")
-	flags.Bool("decode-b64", false, "Decode base-64")
+	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated.")
+	flags.String("eol", "unix", `How to parse EOLs in the received file.
+Acceptable values are 'unix' and 'dos'; 'unix': '\n', 'dos': '\r\n'.`)
+	flags.StringP("ui", "U", "", "Name of ui file to use.")
+	flags.Bool("decode-b64", false, "Decode base-64.")
 	flags.Int("status-code", 200, "HTTP status code sent to client.")
 
 	return c.cobraCommand
@@ -85,7 +105,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	var (
 		tmpl = template.New("base")
-		ui   = os.Getenv("ONESHOT_UI")
+		ui   = ""
 	)
 
 	tmpl = tmpl.Funcs(template.FuncMap{

@@ -88,7 +88,12 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		}
 		s.File.ComputeTransferFields()
 	}
-	err := json.NewEncoder(os.Stdout).Encode(Report{
+
+	enc := json.NewEncoder(os.Stdout)
+	if _, ok := o.FormatOpts["compact"]; !ok {
+		enc.SetIndent("", "  ")
+	}
+	err := enc.Encode(Report{
 		Success:  o.currentClientSession,
 		Attempts: o.cls,
 	})

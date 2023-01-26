@@ -33,8 +33,9 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:  "redirect url",
-		RunE: c.setHandlerFunc,
+		Use:   "redirect url",
+		Short: "Redirect all requests to the specified url",
+		RunE:  c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("redirect url required")
@@ -47,7 +48,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	flags := c.cobraCommand.LocalFlags()
-	flags.IntP("status-code", "s", http.StatusTemporaryRedirect, "HTTP status code")
+	flags.IntP("status-code", "s", http.StatusTemporaryRedirect, "HTTP status code.")
 
 	return c.cobraCommand
 }

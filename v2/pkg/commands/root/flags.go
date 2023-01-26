@@ -7,8 +7,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/Masterminds/sprig/v3"
+	"github.com/moby/term"
+	"github.com/rs/cors"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/term"
+	xterm "golang.org/x/term"
 )
 
 func tlsCertAndKey(flags *pflag.FlagSet) (string, string, error) {
@@ -48,7 +52,7 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 
 	if x, _ := flags.GetBool("prompt-password"); x {
 		fmt.Print("Enter Password: ")
-		passwdBytes, err := term.ReadPassword(int(syscall.Stdin))
+		passwdBytes, err := xterm.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return "", "", err
 		}
@@ -60,61 +64,149 @@ func usernamePassword(flags *pflag.FlagSet) (string, string, error) {
 
 func (r *rootCommand) setFlags() {
 	pflags := r.PersistentFlags()
-	pflags.BoolP("quiet", "q", false, "Silence all messages.")
 
-	pflags.String("tls-cert", "", `Certificate file to use for HTTPS.
-		If the empty string ("") is passed to both this flag and --tls-key, then oneshot will generate, self-sign and use a TLS certificate/key pair.
-		Key file must also be provided using the --tls-key flag.
-		See also: --tls-key`)
+	flags := pflag.NewFlagSet("Global Flags", pflag.ContinueOnError)
+	flags.BoolP("quiet", "q", false, "Silence all messages.")
 
-	pflags.String("tls-key", "", `Key file to use for HTTPS.
-		If the empty string ("") is passed to both this flag and --tls-cert, then oneshot will generate, self-sign and use a TLS certificate/key pair.
-		Cert file must also be provided using the --tls-cert flag.
-		See also: --tls-cert`)
+	flags.VarP(&r.outFlag, "output", "o", `Set output format. Valid formats are: json[=opts].
+Valid json opts are:
+	- compact
+		Disables tabbed, pretty printed json.
+	- include-file-contents
+		Includes the contents of files in the json output.
+		This is on by default when sending from stdin or receiving to stdout.
+	- exclude-file-contents
+		Excludes the contents of files in the json output.
+		This is on by default when sending or receiving to or from disk.`)
 
-	pflags.String("host", "", `Host specifies the TCP address for the server to listen on.
-		See also: -p, --port`)
-	pflags.StringP("port", "p", "8080", `Port to bind to.
-		See also: --host`)
+	flags.BoolP("qr-code", "Q", false, "Generate QR codes for connection URLs.")
+	flags.Bool("no-color", false, "Don't use color.")
 
-	pflags.StringP("username", "u", "", `Username for basic authentication.
-		If an empty username ("") is set then a random, easy to remember username will be used.
-		If a password is not also provided using either the -P, --password flag ; -W, --prompt-password; or --password-file flags then the client may enter any password.
-		See also: -P, --password ; -W --prompt-password ; --password-file`)
+	pflags.AddFlagSet(flags)
+	cobra.AddTemplateFunc("flags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return flags
+	})
 
-	pflags.StringP("password", "P", "", `Password for basic authentication.
-		If an empty password ("") is set then a random secure will be used.
-		If a username is not also provided using the -U, --username flag then the client may enter any username.
-		If either the -W, --prompt-password or --password-file flags are set, this flag will be ignored.
-		See also: -U, --username ; -W --prompt-password ; --password-file`)
+	sfs := pflag.NewFlagSet("Server Flags", pflag.ContinueOnError)
+	sfs.Duration("timeout", 0, `How long to wait for client.
+A value of zero will cause oneshot to wait indefinitely.`)
 
-	pflags.BoolP("prompt-password", "W", false, `Prompt for password for basic authentication.
-		If a username is not also provided using the -U, --username flag then the client may enter any username.
-		See also: -U, --username ; -P --password ; --password-file`)
+	sfs.String("tls-cert", "", `Certificate file to use for HTTPS.
+Key file must also be provided using the --tls-key flag.`)
 
-	pflags.String("password-file", "", `File containing password for basic authentication.
-		If a username is not also provided using the -U, --username flag then the client may enter any username.
-		If the -W, --prompt-password flag is set, this flags will be ignored.
-		See also: -U, --username ; -P --password ; -W --prompt-password`)
+	sfs.String("tls-key", "", `Key file to use for HTTPS.
+Cert file must also be provided using the --tls-cert flag.`)
 
-	pflags.Duration("timeout", 0, `How long to wait for client. A value of zero will cause oneshot to wait indefinitely.`)
+	sfs.String("host", "", `Host specifies the TCP address for the server to listen on.`)
 
-	pflags.VarP(&r.outFlag, "output", "o", `Set output format. Valid formats are: json[=opts].
-		Valid json opts are:
-			- pretty
-				Enables tabbed, pretty printed json.
-			- include-file-contents
-				Includes the contents of files in the json output.
-				This is on by default when sending from stdin or receiving to stdout.
-			- exclude-file-contents
-				Excludes the contents of files in the json output.
-				This is on by default when sending or receiving to or from disk.
-`)
-	pflags.Bool("allow-bots", false, `Don't block bots.`)
-	pflags.StringArrayP("header", "H", nil, "HTTP header to send to client.\nSetting a value for 'Content-Type' will override the -M, --mime flag.")
+	sfs.StringP("port", "p", "8080", `Port to bind to.`)
 
-	pflags.BoolP("qr-code", "Q", false, `Generate QR codes for connection URLs`)
-	pflags.Bool("no-color", false, `Don't use color`)
+	sfs.Bool("allow-bots", false, "Don't block bots.")
+	sfs.StringArrayP("header", "H", nil, `HTTP header to send to client.
+Setting a value for 'Content-Type' will override the -M, --mime flag.`)
+
+	pflags.AddFlagSet(sfs)
+	cobra.AddTemplateFunc("serverFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return sfs
+	})
+
+	bafs := pflag.NewFlagSet("Basic Authentication", pflag.ContinueOnError)
+	bafs.StringP("username", "u", "", `Username for basic authentication.
+If an empty username ("") is set then a random, easy to remember username will be used.
+If a password is not also provided then the client may enter any password.`)
+
+	bafs.StringP("password", "P", "", `Password for basic authentication.
+If an empty password ("") is set then a random secure will be used.
+If a username is not also provided using the --username flag then the client may enter any username.
+If either the --prompt-password or --password-file flags are set, this flag will be ignored.`)
+
+	bafs.BoolP("prompt-password", "W", false, `Prompt for password for basic authentication.
+If a username is not also provided then the client may enter any username.`)
+
+	bafs.String("password-file", "", `Path to file containing password for basic authentication.
+If a username is not also provided then the client may enter any username.
+If the --prompt-password flag is set, this flags will be ignored.`)
+
+	bafs.String("unauthenticated-view", "", `Path to file that will be served to unauthenticated users.
+If a username or password is not provided, this flag will be ignored.`)
+
+	bafs.Int("unauthenticated-status", 401, `Status code that will be sent to unauthenticated users.
+If a username or password is not provided, this flag will be ignored.`)
+
+	pflags.AddFlagSet(bafs)
+	cobra.AddTemplateFunc("basicAuthFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return bafs
+	})
+
+	cfs := pflag.NewFlagSet("CORS", pflag.ContinueOnError)
+	cfs.Bool("cors", false, `Enable CORS support with default values.`)
+
+	cfs.StringArray("cors-allowed-origins", nil, `Comma separated list of allowed origins.
+An allowed origin may be a domain name, or a wildcard (*).
+A domain name may contain a wildcard (*).`)
+
+	cfs.StringArray("cors-allowed-headers", nil, `Comma separated list of allowed headers.
+An allowed header may be a header name, or a wildcard (*).
+If a wildcard (*) is used, all headers will be allowed.`)
+
+	cfs.Int("cors-max-age", 0, `How long (in seconds) the preflight results can be cached by the client.`)
+
+	cfs.Bool("cors-allow-credentials", false, `Allow credentials like cookies, basic auth headers, and ssl certs for CORS requests.`)
+
+	cfs.Bool("cors-allow-private-network", false, `Allow private network for CORS requests.`)
+	cfs.Int("cors-success-status", 204, `Status code that will be sent to successful CORS preflight requests.`)
+	pflags.AddFlagSet(cfs)
+	cobra.AddTemplateFunc("corsFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return cfs
+	})
+
+	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
+	cobra.AddTemplateFuncs(sprig.FuncMap())
+}
+
+// newCorsConfig returns a new corsConfig from the given flag set.
+func corsOptionsFromFlagSet(fs *pflag.FlagSet) *cors.Options {
+	var opts *cors.Options
+	if useCors, _ := fs.GetBool("cors"); useCors {
+		opts = &cors.Options{}
+	}
+
+	fs.Visit(func(f *pflag.Flag) {
+		switch f.Name {
+		case "cors-allowed-origins":
+			if opts == nil {
+				opts = &cors.Options{}
+			}
+			opts.AllowedOrigins = f.Value.(pflag.SliceValue).GetSlice()
+		case "cors-allowed-headers":
+			if opts == nil {
+				opts = &cors.Options{}
+			}
+			opts.AllowedHeaders = f.Value.(pflag.SliceValue).GetSlice()
+		case "cors-max-age":
+			if opts == nil {
+				opts = &cors.Options{}
+			}
+			opts.MaxAge, _ = fs.GetInt("cors-max-age")
+		case "cors-allow-credentials":
+			if opts == nil {
+				opts = &cors.Options{}
+			}
+			opts.AllowCredentials, _ = fs.GetBool("cors-allow-credentials")
+		case "cors-allow-private-network":
+			if opts == nil {
+				opts = &cors.Options{}
+			}
+			opts.AllowPrivateNetwork, _ = fs.GetBool("cors-allow-private-network")
+		case "cors-success-status":
+			if opts == nil {
+				opts = &cors.Options{}
+			}
+			opts.OptionsSuccessStatus, _ = fs.GetInt("cors-success-status")
+		}
+	})
+
+	return opts
 }
 
 type outputFormatFlagArg struct {
@@ -146,4 +238,17 @@ func (o *outputFormatFlagArg) Set(v string) error {
 
 func (o *outputFormatFlagArg) Type() string {
 	return "string"
+}
+
+func setHelpFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP("help", "h", false, "Show this help message and exit.\n")
+	return cmd
+}
+
+func wrappedFlagUsages(flags *pflag.FlagSet) string {
+	width := 80
+	if ws, err := term.GetWinsize(0); err == nil {
+		width = int(ws.Width)
+	}
+	return flags.FlagUsagesWrapped(width)
 }
