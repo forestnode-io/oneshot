@@ -57,6 +57,8 @@ type output struct {
 	restoreConsole  []func() error
 	stdoutFailColor termenv.Color
 	stderrFailColor termenv.Color
+
+	cmdName string
 }
 
 func (o *output) run(ctx context.Context) error {
@@ -219,8 +221,9 @@ func (o *output) enableDynamicOutput(te *termenv.Output) {
 }
 
 type clientSession struct {
-	Request *events.HTTPRequest `json:",omitempty"`
-	File    *events.File        `json:",omitempty"`
+	Request  *events.HTTPRequest  `json:",omitempty"`
+	File     *events.File         `json:",omitempty"`
+	Response *events.HTTPResponse `json:",omitempty"`
 }
 
 type Report struct {

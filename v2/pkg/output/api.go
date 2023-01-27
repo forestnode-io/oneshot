@@ -152,11 +152,6 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 }
 
 func NewBufferedWriter(ctx context.Context, w io.Writer) (io.Writer, func() []byte) {
-	o := getOutput(ctx)
-	if o.Format != "json" {
-		return w, nil
-	}
-
 	buf := bytes.NewBuffer(nil)
 	tw := teeWriter{
 		w:    w,

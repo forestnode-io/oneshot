@@ -75,11 +75,18 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 
 	flags := c.cobraCommand.Flags()
 	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated.")
+
 	flags.String("eol", "unix", `How to parse EOLs in the received file.
 Acceptable values are 'unix' and 'dos'; 'unix': '\n', 'dos': '\r\n'.`)
+
 	flags.StringP("ui", "U", "", "Name of ui file to use.")
+
 	flags.Bool("decode-b64", false, "Decode base-64.")
+
 	flags.Int("status-code", 200, "HTTP status code sent to client.")
+
+	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
+Format: <HEADER NAME>=<HEADER VALUE>`)
 
 	return c.cobraCommand
 }

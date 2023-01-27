@@ -67,12 +67,9 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 
-	if err := root.ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		return
+	if err := root.ExecuteContext(ctx); err == nil {
+		status = 0
 	}
-
-	status = 0
 }
 
 // copied from https://github.com/golang/go/blob/ebb572d82f97d19d0016a49956eb1fddc658eb76/src/go/build/syslist.go#L38

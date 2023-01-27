@@ -49,6 +49,10 @@ func _json_handleEvent(o *output, e events.Event) {
 				}
 			}
 		}
+	case *events.HTTPResponse:
+		if o.currentClientSession != nil {
+			o.currentClientSession.Response = event
+		}
 	}
 }
 

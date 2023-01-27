@@ -66,6 +66,9 @@ If not set, either a random name or the name of the file will be used, depending
 
 	flags.Int("status-code", http.StatusOK, "HTTP status code sent to client.")
 
+	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
+Format: <HEADER NAME>=<HEADER VALUE>`)
+
 	return c.cobraCommand
 }
 

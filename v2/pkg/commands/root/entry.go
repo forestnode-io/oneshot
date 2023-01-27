@@ -10,6 +10,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/exec"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/receive"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/rproxy"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/version"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
@@ -86,6 +87,7 @@ func (r *rootCommand) setSubCommands() {
 				return reFunc(cmd, args)
 			}
 		}
+		sc.Flags().BoolP("help", "h", false, "Show this help message.")
 		r.AddCommand(sc)
 	}
 }
@@ -96,6 +98,7 @@ func subCommands() []*cobra.Command {
 		receive.New().Cobra(),
 		redirect.New().Cobra(),
 		send.New().Cobra(),
+		rproxy.New().Cobra(),
 		version.New().Cobra(),
 	}
 }

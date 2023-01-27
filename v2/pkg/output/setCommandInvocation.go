@@ -20,6 +20,7 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 		}
 	)
 
+	o.cmdName = name
 	log.SetPrefix("oneshot " + name + ": ")
 
 	switch name {
@@ -70,6 +71,11 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 				o.enableDynamicOutput(nil)
 			}
 		}
+	case "reverse-proxy":
+		if o.Format == "json" {
+			includeContent()
+		}
+	case "version":
 	default:
 	}
 }

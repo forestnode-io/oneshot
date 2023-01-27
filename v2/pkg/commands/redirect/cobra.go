@@ -50,6 +50,9 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags := c.cobraCommand.LocalFlags()
 	flags.IntP("status-code", "s", http.StatusTemporaryRedirect, "HTTP status code.")
 
+	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
+Format: <HEADER NAME>=<HEADER VALUE>`)
+
 	return c.cobraCommand
 }
 

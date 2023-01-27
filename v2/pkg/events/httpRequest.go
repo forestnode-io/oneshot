@@ -68,3 +68,10 @@ func NewHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 }
 
 func (*HTTPRequest) isEvent() {}
+
+type HTTPResponse struct {
+	StatusCode int         `json:",omitempty"`
+	Header     http.Header `json:",omitempty"`
+}
+
+func (*HTTPResponse) isEvent() {}
