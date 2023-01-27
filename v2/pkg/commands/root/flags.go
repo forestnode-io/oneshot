@@ -94,7 +94,7 @@ Key file must also be provided using the --tls-key flag.`)
 	sfs.String("tls-key", "", `Key file to use for HTTPS.
 Cert file must also be provided using the --tls-cert flag.`)
 
-	sfs.String("host", "h", `Host specifies the TCP address for the server to listen on.`)
+	sfs.String("host", "", `Host specifies the TCP address for the server to listen on.`)
 
 	sfs.StringP("port", "p", "8080", `Port to bind to.`)
 
