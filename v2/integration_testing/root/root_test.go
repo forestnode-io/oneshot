@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"net/http"
 	"syscall"
 	"testing"
 	"time"
@@ -26,6 +28,38 @@ func (suite *ts) Test_Signal_SIGINT() {
 	time.Sleep(500 * time.Millisecond)
 	err := oneshot.Cmd.Process.Signal(syscall.SIGINT)
 	suite.Require().NoError(err)
+
+	oneshot.Wait()
+}
+
+func (suite *ts) Test_Basic_Auth() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"send", "--username", "oneshot", "--password", "hunter2"}
+	oneshot.Stdin = itest.EOFReader([]byte("SUCCESS"))
+	oneshot.Env = []string{
+		"ONESHOT_TESTING_TTY_STDIN=true",
+		"ONESHOT_TESTING_TTY_STDOUT=true",
+		"ONESHOT_TESTING_TTY_STDERR=true",
+	}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	client := itest.RetryClient{}
+	resp, err := client.Get("http://127.0.0.1:8080")
+	suite.Require().NoError(err)
+	suite.Assert().Equal(resp.StatusCode, http.StatusUnauthorized)
+
+	req, err := http.NewRequest("GET", "http://127.0.0.1:8080", nil)
+	suite.Require().NoError(err)
+	req.SetBasicAuth("oneshot", "hunter2")
+	resp, err = client.Do(req)
+	suite.Require().NoError(err)
+	suite.Assert().Equal(resp.StatusCode, http.StatusOK)
+
+	body, err := io.ReadAll(resp.Body)
+	suite.Assert().NoError(err)
+	resp.Body.Close()
+	suite.Assert().Equal(string(body), "SUCCESS")
 
 	oneshot.Wait()
 }

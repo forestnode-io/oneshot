@@ -109,6 +109,27 @@ func (rc *RetryClient) Get(url string) (*http.Response, error) {
 	return response, nil
 }
 
+func (rc *RetryClient) Do(req *http.Request) (*http.Response, error) {
+	var response *http.Response
+
+	if rc.client == nil {
+		rc.client = &http.Transport{}
+	}
+
+	for response == nil {
+		var err error
+		response, err = rc.client.RoundTrip(req)
+		if err != nil {
+			if !strings.Contains(err.Error(), "refused") {
+				return nil, err
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return response, nil
+}
+
 type TestSuite struct {
 	suite.Suite
 	TestDir string
