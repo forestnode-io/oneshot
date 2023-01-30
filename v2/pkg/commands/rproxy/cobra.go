@@ -6,7 +6,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
@@ -46,9 +45,8 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:     "reverse-proxy host",
 		Aliases: []string{"rproxy"},
 		Short:   "Reverse proxy all requests to the specified host",
-		Long: `Reverse proxy all requests to the specified host. The host may be a URL or a host:port combination.
-Caching is disabled, responses will have their 'Cache-Control' header set to 'no-store' and 'Pragma' header set to 'no-cache'.`,
-		RunE: c.setHandlerFunc,
+		Long:    `Reverse proxy all requests to the specified host. The host may be a URL or a host:port combination.`,
+		RunE:    c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("proxy host required")
@@ -93,8 +91,11 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		spoofHost, _       = flags.GetString("spoof-host")
 		method, _          = flags.GetString("method")
 		tee, _             = flags.GetBool("tee")
-		host               = args[0]
+
+		host = args[0]
 	)
+
+	output.IncludeBody(ctx)
 
 	hostURL, err := url.Parse(host)
 	if err != nil {
@@ -129,8 +130,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			Header:     originalHeader,
 		})
 
-		resp.Header.Set("Cache-Control", "no-store")
-		resp.Header.Set("Pragma", "no-cache")
 		if c.responseHeaders != nil {
 			for k, v := range c.responseHeaders {
 				resp.Header[k] = v
@@ -167,20 +166,14 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		}
 
 		if tee || jsonOutput {
-			bw, getBufBytes := output.NewBufferedWriter(ctx, w)
-			brw := output.ResponseWriter{
-				W:         w,
-				BufferedW: bw,
-			}
-			fileReport := events.File{
-				TransferStartTime: time.Now(),
-			}
+			bw, getBufByte := output.NewBufferedWriter(ctx, w)
 
-			rp.ServeHTTP(&brw, r)
+			ww := bw.(http.ResponseWriter)
+			rp.ServeHTTP(ww, r)
 
-			fileReport.TransferEndTime = time.Now()
-			fileReport.Content = getBufBytes
-			events.Raise(ctx, &fileReport)
+			events.Raise(ctx, &events.File{
+				Content: getBufByte,
+			})
 		} else {
 			rp.ServeHTTP(w, r)
 		}

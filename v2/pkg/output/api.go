@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"sync/atomic"
 	"text/tabwriter"
@@ -62,6 +63,10 @@ func SetFormatOpts(ctx context.Context, opts ...string) {
 	for _, opt := range opts {
 		o.FormatOpts[opt] = struct{}{}
 	}
+}
+
+func IncludeBody(ctx context.Context) {
+	getOutput(ctx).includeBody = true
 }
 
 func GetFormatAndOpts(ctx context.Context) (string, map[string]struct{}) {
@@ -173,7 +178,19 @@ func (t teeWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 	return
+}
 
+func (t teeWriter) Header() http.Header {
+	if h, ok := t.w.(http.ResponseWriter); ok {
+		return h.Header()
+	}
+	return nil
+}
+
+func (t teeWriter) WriteHeader(code int) {
+	if h, ok := t.w.(http.ResponseWriter); ok {
+		h.WriteHeader(code)
+	}
 }
 
 type writer struct {

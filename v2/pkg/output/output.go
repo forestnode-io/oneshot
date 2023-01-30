@@ -40,6 +40,7 @@ type output struct {
 
 	skipSummary       bool
 	ttyForContentOnly bool
+	includeBody       bool
 	receivedBuf       *bytes.Buffer
 
 	cls                  []*clientSession

@@ -36,6 +36,10 @@ func (hr *HTTPRequest) ReadBody() error {
 		return err
 	}
 
+	if len(body) == 0 {
+		return nil
+	}
+
 	hr.Body = body
 
 	return nil
@@ -72,6 +76,28 @@ func (*HTTPRequest) isEvent() {}
 type HTTPResponse struct {
 	StatusCode int         `json:",omitempty"`
 	Header     http.Header `json:",omitempty"`
+	Body       any         `json:",omitempty"`
+}
+
+func (hr *HTTPResponse) ReadBody() error {
+	if hr.Body != nil {
+		return nil
+	}
+
+	bf, ok := hr.Body.(func() []byte)
+	if !ok {
+		return nil
+	}
+
+	body := bf()
+	if len(body) == 0 {
+		hr.Body = nil
+		return nil
+	}
+
+	hr.Body = body
+
+	return nil
 }
 
 func (*HTTPResponse) isEvent() {}

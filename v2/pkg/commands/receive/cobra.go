@@ -13,6 +13,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -88,6 +89,8 @@ Acceptable values are 'unix' and 'dos'; 'unix': '\n', 'dos': '\r\n'.`)
 	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
 Format: <HEADER NAME>=<HEADER VALUE>`)
 
+	flags.Bool("include-body", false, "Include the request body in the report. If not using json output, this will be ignored.")
+
 	return c.cobraCommand
 }
 
@@ -97,9 +100,14 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		flags          = cmd.Flags()
 		headerSlice, _ = flags.GetStringSlice("header")
 		eol, _         = flags.GetString("eol")
+		includeBody, _ = flags.GetBool("include-body")
 
 		err error
 	)
+
+	if includeBody {
+		output.IncludeBody(ctx)
+	}
 
 	c.statusCode, _ = flags.GetInt("status-code")
 	c.decodeBase64Output, _ = flags.GetBool("decode-b64")

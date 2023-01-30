@@ -49,7 +49,7 @@ func NewServer(ctx context.Context, preSucc, postSucc http.HandlerFunc, mw ...Mi
 	}
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		wr := _wr{
-			w: w,
+			w: noCacheWriter{ResponseWriter: w},
 			r: r,
 		}
 
@@ -153,4 +153,24 @@ func cleanServerShutdownErr(err error) error {
 	}
 
 	return err
+}
+
+type noCacheWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (w noCacheWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w noCacheWriter) WriteHeader(code int) {
+	w.wroteHeader = true
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.ResponseWriter.WriteHeader(code)
 }

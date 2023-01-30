@@ -81,6 +81,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		replaceHeaders, _ = flags.GetBool("replace-headers")
 	)
 
+	output.IncludeBody(ctx)
+
 	handlerConf := cgi.HandlerConfig{
 		Cmd:           args,
 		WorkingDir:    dir,

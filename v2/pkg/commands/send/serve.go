@@ -17,9 +17,20 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		cmd = c.cobraCommand
 
 		header = c.header
+
+		doneReadingBody = make(chan struct{})
 	)
 
 	events.Raise(ctx, output.NewHTTPRequest(r))
+
+	go func() {
+		// Read body into the void since this will trigger a
+		// a buffer on the body which can then be inlcuded in the
+		// json report
+		defer close(doneReadingBody)
+		defer r.Body.Close()
+		_, _ = io.Copy(io.Discard, r.Body)
+	}()
 
 	rts, err := c.rtc.NewReaderTransferSession(ctx)
 	if err != nil {
@@ -66,4 +77,5 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	events.Raise(ctx, &fileReport)
 
 	events.Success(ctx)
+	<-doneReadingBody
 }

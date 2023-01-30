@@ -2,6 +2,7 @@ package redirect
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
@@ -65,6 +66,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		headerSlice, _       = flags.GetStringSlice("header")
 	)
 
+	output.IncludeBody(ctx)
+
 	if statCodeOk != nil {
 		statCode = http.StatusTemporaryRedirect
 	}
@@ -79,6 +82,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := c.cobraCommand.Context()
+	doneReadingBody := make(chan struct{})
 	events.Raise(ctx, output.NewHTTPRequest(r))
 
 	var header = c.header
@@ -86,7 +90,14 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(key, header.Get(key))
 	}
 
+	go func() {
+		defer close(doneReadingBody)
+		defer r.Body.Close()
+		_, _ = io.Copy(io.Discard, r.Body)
+	}()
+
 	http.Redirect(w, r, c.url, c.statusCode)
 
 	events.Success(ctx)
+	<-doneReadingBody
 }

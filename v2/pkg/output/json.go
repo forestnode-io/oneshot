@@ -34,6 +34,20 @@ func _json_handleEvent(o *output, e events.Event) {
 			Request: event,
 		}
 	case *events.File:
+		if o.cmdName == "reverse-proxy" {
+			if o.currentClientSession != nil {
+				if o.currentClientSession.Response == nil {
+					o.currentClientSession.Response = &events.HTTPResponse{}
+				}
+
+				if bf, ok := event.Content.(func() []byte); ok {
+					o.currentClientSession.Response.Body = bf()
+				}
+			}
+
+			return
+		}
+
 		if o.currentClientSession != nil {
 			o.currentClientSession.File = event
 			if bf, ok := o.currentClientSession.File.Content.(func() []byte); ok {
@@ -51,6 +65,13 @@ func _json_handleEvent(o *output, e events.Event) {
 		}
 	case *events.HTTPResponse:
 		if o.currentClientSession != nil {
+			if o.currentClientSession.Response != nil {
+				if o.currentClientSession.Response.Body != nil {
+					if body, ok := o.currentClientSession.Response.Body.([]byte); ok {
+						event.Body = body
+					}
+				}
+			}
 			o.currentClientSession.Response = event
 		}
 	}
@@ -62,10 +83,14 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 	}
 
 	// if serving to stdout
-	if o.ttyForContentOnly {
-		// then read in the body since it wasnt written to disk
-		if err := o.currentClientSession.Request.ReadBody(); err != nil {
-			log.Printf("error reading request body buffer: %s", err.Error())
+	if o.ttyForContentOnly || o.includeBody {
+		if o.currentClientSession != nil {
+			if o.currentClientSession.Request != nil {
+				// then read in the body since it wasnt written to disk
+				if err := o.currentClientSession.Request.ReadBody(); err != nil {
+					log.Printf("error reading request body buffer: %s", err.Error())
+				}
+			}
 		}
 	} else if o.currentClientSession != nil {
 		if o.currentClientSession.Request != nil {
@@ -81,16 +106,22 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 
 	for _, s := range o.cls {
 		// if serving to stdout
-		if o.ttyForContentOnly {
-			// then read in the body since it wasnt written to disk
-			if err := s.Request.ReadBody(); err != nil {
-				log.Printf("error reading request body buffer: %s", err.Error())
+		if o.ttyForContentOnly || o.includeBody {
+			if s.Request != nil {
+				// then read in the body since it wasnt written to disk
+				if err := s.Request.ReadBody(); err != nil {
+					log.Printf("error reading request body buffer: %s", err.Error())
+				}
 			}
 		} else {
 			// otherwise, theres no point in showing the content again in stdout
 			s.Request.Body = nil
 		}
 		s.File.ComputeTransferFields()
+	}
+
+	if o.currentClientSession == nil && len(o.cls) == 0 {
+		return
 	}
 
 	enc := json.NewEncoder(os.Stdout)
