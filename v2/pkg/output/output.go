@@ -225,6 +225,7 @@ type clientSession struct {
 	Request  *events.HTTPRequest  `json:",omitempty"`
 	File     *events.File         `json:",omitempty"`
 	Response *events.HTTPResponse `json:",omitempty"`
+	Error    string               `json:",omitempty"`
 }
 
 type Report struct {

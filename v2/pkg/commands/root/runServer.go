@@ -61,8 +61,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 	var (
-		timeout, _   = flags.GetDuration("timeout")
-		allowBots, _ = flags.GetBool("allow-bots")
+		timeout, _    = flags.GetDuration("timeout")
+		allowBots, _  = flags.GetBool("allow-bots")
+		exitOnFail, _ = flags.GetBool("exit-on-fail")
 	)
 
 	uname, passwd, err := usernamePassword(flags)
@@ -112,6 +113,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 	r.server.TLSCert = tlsCert
 	r.server.TLSKey = tlsKey
 	r.server.Timeout = timeout
+	r.server.ExitOnFail = exitOnFail
 
 	return nil
 }

@@ -18,7 +18,7 @@ import (
 const shutdownTimeout = 500 * time.Millisecond
 
 type _wr struct {
-	w    http.ResponseWriter
+	w    *responseWriter
 	r    *http.Request
 	done func()
 }
@@ -31,6 +31,8 @@ type Server struct {
 
 	TLSCert, TLSKey string
 	Timeout         time.Duration
+
+	ExitOnFail bool
 
 	queue chan _wr
 }
@@ -49,7 +51,7 @@ func NewServer(ctx context.Context, preSucc, postSucc http.HandlerFunc, mw ...Mi
 	}
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		wr := _wr{
-			w: noCacheWriter{ResponseWriter: w},
+			w: &responseWriter{ResponseWriter: w},
 			r: r,
 		}
 
@@ -96,7 +98,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 			s.PreSuccessHandler(wr.w, wr.r.WithContext(ctx))
 			wr.done()
 
-			if events.Succeeded(ctx) {
+			if !wr.w.ignoreOutcome && (events.Succeeded(ctx) || s.ExitOnFail) {
 				cpuCount := runtime.NumCPU()
 				wg.Add(cpuCount)
 				for i := 0; i < cpuCount; i++ {
@@ -155,22 +157,32 @@ func cleanServerShutdownErr(err error) error {
 	return err
 }
 
-type noCacheWriter struct {
+type responseWriter struct {
 	http.ResponseWriter
-	wroteHeader bool
+	wroteHeader   bool
+	ignoreOutcome bool
 }
 
-func (w noCacheWriter) Write(b []byte) (int, error) {
+func (w *responseWriter) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
 	return w.ResponseWriter.Write(b)
 }
 
-func (w noCacheWriter) WriteHeader(code int) {
+func (w *responseWriter) WriteHeader(code int) {
 	w.wroteHeader = true
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *responseWriter) IgnoreOutcome() {
+	w.ignoreOutcome = true
+}
+
+type ResponseWriter interface {
+	http.ResponseWriter
+	IgnoreOutcome()
 }

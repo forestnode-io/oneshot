@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
@@ -83,12 +84,10 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Name:              rb.name,
 		TransferStartTime: time.Now(),
 	}
-
 	fileReport.TransferSize, err = io.Copy(file, src)
 	fileReport.TransferEndTime = time.Now()
 	if err != nil {
-		events.Raise(ctx, events.ClientDisconnected{Err: err})
-
+		events.Raise(ctx, &fileReport)
 		events.Raise(ctx, events.ClientDisconnected{
 			Err: err,
 		})
@@ -105,6 +104,8 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
+	w.(oneshothttp.ResponseWriter).IgnoreOutcome()
+
 	withJS := true
 	ua := r.Header.Get("User-Agent")
 	if strings.Contains(ua, "curl") || strings.Contains(ua, "wget") {

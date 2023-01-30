@@ -100,6 +100,8 @@ Cert file must also be provided using the --tls-cert flag.`)
 
 	sfs.Bool("allow-bots", false, "Don't block bots.")
 
+	sfs.Bool("exit-on-fail", false, "Exit after a failed connection / transfer, instead of waiting until one is successful.")
+
 	pflags.AddFlagSet(sfs)
 	cobra.AddTemplateFunc("serverFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return sfs

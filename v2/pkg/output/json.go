@@ -26,7 +26,10 @@ func _json_handleEvent(o *output, e events.Event) {
 	}
 
 	switch event := e.(type) {
-	case *events.ClientDisconnected:
+	case events.ClientDisconnected:
+		if err := event.Err; err != nil {
+			o.currentClientSession.Error = err.Error()
+		}
 		o.cls = append(o.cls, o.currentClientSession)
 		o.currentClientSession = nil
 	case *events.HTTPRequest:
