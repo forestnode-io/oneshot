@@ -159,9 +159,15 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 func NewBufferedWriter(ctx context.Context, w io.Writer) (io.Writer, func() []byte) {
 	o := getOutput(ctx)
 
+	if _, ok := o.FormatOpts["exclude-file-contents"]; ok {
+		return w, nil
+	}
+
+	_, includeFileContents := o.FormatOpts["include-file-contents"]
+
 	// if the command name is 'reverse-proxy' or the format
 	// is json for any other command, buffer the output
-	if o.Format == "json" || o.cmdName == "reverse-proxy" {
+	if o.Format == "json" || o.cmdName == "reverse-proxy" || includeFileContents {
 		buf := bytes.NewBuffer(nil)
 		tw := teeWriter{
 			w:    w,
