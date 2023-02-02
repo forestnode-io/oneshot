@@ -179,13 +179,9 @@ type teeWriter struct {
 }
 
 func (t teeWriter) Write(p []byte) (n int, err error) {
-	fmt.Println("teeWriter.Write")
 	n, err = t.w.Write(p)
-	fmt.Println("teeWriter.Wrote")
 	if n > 0 {
-		fmt.Println("\tteeWriterCOPY.Write")
 		n, err := t.copy.Write(p[:n])
-		fmt.Println("\tteeWriterCOPY.Wrote")
 		if err != nil {
 			return n, err
 		}
