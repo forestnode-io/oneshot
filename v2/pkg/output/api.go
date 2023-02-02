@@ -157,13 +157,21 @@ func DisplayProgress(ctx context.Context, prog *atomic.Int64, period time.Durati
 }
 
 func NewBufferedWriter(ctx context.Context, w io.Writer) (io.Writer, func() []byte) {
-	buf := bytes.NewBuffer(nil)
-	tw := teeWriter{
-		w:    w,
-		copy: buf,
+	o := getOutput(ctx)
+
+	// if the command name is 'reverse-proxy' or the format
+	// is json for any other command, buffer the output
+	if o.Format == "json" || o.cmdName == "reverse-proxy" {
+		buf := bytes.NewBuffer(nil)
+		tw := teeWriter{
+			w:    w,
+			copy: buf,
+		}
+
+		return tw, buf.Bytes
 	}
 
-	return tw, buf.Bytes
+	return w, nil
 }
 
 type teeWriter struct {
@@ -171,9 +179,14 @@ type teeWriter struct {
 }
 
 func (t teeWriter) Write(p []byte) (n int, err error) {
+	fmt.Println("teeWriter.Write")
 	n, err = t.w.Write(p)
+	fmt.Println("teeWriter.Wrote")
 	if n > 0 {
-		if n, err := t.copy.Write(p[:n]); err != nil {
+		fmt.Println("\tteeWriterCOPY.Write")
+		n, err := t.copy.Write(p[:n])
+		fmt.Println("\tteeWriterCOPY.Wrote")
+		if err != nil {
 			return n, err
 		}
 	}

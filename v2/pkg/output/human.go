@@ -23,8 +23,6 @@ func runHuman(ctx context.Context, o *output) {
 					if o.stdoutTTY != nil {
 						os.Stdout.Write([]byte("\n"))
 					}
-				} else {
-					_ = bf()
 				}
 			}
 		case *events.HTTPRequest:
