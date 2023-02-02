@@ -113,7 +113,11 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
 	c.csrfToken, _ = flags.GetString("csrf-token")
 	c.unixEOLNormalization = eol == "unix"
-	c.header = oneshothttp.HeaderFromStringSlice(headerSlice)
+	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
+	if err != nil {
+		return err
+	}
+
 	var location string
 	if 0 < len(args) {
 		location = args[0]

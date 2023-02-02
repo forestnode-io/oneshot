@@ -106,25 +106,40 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	if matchHost {
 		spoofedHostURL = hostURL
 	}
-	if spoofHost == "" {
-		spoofedHostURL, err = url.Parse(spoofHost)
-		if err != nil {
-			return err
+	if spoofHost != "" {
+		spoofHost = strings.TrimPrefix(spoofHost, "http://")
+		spoofHost = strings.TrimPrefix(spoofHost, "https://")
+		if idx := strings.Index(spoofHost, "/"); -1 < idx {
+			spoofHost = spoofHost[:idx]
+		}
+		spoofedHostURL = &url.URL{
+			Host: spoofHost,
 		}
 	}
 
 	c.statusCode = statusCode
 	c.host = host
-	c.requestHeaders = oneshothttp.HeaderFromStringSlice(requestHeaders)
-	c.responseHeaders = oneshothttp.HeaderFromStringSlice(responseHeaders)
+	c.requestHeaders, err = oneshothttp.HeaderFromStringSlice(requestHeaders)
+	if err != nil {
+		return err
+	}
+	c.responseHeaders, err = oneshothttp.HeaderFromStringSlice(responseHeaders)
+	if err != nil {
+		return err
+	}
+
+	if spoofedHostURL != nil {
+		if c.requestHeaders == nil {
+			c.requestHeaders = make(http.Header)
+		}
+		c.requestHeaders.Set("Host", spoofedHostURL.Host)
+	}
 
 	rp := httputil.NewSingleHostReverseProxy(hostURL)
 	rp.ModifyResponse = func(resp *http.Response) error {
 		ctx := c.cobraCommand.Context()
-		originalHeader := http.Header{}
-		for k, v := range resp.Header {
-			originalHeader[k] = v
-		}
+		originalHeader := resp.Header.Clone()
+
 		events.Raise(ctx, &events.HTTPResponse{
 			StatusCode: resp.StatusCode,
 			Header:     originalHeader,

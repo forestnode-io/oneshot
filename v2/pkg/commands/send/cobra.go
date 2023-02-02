@@ -112,7 +112,10 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileName += "." + archiveMethod
 	}
 
-	c.header = oneshothttp.HeaderFromStringSlice(headerSlice)
+	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
+	if err != nil {
+		return err
+	}
 	c.header.Set("Content-Type", fileMime)
 	// Are we triggering a file download on the users browser?
 	if !noDownload {

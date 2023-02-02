@@ -52,9 +52,9 @@ func NewHTTPRequest(r *http.Request) *HTTPRequest {
 		Path:       r.URL.Path,
 		Query:      r.URL.Query(),
 		Protocol:   r.Proto,
-		Header:     r.Header,
+		Header:     r.Header.Clone(),
 		Host:       r.Host,
-		Trailer:    r.Trailer,
+		Trailer:    r.Trailer.Clone(),
 		RemoteAddr: r.RemoteAddr,
 	}
 }

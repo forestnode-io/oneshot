@@ -1,27 +1,25 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
 
-func HeaderFromStringSlice(s []string) http.Header {
+func HeaderFromStringSlice(s []string) (http.Header, error) {
 	h := make(http.Header)
-	if s == nil {
-		return h
-	}
-
 	for _, hs := range s {
 		var (
-			parts = strings.SplitN(hs, "=", 1)
+			parts = strings.SplitN(hs, "=", 2)
 			k     = parts[0]
 			v     = ""
 		)
 
-		if len(parts) == 2 {
-			v = parts[1]
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid header, must be of the form <HEADER_NAME>=<HEADER_VALUE>: %s", hs)
 		}
 
+		v = parts[1]
 		var vs = h[k]
 		if vs == nil {
 			vs = make([]string, 0)
@@ -30,5 +28,5 @@ func HeaderFromStringSlice(s []string) http.Header {
 		h[k] = vs
 	}
 
-	return h
+	return h, nil
 }

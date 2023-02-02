@@ -74,7 +74,12 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	c.url = args[0]
 	c.statusCode = statCode
-	c.header = oneshothttp.HeaderFromStringSlice(headerSlice)
+
+	var err error
+	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
+	if err != nil {
+		return err
+	}
 
 	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil

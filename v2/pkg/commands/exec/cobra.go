@@ -83,12 +83,17 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	output.IncludeBody(ctx)
 
+	header, err := oneshothttp.HeaderFromStringSlice(headerSlice)
+	if err != nil {
+		return err
+	}
+
 	handlerConf := cgi.HandlerConfig{
 		Cmd:           args,
 		WorkingDir:    dir,
 		InheritEnvs:   nil,
 		BaseEnv:       env,
-		Header:        oneshothttp.HeaderFromStringSlice(headerSlice),
+		Header:        header,
 		OutputHandler: cgi.DefaultOutputHandler,
 		Stderr:        cmd.ErrOrStderr(),
 	}
