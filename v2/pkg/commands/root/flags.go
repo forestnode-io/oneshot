@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -99,6 +100,17 @@ Cert file must also be provided using the --tls-cert flag.`)
 	sfs.StringP("port", "p", "8080", `Port to bind to.`)
 
 	sfs.Bool("allow-bots", false, "Don't block bots.")
+
+	sfa := commands.SizeFlagArg(0)
+	sfs.Var(&sfa, "max-read-size", `Maximum read size for incoming request bodies. A value of zero will cause oneshot to read until EOF.
+Format is a number followed by a unit of measurement.
+Valid units are: b, B, 
+	Kb, KB, KiB,
+	Mb, MB, MiB,
+	Gb, GB, GiB,
+	Tb, TB, TiB
+Example: 12MB. 
+	`)
 
 	sfs.Bool("exit-on-fail", false, "Exit after a failed connection / transfer, instead of waiting until one is successful.")
 

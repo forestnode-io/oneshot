@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
@@ -101,9 +102,12 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 		corsMW = cors.New(*copts).Handler
 	}
 
+	sfa := flags.Lookup("max-read-size").Value.(*commands.SizeFlagArg)
+
 	noLoginTrigger, _ := flags.GetBool("dont-trigger-login")
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
+			Chain(oneshothttp.LimitReaderMiddleware(int64(*sfa))).
 			Chain(middlewareShim(corsMW)).
 			Chain(oneshothttp.BotsMiddleware(allowBots)).
 			Chain(oneshothttp.BasicAuthMiddleware(

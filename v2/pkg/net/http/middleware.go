@@ -83,3 +83,17 @@ func isBot(headers []string) bool {
 
 	return false
 }
+
+func LimitReaderMiddleware(limit int64) Middleware {
+	if limit == 0 {
+		return func(hf http.HandlerFunc) http.HandlerFunc {
+			return hf
+		}
+	}
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+			next(w, r)
+		}
+	}
+}
