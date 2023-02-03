@@ -42,7 +42,6 @@ func ExecuteContext(ctx context.Context) error {
 	root.setFlags()
 	root.setSubCommands()
 
-	ctx = events.WithEvents(ctx)
 	ctx, err = output.WithOutput(ctx)
 	if err != nil {
 		return err

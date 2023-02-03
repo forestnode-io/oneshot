@@ -75,7 +75,7 @@ func (o *output) run(ctx context.Context) error {
 		}
 
 		// is outputting human readable content to stdout
-		if o.ttyForContentOnly && o.Format != "json" {
+		if o.ttyForContentOnly && o.Format != "json" && events.Succeeded(ctx) {
 			// add a newline.
 			// some shells will add a EOF character otherwise
 			fmt.Fprint(os.Stdout, "\n")

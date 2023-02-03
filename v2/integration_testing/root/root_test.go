@@ -32,6 +32,21 @@ func (suite *ts) Test_Signal_SIGINT() {
 	oneshot.Wait()
 }
 
+func (suite *ts) Test_timeoutFlag() {
+	var oneshot = suite.NewOneshot()
+	oneshot.Args = []string{"receive", "--timeout", "1s"}
+	oneshot.Start()
+	defer oneshot.Cleanup()
+
+	timer := time.AfterFunc(time.Second+500*time.Millisecond, func() {
+		_ = oneshot.Cmd.Process.Signal(syscall.SIGINT)
+		suite.Fail("timeout did not work")
+	})
+	defer timer.Stop()
+
+	oneshot.Wait()
+}
+
 func (suite *ts) Test_Basic_Auth() {
 	var oneshot = suite.NewOneshot()
 	oneshot.Args = []string{"send", "--username", "oneshot", "--password", "hunter2"}

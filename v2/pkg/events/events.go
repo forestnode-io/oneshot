@@ -39,6 +39,7 @@ func WithEvents(ctx context.Context) context.Context {
 	b := bundle{
 		eventsChan: make(chan Event, 1),
 		cancel:     cancel,
+		exitCode:   -1,
 	}
 
 	go func() {
@@ -78,6 +79,7 @@ type bundle struct {
 	err        error
 	success    bool
 	cancel     func()
+	exitCode   int
 }
 
 func bndl(ctx context.Context) *bundle {
@@ -91,4 +93,14 @@ func bndl(ctx context.Context) *bundle {
 func GetCancellationError(ctx context.Context) error {
 	b := bndl(ctx)
 	return b.err
+}
+
+func SetExitCode(ctx context.Context, code int) {
+	b := bndl(ctx)
+	b.exitCode = code
+}
+
+func GetExitCode(ctx context.Context) int {
+	b := bndl(ctx)
+	return b.exitCode
 }

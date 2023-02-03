@@ -22,7 +22,7 @@ func NewListenerTimer(l net.Listener, d time.Duration) *ListenerTimer {
 func (l *ListenerTimer) Accept() (net.Conn, error) {
 	conn, err := l.Listener.Accept()
 
-	if l.timer != nil {
+	if l.timer != nil && err == nil {
 		if !l.timer.Stop() {
 			<-l.timer.C
 		}

@@ -115,15 +115,27 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	}
 
 	go preSuccWorker()
-	go func() {
-		<-ctx.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer cancel()
-		shutdownErrChan <- s.server.Shutdown(ctx)
-	}()
-
 	if 0 < s.Timeout {
-		l = oneshotnet.NewListenerTimer(l, s.Timeout)
+		lt := oneshotnet.NewListenerTimer(l, s.Timeout)
+		l = lt
+		go func() {
+			select {
+			case <-lt.C:
+				events.SetExitCode(ctx, events.ExitCodeTimeoutFailure)
+			case <-ctx.Done():
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			err := s.server.Shutdown(ctx)
+			shutdownErrChan <- err
+		}()
+	} else {
+		go func() {
+			<-ctx.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			shutdownErrChan <- s.server.Shutdown(ctx)
+		}()
 	}
 
 	var err error

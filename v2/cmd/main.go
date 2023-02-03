@@ -14,17 +14,22 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/root"
+	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	ctx := context.Background()
+	ctx = events.WithEvents(ctx)
 
-	status := 1
+	status := events.ExitCodeGenericFailure
 	defer func() {
 		if r := recover(); r != nil {
 			panic(r)
 		} else {
+			if ec := events.GetExitCode(ctx); -1 < ec {
+				status = ec
+			}
 			os.Exit(status)
 		}
 	}()
@@ -68,7 +73,7 @@ func main() {
 	}
 
 	if err := root.ExecuteContext(ctx); err == nil {
-		status = 0
+		status = events.ExitCodeSuccess
 	}
 }
 
