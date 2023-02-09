@@ -1,0 +1,21 @@
+{
+  "name": "webrtc",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node ./build.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "mustache": "^4.2.0",
+    "tsup": "^6.6.0",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "esbuild": "0.17.6",
+    "uglify-js": "^3.17.4"
+  }
+}

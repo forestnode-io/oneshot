@@ -35,3 +35,7 @@ itest: $(APP_NAME)
 .PHONY: lint
 lint:
 	$(GOBIN)/golangci-lint run
+
+.PHONY: webrtc-html
+webrtc-html:
+	npm --prefix ./browser/webrtc i && npm --prefix ./browser/webrtc run build
