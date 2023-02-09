@@ -15,6 +15,8 @@ export function executeHTTPRequest(channel: RTCDataChannel, request: string) {
         const status = event.data.slice(0, splitPosition);
         const body = event.data.slice(splitPosition + 2);
 
+        console.log(`received http response with status section: ${status}`);
+
         var header: HTTPHeader = {};
         status.split('\n').forEach((line: string) => {
             const splitPosition = line.search(':');
@@ -25,10 +27,16 @@ export function executeHTTPRequest(channel: RTCDataChannel, request: string) {
         var ct = header['Content-Type'];
         var cd = header['Content-Disposition'];
 
+        // assume the content type is text if it is not specified
+        if (!ct) {
+            ct = 'text/plain';
+        }
+
         // check if the content disposition is an attachment
         // if so, trigger a download
         const filename = filenameFromContentDisposition(cd);
         if (filename) {
+            console.log(`triggering download of ${filename}`);
             triggerDownload(body, filename);
             return;
         }
@@ -44,6 +52,10 @@ export function executeHTTPRequest(channel: RTCDataChannel, request: string) {
                 document.body.innerText = body;
                 document.body.innerHTML = `<pre>${body}</pre>`;
             }
+        } else {
+            console.log(`falling back to displaying body as preformatted text`);
+            document.body.innerText = body;
+            document.body.innerHTML = `<pre>${body}</pre>`;
         }
     }
 }

@@ -14,10 +14,14 @@ function connect() {
     const c = new WebRTCClient(iceURL, rsd);
     c.onAnswer = (answer: RTCSessionDescription) => {
         const answerString = JSON.stringify(answer);
-        const answerEl = document.getElementById('answer')
+        const answerEl = document.getElementById('answer-container');
+
+        console.log(`answer session description:\n${answerString}`);
+
         if (answerEl) {
             answerEl.innerText = answerString;
         }
+
         navigator.clipboard.writeText(answerString);
     };
     const req = (document.getElementById('httpRequest') as HTMLInputElement)?.value;
