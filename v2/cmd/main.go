@@ -72,6 +72,10 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 
+	if os.Getenv("ONESHOT_LOG_STDERR") != "" {
+		log.SetOutput(os.Stderr)
+	}
+
 	if err := root.ExecuteContext(ctx); err == nil {
 		status = events.ExitCodeSuccess
 	}

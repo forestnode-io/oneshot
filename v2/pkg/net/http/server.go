@@ -159,6 +159,10 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	return cleanServerShutdownErr(err)
 }
 
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.server.Handler.ServeHTTP(w, r)
+}
+
 func cleanServerShutdownErr(err error) error {
 	if errors.Is(err, http.ErrServerClosed) ||
 		errors.Is(err, context.Canceled) ||

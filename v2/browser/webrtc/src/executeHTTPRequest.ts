@@ -1,11 +1,8 @@
 import { activateScriptTags } from './activateScriptTags';
 import { triggerDownload } from './triggerDownload';
+import { HTTPHeader } from './httpHeader';
 
 const text_MIMERegexp = /^text\/.*$/;
-
-export type HTTPHeader = {
-    [key: string]: string
-}
 
 export function executeHTTPRequest(channel: RTCDataChannel, request: string) {
     channel.send(request);
@@ -40,6 +37,8 @@ export function executeHTTPRequest(channel: RTCDataChannel, request: string) {
             triggerDownload(body, filename);
             return;
         }
+
+        
 
         // otherwise, check if the content type is text
         // if so, display the body in the browser

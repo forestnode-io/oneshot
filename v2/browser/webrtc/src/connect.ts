@@ -1,5 +1,6 @@
-import { HTTPHeader } from "./executeHTTPRequest";
+import { HTTPHeader } from "./httpHeader";
 import { WebRTCClient } from "./webrtcClient";
+import { WebRTCXMLHttpRequest } from "./webRTCXMLHttpRequest";
 
 function connect() {
     const iceURL = (document.getElementById('ice-server-url') as HTMLInputElement)?.value;
@@ -50,3 +51,12 @@ if (hrEl) {
 
     hrEl.value = `GET / HTTP/1.1\n${header}`;
 }
+
+declare global {
+    interface Window { 
+        WebRTCXMLHttpRequest: Function; 
+        oneshotWebRTCDataChannel: RTCDataChannel | undefined;
+    }
+}
+
+window.WebRTCXMLHttpRequest = WebRTCXMLHttpRequest;

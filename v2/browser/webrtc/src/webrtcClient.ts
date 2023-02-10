@@ -35,6 +35,7 @@ export class WebRTCClient {
             console.log("ondatachannel", event);
 
             const channel = event.channel;
+            window.oneshotWebRTCDataChannel = channel;
             channel.onopen = (event: Event) => {
                 console.log("onopen", event);
                 executeHTTPRequest(channel, request);

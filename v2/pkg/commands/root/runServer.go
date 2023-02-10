@@ -3,6 +3,7 @@ package root
 import (
 	"context"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/rs/cors"
@@ -143,6 +145,17 @@ func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) 
 		}
 		output.WriteListeningOnQR(ctx, "http", host, port)
 	}
+
+	a := webrtc.WebRTCAgent{
+		SignallingServer: webrtc.DefaultSessionSignaller(),
+		ICEServerURL:     "stun:stun.l.google.com:19302",
+		Handler:          http.HandlerFunc(r.server.ServeHTTP),
+	}
+	go func() {
+		if err := a.Run(ctx, "oneshot"); err != nil {
+			log.Println(err)
+		}
+	}()
 
 	return r.server.Serve(ctx, l)
 }
