@@ -17,13 +17,13 @@ async function formDataToString(formData: FormData, boundary: string): Promise<s
                 const file = stringOrFile as File;
                 result += `Content-Disposition: form-data; name="${name}"; filename="${file.name}"\n`;
                 if (file.type) {
-                    result += `Content-Type: ${file.type}\n\n`;
+                    result += `Content-Type: ${file.type}\n`;
                 }
 
                 console.log(`file name: ${file.name}`);
                 const decoder = new TextDecoder();
                 const payload = decoder.decode(await file.arrayBuffer());
-                result += `${payload}\n`;
+                result += `\n${payload}\n`;
             }
         }
 
