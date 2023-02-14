@@ -84,6 +84,18 @@ func NoColor(ctx context.Context) {
 	o.stderrFailColor = nil
 }
 
+func RestoreCursor(ctx context.Context) {
+	o := getOutput(ctx)
+	if o.dynamicOutput == nil {
+		return
+	}
+	do := o.dynamicOutput
+	if do.restoredCursor {
+		return
+	}
+	do.ShowCursor()
+}
+
 // ReceivingToStdout ensures that only the appropriate content is sent to stdout.
 // The summary is flagged to be skipped and if outputting json, make sure we have initiated the buffer
 // that holds the received content.
@@ -225,8 +237,9 @@ func (*writer) Close() error {
 }
 
 type tabbedDynamicOutput struct {
-	tw *tabwriter.Writer
-	te *termenv.Output
+	tw             *tabwriter.Writer
+	te             *termenv.Output
+	restoredCursor bool
 }
 
 func newTabbedDynamicOutput(te *termenv.Output) *tabbedDynamicOutput {
@@ -254,6 +267,7 @@ func (o *tabbedDynamicOutput) Write(p []byte) (int, error) {
 
 func (o *tabbedDynamicOutput) ShowCursor() {
 	o.te.ShowCursor()
+	o.restoredCursor = true
 }
 
 func (o *tabbedDynamicOutput) HideCursor() {

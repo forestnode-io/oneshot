@@ -51,6 +51,11 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		flags = cmd.Flags()
 	)
 
+	defer func() {
+		events.Stop(ctx)
+		output.Wait(ctx)
+	}()
+
 	if r.handler == nil {
 		return nil
 	}
@@ -88,11 +93,6 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			}
 		}()
 	}
-
-	defer func() {
-		events.Stop(ctx)
-		output.Wait(ctx)
-	}()
 
 	return r.listenAndServe(ctx, flags)
 }

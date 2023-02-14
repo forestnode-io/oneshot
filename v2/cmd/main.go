@@ -15,15 +15,23 @@ import (
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/root"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
+	status := events.ExitCodeGenericFailure
+
 	ctx := context.Background()
 	ctx = events.WithEvents(ctx)
+	ctx, err := output.WithOutput(ctx)
+	if err != nil {
+		fmt.Printf("error setting up output: %s\n", err.Error())
+		return
+	}
 
-	status := events.ExitCodeGenericFailure
 	defer func() {
+		output.RestoreCursor(ctx)
 		if r := recover(); r != nil {
 			panic(r)
 		} else {

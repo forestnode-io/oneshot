@@ -45,10 +45,6 @@ func ExecuteContext(ctx context.Context) error {
 	root.setFlags()
 	root.setSubCommands()
 
-	ctx, err = output.WithOutput(ctx)
-	if err != nil {
-		return err
-	}
 	ctx = commands.WithHTTPHandlerFuncSetter(ctx, &root.handler)
 	ctx = commands.WithClosers(ctx, &root.closers)
 
