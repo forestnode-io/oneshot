@@ -8,11 +8,16 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
+	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	filesignaller "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/fileSignaller"
+	ttysignaller "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/ttySignaller"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/rs/cors"
@@ -52,6 +57,36 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 	if err := r.configureServer(flags); err != nil {
 		return err
+	}
+
+	webrtc, _ := flags.GetBool("webrtc")
+	webRTCSignallingDir, _ := flags.GetString("webrtc-signalling-dir")
+	if webrtc || webRTCSignallingDir != "" {
+		if err := r.configureWebRTC(flags); err != nil {
+			return err
+		}
+
+		var signaller sdp.Signaller
+		if output.IsTTYForContentOnly(ctx) {
+			if webRTCSignallingDir == "" {
+				return errors.New("signalling directory must be set (--webrtc-signalling-dir) when serving from stdin or to stdout")
+			}
+			signaller = filesignaller.New(webRTCSignallingDir)
+		} else if webRTCSignallingDir != "" {
+			signaller = filesignaller.New(webRTCSignallingDir)
+		} else {
+			signaller = ttysignaller.New()
+		}
+
+		a := oneshotwebrtc.Subsystem{
+			Handler: http.HandlerFunc(r.server.ServeHTTP),
+			Config:  r.webrtcConfig,
+		}
+		go func() {
+			if err := signaller.Start(ctx, &a); err != nil {
+				log.Fatal(err)
+			}
+		}()
 	}
 
 	defer func() {
@@ -146,18 +181,24 @@ func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) 
 		output.WriteListeningOnQR(ctx, "http", host, port)
 	}
 
-	a := webrtc.WebRTCAgent{
-		SignallingServer: webrtc.DefaultSessionSignaller(),
-		ICEServerURL:     "stun:stun.l.google.com:19302",
-		Handler:          http.HandlerFunc(r.server.ServeHTTP),
-	}
-	go func() {
-		if err := a.Run(ctx, "oneshot"); err != nil {
-			log.Println(err)
-		}
-	}()
-
 	return r.server.Serve(ctx, l)
+}
+
+func (r *rootCommand) configureWebRTC(flags *pflag.FlagSet) error {
+	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
+	if len(urls) == 0 {
+		urls = ice.STUNServerURLS
+	}
+
+	r.webrtcConfig = &webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: urls,
+			},
+		},
+	}
+
+	return nil
 }
 
 var ErrTimeout = errors.New("timeout")
@@ -219,7 +260,11 @@ Global Flags:
 {{basicAuthFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
 
 {{ "CORS Flags:" | indent 4 }}
-{{corsFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}{{if eq .Name "oneshot" }}
+{{corsFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
+
+{{ "NAT Traversal Flags:" | indent 4 }}
+{{ "WebRTC Flags:" | indent 8 }}
+{{webrtcFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 12}}{{if eq .Name "oneshot" }}
 
 Use "oneshot [command] --help" for more information about a command.{{end}}
 `

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/exec"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/receive"
@@ -26,6 +27,8 @@ type rootCommand struct {
 	middleware oneshothttp.Middleware
 
 	outFlag commands.OutputFlagArg
+
+	webrtcConfig *webrtc.Configuration
 
 	handler http.HandlerFunc
 }

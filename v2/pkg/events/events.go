@@ -2,6 +2,8 @@ package events
 
 import (
 	"context"
+	"fmt"
+	"log"
 )
 
 // Event represents events in oneshot that should be communicated to the user.
@@ -65,6 +67,10 @@ func Succeeded(ctx context.Context) bool {
 }
 
 func Raise(ctx context.Context, e Event) {
+	if cde, ok := e.(ClientDisconnected); ok {
+		err := fmt.Errorf("client disconnected: %w", cde.Err)
+		log.Println(err)
+	}
 	eventChan(ctx) <- e
 }
 

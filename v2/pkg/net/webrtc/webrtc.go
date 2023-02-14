@@ -3,72 +3,46 @@ package webrtc
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
-type SDExchange func(context.Context, int, *webrtc.SessionDescription) (*webrtc.SessionDescription, error)
-
-type SessionSignaller interface {
-	// ResisterServerSD registers this oneshot server with the signaling server.
-	// The returned channel receives when a client wants to connect to this server.
-	RegisterServer(context.Context, string) (<-chan int, error)
-	ExchangeSD(context.Context, int, *webrtc.SessionDescription) (*webrtc.SessionDescription, error)
+// Subsystem satisfies the sdp.RequestHandler interface.
+// Subsystem acts as a factory for new peer connections when a client request comes in.
+type Subsystem struct {
+	Handler http.HandlerFunc
+	Config  *webrtc.Configuration
 }
 
-type WebRTCAgent struct {
-	SignallingServer SessionSignaller
-	ICEServerURL     string
-	Handler          http.HandlerFunc
-}
-
-func (a *WebRTCAgent) Run(ctx context.Context, id string) error {
-	clientsChan, err := a.SignallingServer.RegisterServer(ctx, id)
-	if err != nil {
+func (s *Subsystem) HandleRequest(ctx context.Context, offer sdp.AnswerOffer) error {
+	pc, pcErrs := newPeerConnection(ctx, offer, s.Config)
+	if pc == nil {
+		err := <-pcErrs
+		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)
 		return err
 	}
+	defer pc.Close()
 
-	config := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{a.ICEServerURL},
-			},
-		},
+	dc, dcErrs := newDataChannel("", pc, s.Handler)
+	if dc == nil {
+		err := <-dcErrs
+		err = fmt.Errorf("unable to create data channel for webRTC peer connection: %w", err)
+		return err
+	}
+	defer dc.Close()
+
+	// TODO(raphaelreyna): handle errors from errs / block until done
+	var err error
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+	case e := <-pcErrs:
+		err = e
+	case e := <-dcErrs:
+		err = e
 	}
 
-	for clientRequestID := range clientsChan {
-		err := func(clientRequestID int) error {
-			errs := make(chan error, 1)
-			c := configuration{
-				Configuration:   &config,
-				ClientRequestID: clientRequestID,
-				SDExchange:      a.SignallingServer.ExchangeSD,
-			}
-
-			pc, err := newPeerConnection(ctx, errs, c)
-			if err != nil {
-				return err
-			}
-			defer pc.Close()
-
-			dc, err := newDataChannel("", errs, pc, a.Handler)
-			if err != nil {
-				log.Fatalf("unable to create data channel for webRTC peer connection: %s", err.Error())
-			}
-			defer dc.Close()
-
-			for err := range errs {
-				fmt.Printf("POOP: %s\n", err.Error())
-			}
-
-			return nil
-		}(clientRequestID)
-		if err != nil {
-			continue
-		}
-	}
-
-	return nil
+	return err
 }

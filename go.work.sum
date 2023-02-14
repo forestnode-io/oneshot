@@ -1,4 +1,5 @@
 github.com/creack/pty v1.1.18 h1:n56/Zwd5o6whRC5PMGretI4IdRLlmBXYNjScPaBgsbY=
+github.com/fsnotify/fsnotify v1.4.9 h1:hsms1Qyu0jgnwNXIxa+/V/PDsU6CfLf6CNO8H7IWoS4=
 github.com/jf-tech/go-corelib v0.0.2 h1:f6w4Vc+z5PsmDeX8KCD8g/rOrRqSxMH40PWSR67J08w=
 github.com/jf-tech/go-corelib v0.0.2/go.mod h1:0+Fejzd53JtexKE5VI8I06WiBNATLIURRJgPrv4Yysg=
 github.com/jf-tech/go-corelib v0.0.5 h1:pECbTOMn7bg0LqHD2FbcjURX8E4rujZp7Qx8yI2iFoE=

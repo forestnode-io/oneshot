@@ -6,35 +6,33 @@ import (
 	"log"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
-type configuration struct {
-	ClientRequestID int
-	SDExchange
-	*webrtc.Configuration
-}
-
 type peerConnection struct {
-	ctx             context.Context
-	clientRequestID int
-	sdExchange      SDExchange
-	errChan         chan<- error
+	ctx         context.Context
+	errChan     chan<- error
+	answerOffer sdp.AnswerOffer
 
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, ec chan error, c configuration) (*peerConnection, error) {
-	var err error
+func newPeerConnection(ctx context.Context, sao sdp.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
+	var (
+		err  error
+		errs = make(chan error, 1)
+	)
+
 	pc := peerConnection{
-		ctx:             ctx,
-		clientRequestID: c.ClientRequestID,
-		errChan:         ec,
-		sdExchange:      c.SDExchange,
+		ctx:         ctx,
+		errChan:     errs,
+		answerOffer: sao,
 	}
 
-	pc.PeerConnection, err = webrtc.NewPeerConnection(*c.Configuration)
+	pc.PeerConnection, err = webrtc.NewPeerConnection(*c)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create new webRTC peer connection: %w", err)
+		errs <- fmt.Errorf("unable to create new webRTC peer connection: %w", err)
+		return nil, errs
 	}
 
 	ppc := pc.PeerConnection
@@ -44,12 +42,11 @@ func newPeerConnection(ctx context.Context, ec chan error, c configuration) (*pe
 	ppc.OnConnectionStateChange(pc.onConnectionStateChange)
 	ppc.OnSignalingStateChange(pc.onSignalingStateChange)
 
-	return &pc, nil
+	return &pc, errs
 }
 
 func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState) {
 	log.Printf("connection state has changed: %s\n", cs.String())
-
 	switch cs {
 	case webrtc.ICEConnectionStateConnected:
 		log.Println("webRTC connection established")
@@ -68,13 +65,19 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 	// candidate is nil when gathering is done
 	if doneGathering := candidate == nil; doneGathering {
 		pc := p.PeerConnection
-		clientSD, err := p.sdExchange(p.ctx, p.clientRequestID, pc.LocalDescription())
+		answer, err := p.answerOffer(p.ctx, sdp.Offer(pc.LocalDescription().SDP))
 		if err != nil {
 			err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)
 			p.error(true, err)
 		}
 
-		if err := pc.SetRemoteDescription(*clientSD); err != nil {
+		answerSD, err := answer.WebRTCSessionDescription()
+		if err != nil {
+			err = fmt.Errorf("unable to convert session description to webRTC session description: %w", err)
+			p.error(true, err)
+		}
+
+		if err := pc.SetRemoteDescription(*answerSD); err != nil {
 			err = fmt.Errorf("unable to set remote session description during webRTC negotiation: %w", err)
 			p.error(true, err)
 		}

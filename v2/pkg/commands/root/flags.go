@@ -169,6 +169,15 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	cobra.AddTemplateFunc("corsFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return cfs
 	})
+
+	wfs := pflag.NewFlagSet("WebRTC Flags", pflag.ContinueOnError)
+	wfs.Bool("webrtc", false, `Enable WebRTC support with default values.`)
+	wfs.String("webrtc-ice-servers", "", `Comma separated list of ICE servers to use for WebRTC connections.`)
+	wfs.String("webrtc-signalling-dir", "", `Directory to use for WebRTC signalling.`)
+	pflags.AddFlagSet(wfs)
+	cobra.AddTemplateFunc("webrtcFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return wfs
+	})
 }
 
 // newCorsConfig returns a new corsConfig from the given flag set.

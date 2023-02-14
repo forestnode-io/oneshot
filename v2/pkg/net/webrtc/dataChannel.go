@@ -18,20 +18,23 @@ type dataChannel struct {
 	*webrtc.DataChannel
 }
 
-func newDataChannel(name string, ec chan<- error, pc *peerConnection, handler http.HandlerFunc) (*dataChannel, error) {
+func newDataChannel(name string, pc *peerConnection, handler http.HandlerFunc) (*dataChannel, <-chan error) {
 	if name == "" {
 		name = defaultDataChannelName
 	}
 
+	errs := make(chan error, 1)
+
 	dc, err := pc.CreateDataChannel(name, nil)
 	if err != nil {
-		return nil, err
+		errs <- fmt.Errorf("unable to create data channel for webRTC peer connection: %w", err)
+		return nil, errs
 	}
 
 	d := &dataChannel{
 		DataChannel: dc,
 		handler:     handler,
-		errChan:     ec,
+		errChan:     errs,
 	}
 
 	dc.OnOpen(d.onOpen)
@@ -39,7 +42,7 @@ func newDataChannel(name string, ec chan<- error, pc *peerConnection, handler ht
 	dc.OnMessage(d.onMessage)
 	dc.OnError(d.onError)
 
-	return d, nil
+	return d, errs
 }
 
 func (d *dataChannel) onOpen() {

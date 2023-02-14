@@ -74,7 +74,7 @@ func GetFormatAndOpts(ctx context.Context) (string, map[string]struct{}) {
 	return o.Format, o.FormatOpts
 }
 
-func IsServingToStdout(ctx context.Context) bool {
+func IsTTYForContentOnly(ctx context.Context) bool {
 	return getOutput(ctx).ttyForContentOnly
 }
 

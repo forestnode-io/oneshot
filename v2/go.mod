@@ -48,8 +48,10 @@ require (
 )
 
 require (
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/moby/moby v20.10.22+incompatible
+	github.com/muesli/cancelreader v0.2.2
 	github.com/muesli/termenv v0.13.0
 	github.com/pion/webrtc/v3 v3.1.53
 	github.com/rs/cors v1.8.3
