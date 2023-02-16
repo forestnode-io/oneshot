@@ -1,3 +1,4 @@
+import { visit } from "./browser/visit";
 import { HTTPHeader } from "./types";
 import { WebRTCClient } from "./webrtcClient";
 
@@ -30,7 +31,9 @@ function connect() {
         return;
     }
 
-    c.answerOffer(rsd as RTCSessionDescription);
+    c.answerOffer(rsd as RTCSessionDescription).then(() => {
+        visit('/', {})
+    });
 }
 
 document.getElementById('connect-button')?.addEventListener('click', connect);
