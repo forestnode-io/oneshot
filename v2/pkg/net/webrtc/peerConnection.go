@@ -29,7 +29,11 @@ func newPeerConnection(ctx context.Context, sao sdp.AnswerOffer, c *webrtc.Confi
 		answerOffer: sao,
 	}
 
-	pc.PeerConnection, err = webrtc.NewPeerConnection(*c)
+	se := webrtc.SettingEngine{}
+	se.DetachDataChannels()
+	api := webrtc.NewAPI(webrtc.WithSettingEngine(se))
+
+	pc.PeerConnection, err = api.NewPeerConnection(*c)
 	if err != nil {
 		errs <- fmt.Errorf("unable to create new webRTC peer connection: %w", err)
 		return nil, errs

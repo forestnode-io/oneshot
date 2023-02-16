@@ -1,41 +1,5 @@
-import { HTTPHeader } from "./httpHeader";
-
-async function formDataToString(formData: FormData, boundary: string): Promise<string> {
-    let p = new Promise<string>(async (resolve, reject) => {
-        let result = "";
-
-        for (const pair of formData.entries()) {
-            const name = pair[0];
-            const stringOrFile = pair[1];
-
-            result += `--${boundary}\n`;
-            if (typeof stringOrFile === 'string') {
-                console.log(`string name: ${name}`);
-                result += `Content-Disposition: form-data; name="${name}"\n\n`;
-                result += `${stringOrFile as string}\n`;
-            } else {
-                const file = stringOrFile as File;
-                result += `Content-Disposition: form-data; name="${name}"; filename="${file.name}"\n`;
-                if (file.type) {
-                    result += `Content-Type: ${file.type}\n`;
-                }
-
-                console.log(`file name: ${file.name}`);
-                const decoder = new TextDecoder();
-                const payload = decoder.decode(await file.arrayBuffer());
-                result += `\n${payload}\n`;
-            }
-        }
-
-        if (result) {
-            result += `--${boundary}--\n`;
-        }
-
-        resolve(result);
-    });
-
-    return p;
-}
+import { HTTPHeader } from "./types";
+import { formDataToString } from "./util";
 
 function httpHeaderToString(header: HTTPHeader): string {
     let result = "";

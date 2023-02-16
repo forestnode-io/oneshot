@@ -1,6 +1,5 @@
-import { HTTPHeader } from "./httpHeader";
+import { HTTPHeader } from "./types";
 import { WebRTCClient } from "./webrtcClient";
-import { WebRTCXMLHttpRequest } from "./webRTCXMLHttpRequest";
 
 function connect() {
     const iceURL = (document.getElementById('ice-server-url') as HTMLInputElement)?.value;
@@ -12,8 +11,7 @@ function connect() {
         return;
     }
 
-    const c = new WebRTCClient(iceURL, rsd);
-    c.onAnswer = (answer: RTCSessionDescription) => {
+    const c = new WebRTCClient(iceURL, (answer: RTCSessionDescription) => {
         const answerString = JSON.stringify(answer);
         const answerEl = document.getElementById('answer-container');
 
@@ -24,14 +22,15 @@ function connect() {
         }
 
         navigator.clipboard.writeText(answerString);
-    };
+    });
+
     const req = (document.getElementById('httpRequest') as HTMLInputElement)?.value;
     if (!req) {
         alert('missing request');
         return;
     }
 
-    c.exec(req);
+    c.answerOffer(rsd as RTCSessionDescription);
 }
 
 document.getElementById('connect-button')?.addEventListener('click', connect);
@@ -54,9 +53,9 @@ if (hrEl) {
 
 declare global {
     interface Window { 
-        WebRTCXMLHttpRequest: Function; 
-        oneshotWebRTCDataChannel: RTCDataChannel | undefined;
+        WebRTCClient: Function;
+        rtcReady: boolean;
     }
 }
 
-window.WebRTCXMLHttpRequest = WebRTCXMLHttpRequest;
+window.WebRTCClient = WebRTCClient;

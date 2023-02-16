@@ -1,52 +1,76 @@
 package webrtc
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"log"
-	"net/http"
 
+	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
 )
 
-const defaultDataChannelName = "oneshot"
-
 type dataChannel struct {
-	handler http.HandlerFunc
 	errChan chan<- error
-	*webrtc.DataChannel
+	dc      *webrtc.DataChannel
+	datachannel.ReadWriteCloser
+	continueChan chan struct{}
 }
 
-func newDataChannel(name string, pc *peerConnection, handler http.HandlerFunc) (*dataChannel, <-chan error) {
-	if name == "" {
-		name = defaultDataChannelName
+func newDataChannel(pc *peerConnection) (*dataChannel, chan error) {
+	type dcOrErr struct {
+		dc  *dataChannel
+		err error
 	}
 
 	errs := make(chan error, 1)
+	dcChan := make(chan datachannel.ReadWriteCloser, 1)
 
-	dc, err := pc.CreateDataChannel(name, nil)
+	dc, err := pc.CreateDataChannel(dataChannelName, nil)
 	if err != nil {
-		errs <- fmt.Errorf("unable to create data channel for webRTC peer connection: %w", err)
+		err = fmt.Errorf("unable to create data channel for webRTC peer connection: %w", err)
+		errs <- err
+		close(errs)
 		return nil, errs
 	}
+	dc.SetBufferedAmountLowThreshold(bufferedAmountLowThreshold)
 
 	d := &dataChannel{
-		DataChannel: dc,
-		handler:     handler,
-		errChan:     errs,
+		dc:           dc,
+		errChan:      errs,
+		continueChan: make(chan struct{}, 1),
 	}
 
-	dc.OnOpen(d.onOpen)
 	dc.OnClose(d.onClose)
 	dc.OnMessage(d.onMessage)
 	dc.OnError(d.onError)
+	dc.OnOpen(func() {
+		log.Println("data channel opened")
 
-	return d, errs
+		draw, err := dc.Detach()
+		if err != nil {
+			err = fmt.Errorf("unable to detach data channel for webRTC peer connection: %w", err)
+			errs <- err
+			return
+		}
+		dcChan <- draw
+	})
+	dc.OnBufferedAmountLow(func() {
+		log.Println("data channel buffered amount low")
+		d.continueChan <- struct{}{}
+	})
+
+	select {
+	case err := <-errs:
+		errs <- err
+		close(errs)
+		return nil, errs
+	case draw := <-dcChan:
+		d.ReadWriteCloser = draw
+		return d, nil
+	}
 }
 
-func (d *dataChannel) onOpen() {
-	log.Println("data channel opened")
+func (d *dataChannel) Close() error {
+	return d.dc.Close()
 }
 
 func (d *dataChannel) onClose() {
@@ -61,21 +85,6 @@ func (d *dataChannel) onError(err error) {
 
 func (d *dataChannel) onMessage(msg webrtc.DataChannelMessage) {
 	log.Println("OnMessage")
-
-	buf := bufio.NewReader(bytes.NewBuffer(msg.Data))
-	r, err := http.ReadRequest(buf)
-	if err != nil {
-		err = fmt.Errorf("unable to read request: %w", err)
-		d.error(err)
-	}
-
-	w := httpResponseWriter{}
-	d.handler(&w, r)
-
-	if err := d.DataChannel.SendText(w.buf.String()); err != nil {
-		err = fmt.Errorf("unable to send response: %w", err)
-		d.error(err)
-	}
 }
 
 func (d *dataChannel) error(err error) {

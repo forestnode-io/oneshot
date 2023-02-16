@@ -1,75 +1,73 @@
-import { executeHTTPRequest } from "./executeHTTPRequest";
+import { rtcFetchFactory } from "./fetch/factory";
 
 export class WebRTCClient {
-    iceServerURL: string;
-    remoteSessionDescription: RTCSessionDescription;
-    peerConnection: RTCPeerConnection | undefined;
-    onAnswer: ((answer: RTCSessionDescription) => void) = (answer: RTCSessionDescription) => { 
-        console.log(`answer session description:\n${answer}`);
-    };
+    private peerConnection: RTCPeerConnection | undefined;
+    private answered: boolean = false;
 
-    constructor(iceServerURL: string, remoteSessionDescription: RTCSessionDescription) {
-        this.iceServerURL = iceServerURL;
-        this.remoteSessionDescription = remoteSessionDescription;
-    }
+    private connectionPromiseResolve: () => void = () => { };
+    private connectionPromise: Promise<void>;
 
-    async exec(request: string) {
+    onAnswer: (answer: RTCSessionDescription) => void;
+
+    constructor(iceServerURL: string, onAnswer: (answer: RTCSessionDescription) => void | undefined) {
+        this.onAnswer = onAnswer;
         this.peerConnection = new RTCPeerConnection({
-            iceServers: [{ urls: this.iceServerURL }],
+            iceServers: [{ urls: iceServerURL }],
         });
 
-        const pc = this.peerConnection;
+        this.connectionPromise = new Promise<void>((resolve, reject) => {
+            this.connectionPromiseResolve = resolve;
+        });
 
+        this._configurePeerConnection();
+    }
+
+    private _configurePeerConnection(): void {
+        const pc = this.peerConnection!;
         pc.onicegatheringstatechange = (event: Event) => {
             console.log("onicegatheringstatechange", pc.iceGatheringState);
 
             let target = event.target as RTCPeerConnection;
             if (target.iceGatheringState === 'complete' && target.localDescription) {
-                if (this.onAnswer) {
-                    this.onAnswer(target.localDescription);
-                }
+                this.onAnswer(target.localDescription);
             }
         };
 
         pc.ondatachannel = (event: RTCDataChannelEvent) => {
             console.log("ondatachannel", event);
-
-            const channel = event.channel;
-            window.oneshotWebRTCDataChannel = channel;
-            channel.onopen = (event: Event) => {
-                console.log("onopen", event);
-                executeHTTPRequest(channel, request);
-            };
-            channel.onclose = (event: Event) => {
-                console.log("onclose", event);
-            }
+            window.fetch = rtcFetchFactory(event.channel);
+            window.rtcReady = true;
+            this.connectionPromiseResolve();
         };
 
-        setPeerConnectionStubs(pc);
+        pc.onnegotiationneeded = (event: Event) => {
+            console.log("onnegotiationneeded");
+        };
 
+        pc.onsignalingstatechange = (event: Event) => {
+            console.log("onsignalingstatechange", pc.signalingState);
+        };
+
+        pc.oniceconnectionstatechange = (event) => {
+            console.log("oniceconnectionstatechange", pc.iceConnectionState);
+        };
+    }
+
+    public async answerOffer(offer: RTCSessionDescription): Promise<void> {
+        if (this.answered) {
+            return this.connectionPromise;
+        }
+
+        const pc = this.peerConnection!;
         try {
-            await pc.setRemoteDescription(this.remoteSessionDescription);
+            await pc.setRemoteDescription(offer);
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
+            this.answered = true;
         } catch (err) {
             console.error(err);
         }
 
-        return;
+        return this.connectionPromise;
     }
-}
-
-function setPeerConnectionStubs(pc: RTCPeerConnection) {
-    pc.onnegotiationneeded = (event: Event) => {
-        console.log("onnegotiationneeded");
-    };
-
-    pc.onsignalingstatechange = (event: Event) => {
-        console.log("onsignalingstatechange", pc.signalingState);
-    };
-
-    pc.oniceconnectionstatechange = (event) => {
-        console.log("oniceconnectionstatechange", pc.iceConnectionState);
-    };
-
 }

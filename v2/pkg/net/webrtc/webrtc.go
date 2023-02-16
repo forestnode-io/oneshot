@@ -1,12 +1,21 @@
 package webrtc
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+)
+
+const dataChannelName = "oneshot"
+
+const (
+	dataChannelMTU             = 16384               // 16 KB
+	bufferedAmountLowThreshold = 1 * dataChannelMTU  // 1 MTU
+	maxBufferedAmount          = 10 * dataChannelMTU // 10 MTUs
 )
 
 // Subsystem satisfies the sdp.RequestHandler interface.
@@ -16,8 +25,10 @@ type Subsystem struct {
 	Config  *webrtc.Configuration
 }
 
-func (s *Subsystem) HandleRequest(ctx context.Context, offer sdp.AnswerOffer) error {
-	pc, pcErrs := newPeerConnection(ctx, offer, s.Config)
+func (s *Subsystem) HandleRequest(ctx context.Context, answerOfferFunc sdp.AnswerOffer) error {
+	// create a new peer connection.
+	// newPeerConnection does not wait for the peer connection to be established.
+	pc, pcErrs := newPeerConnection(ctx, answerOfferFunc, s.Config)
 	if pc == nil {
 		err := <-pcErrs
 		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)
@@ -25,16 +36,29 @@ func (s *Subsystem) HandleRequest(ctx context.Context, offer sdp.AnswerOffer) er
 	}
 	defer pc.Close()
 
-	dc, dcErrs := newDataChannel("", pc, s.Handler)
-	if dc == nil {
+	// create a new data channel.
+	// newDataChannel waits for the data channel to be established.
+	d, dcErrs := newDataChannel(pc)
+	if d == nil {
 		err := <-dcErrs
-		err = fmt.Errorf("unable to create data channel for webRTC peer connection: %w", err)
+		err = fmt.Errorf("unable to create new data channel: %w", err)
 		return err
 	}
-	defer dc.Close()
+	defer d.Close()
+
+	buf := bufio.NewReader(d)
+	r, err := http.ReadRequest(buf)
+	if err != nil {
+		return fmt.Errorf("unable to read http request from data channel: %w", err)
+	}
+	w := newHTTPResponseWriter(d)
+
+	s.Handler(w, r)
+
+	w.channel.WriteDataChannel([]byte("EOF"), true)
 
 	// TODO(raphaelreyna): handle errors from errs / block until done
-	var err error
+	//var err error
 	select {
 	case <-ctx.Done():
 		err = ctx.Err()
