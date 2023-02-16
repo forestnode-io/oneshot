@@ -46,6 +46,8 @@ func (s *Subsystem) HandleRequest(ctx context.Context, answerOfferFunc sdp.Answe
 	}
 	defer d.Close()
 
+	// TODO(raphaelreyna): handle more than 1 incoming message/request on the data channel.
+	// currently, we only handle 1 request per data channel which doesnt work for the receive command.
 	buf := bufio.NewReader(d)
 	r, err := http.ReadRequest(buf)
 	if err != nil {

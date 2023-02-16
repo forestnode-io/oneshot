@@ -8,6 +8,7 @@ require (
 	github.com/jf-tech/iohelper v1.0.7
 	github.com/mattn/go-isatty v0.0.17
 	github.com/mdp/qrterminal/v3 v3.0.0
+	github.com/pion/datachannel v1.5.5
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 )
@@ -20,7 +21,6 @@ require (
 	github.com/jf-tech/go-corelib v0.0.7 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.1.5 // indirect
 	github.com/pion/ice/v2 v2.2.16 // indirect
 	github.com/pion/interceptor v0.1.11 // indirect

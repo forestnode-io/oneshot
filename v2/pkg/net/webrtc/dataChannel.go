@@ -16,11 +16,6 @@ type dataChannel struct {
 }
 
 func newDataChannel(pc *peerConnection) (*dataChannel, chan error) {
-	type dcOrErr struct {
-		dc  *dataChannel
-		err error
-	}
-
 	errs := make(chan error, 1)
 	dcChan := make(chan datachannel.ReadWriteCloser, 1)
 
