@@ -42,10 +42,15 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                     buf.push(ab);
                     chan.port1.postMessage(null);
 
+                    var h = new Headers();
+                    for (const key in header) {
+                        h.append(key, header[key]);
+                    }
+
                     let responseInit: ResponseInit = {
                         status: status,
                         statusText: statusText,
-                        headers: header,
+                        headers: h,
                     };
                     let responseBody = new ReadableStream<Uint8Array>({
                         type: 'bytes',

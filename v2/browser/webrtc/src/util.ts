@@ -10,7 +10,7 @@ export function parseHeader(header: string): HTTPHeader {
         }
         const key = line.slice(0, splitPosition);
         const value = line.slice(splitPosition + 1);
-        h[key] = value;
+        h[key] = value.trim();
     }
     return h;
 }

@@ -1,6 +1,5 @@
 import { activateScriptTags } from './activateScriptTags';
 import { triggerDownload } from './triggerDownload';
-import { HTTPHeader } from '../types';
 
 const text_MIMERegexp = /^text\/.*$/;
 
@@ -8,6 +7,7 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
     var resp = await fetch(request, options);
     const header = resp.headers!;
     var ct = header.get('Content-Type') ? header.get('Content-Type')! : '';
+    ct = ct.split(';')[0];
     var cd = header.get('Content-Disposition') ? header.get('Content-Disposition')! : '';
 
     if (!ct) {

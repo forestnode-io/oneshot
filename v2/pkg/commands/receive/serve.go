@@ -111,6 +111,7 @@ func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(ua, "curl") || strings.Contains(ua, "wget") {
 		withJS = false
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := c.writeTemplate(w, withJS); err != nil {
 		log.Printf("error writing template: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
