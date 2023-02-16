@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+    <div id="answer-component">
+        <label for="ice-server-url">ICE Server URL</label><br>
+        <input type="text" id="ice-server-url" value="{{iceServerURL}}"><br>
+        <br>
+        <label for="server-sd">Oneshot Session Offer</label><br>
+        <textarea id="server-sd" rows="10" cols="50"></textarea><br>
+        <br>
+        <label for="httpRequest">HTTP Request (optional)</label><br>
+        <textarea id="httpRequest" rows="10" cols="50"></textarea><br>
+        <br>
+        <button type="button" id="connect-button">Generate Answer & Copy to Clipboard</button><br>
+        <div id="answer-container">
+            <span id="answer-span"></span>
+        </div>
+    </div>
+</body>
+<footer>
+    <script>
+    {{{main}}}
+    </script>
+</footer>
+</html>

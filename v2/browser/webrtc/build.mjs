@@ -7,7 +7,7 @@ let buildHTML = {
     name: 'build-html',
     setup(build) {
         build.onEnd(async result => {
-            let tmplt = fs.readFileSync('./src/index.template.html', 'utf8');
+            let tmplt = fs.readFileSync('./index.template.html', 'utf8');
             let buf = fs.readFileSync('./dist/main.js', 'utf8');
             buf = UglifyJS.minify(buf, { compress: false, mangle: true}).code;
             buf = Mustache.render(tmplt, { main: buf, iceServerURL: 'stun:stun.l.google.com:19302' });
