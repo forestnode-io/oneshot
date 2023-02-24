@@ -1,10 +1,12 @@
-import { sendHeader } from './sendHeader';
-import { sendBody } from './sendBody';
+import { writeHeader } from './writeHeader';
+import { writeBody } from './writeBody';
 import { HTTPHeader } from '../types';
 import { parseStatusLine, parseHeader } from '../util';
+import { boundary, BufferedAmountLowThreshold } from './constants';
 
 // rtcFetchFactory returns a function that can be used as an almost drop-in replacement for the fetch API
 export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response> {
+    dc.bufferedAmountLowThreshold = BufferedAmountLowThreshold;
     return (resource: RequestInfo | URL, options?: RequestInit | undefined): Promise<Response> => {
         var requestPromiseResolve: (value: Response) => void = () => { };
         var requestPromiseReject: (reason?: any) => void = () => { };
@@ -96,8 +98,29 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
             }
         }
 
-        sendHeader(dc, resource, options);
-        sendBody(dc, options?.body);
+        if (options?.body instanceof FormData) {
+            if (!options.headers) {
+                options.headers = new Headers();
+            }
+            if (options.headers instanceof Headers) {
+                options.headers.append('Content-Type', 'multipart/form-data; boundary=' + boundary);
+            } else if (typeof options.headers === 'object') {
+                if (options.headers instanceof Array) {
+                    options.headers.push(['Content-Type', 'multipart/form-data; boundary=' + boundary]);
+                } else {
+                    options.headers['Content-Type'] = 'multipart/form-data; boundary=' + boundary;
+                }
+            }
+        }
+
+        writeHeader(dc, resource, options).then(() => {
+            writeBody(dc, options?.body).catch((err: any) => {
+                requestPromiseReject(err);
+            });
+        }).catch((err: any) => {
+            requestPromiseReject(err);
+        });
+
         return p;
     }
 }

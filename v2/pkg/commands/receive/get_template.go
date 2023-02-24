@@ -29,7 +29,6 @@ const (
       event.stopPropagation();
 
       const formData = new FormData(formElement);
-      const request = new XMLHttpRequest();
       var lengths = [];
 
       for (const pair of formData.entries()) {
@@ -38,9 +37,14 @@ const (
         lengths.push(name + "=" + size.toString()); 
       }
 
-      request.open("POST", "/");
-      request.setRequestHeader("X-Oneshot-Multipart-Content-Lengths", lengths.join(";"));
-      request.send(formData);
+      fetch("/", {
+        method: "POST",
+        headers: [
+          ["X-Oneshot-Multipart-Content-Lengths", lengths.join(";")],
+        ],
+        body: formData,
+      }).then((response) => { console.log(response); }).
+        catch((error) => { console.log(error); });
   });
 </script>{{ end }}
 {{ end }}`

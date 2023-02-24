@@ -105,6 +105,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 	w.(oneshothttp.ResponseWriter).IgnoreOutcome()
+	defer r.Body.Close()
 
 	withJS := true
 	ua := r.Header.Get("User-Agent")

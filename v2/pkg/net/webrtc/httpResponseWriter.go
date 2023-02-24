@@ -79,6 +79,7 @@ func (w *httpResponseWriter) writeHeader() error {
 	for k, v := range w.header {
 		fmt.Fprintf(status, "%s: %s\n", k, v[0])
 	}
+	fmt.Fprint(status, "\n")
 
 	var (
 		buf     = make([]byte, dataChannelMTU)

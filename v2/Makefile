@@ -36,6 +36,12 @@ itest: $(APP_NAME)
 lint:
 	$(GOBIN)/golangci-lint run
 
+dep:
+	go mod download
+
+vet:
+	go vet ./...
+
 .PHONY: webrtc-html
 webrtc-html:
 	npm --prefix ./browser/webrtc i && npm --prefix ./browser/webrtc run build

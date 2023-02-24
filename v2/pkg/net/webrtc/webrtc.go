@@ -1,7 +1,6 @@
 package webrtc
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -13,9 +12,9 @@ import (
 const dataChannelName = "oneshot"
 
 const (
-	dataChannelMTU             = 16384               // 16 KB
-	bufferedAmountLowThreshold = 1 * dataChannelMTU  // 1 MTU
-	maxBufferedAmount          = 10 * dataChannelMTU // 10 MTUs
+	dataChannelMTU             = 16384              // 16 KB
+	bufferedAmountLowThreshold = 1 * dataChannelMTU // 2^0 MTU
+	maxBufferedAmount          = 8 * dataChannelMTU // 2^3 MTUs
 )
 
 // Subsystem satisfies the sdp.RequestHandler interface.
@@ -38,37 +37,28 @@ func (s *Subsystem) HandleRequest(ctx context.Context, answerOfferFunc sdp.Answe
 
 	// create a new data channel.
 	// newDataChannel waits for the data channel to be established.
-	d, dcErrs := newDataChannel(pc)
-	if d == nil {
-		err := <-dcErrs
-		err = fmt.Errorf("unable to create new data channel: %w", err)
-		return err
+	d, err := newDataChannel(ctx, pc)
+	if err != nil {
+		return fmt.Errorf("unable to create new webRTC data channel: %w", err)
 	}
 	defer d.Close()
 
-	// TODO(raphaelreyna): handle more than 1 incoming message/request on the data channel.
-	// currently, we only handle 1 request per data channel which doesnt work for the receive command.
-	buf := bufio.NewReader(d)
-	r, err := http.ReadRequest(buf)
-	if err != nil {
-		return fmt.Errorf("unable to read http request from data channel: %w", err)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case e := <-pcErrs:
+			return fmt.Errorf("error on peer connection: %w", e)
+		case e := <-d.eventsChan:
+			if e.err != nil {
+				return fmt.Errorf("error on data channel: %w", e.err)
+			}
+
+			w := newHTTPResponseWriter(d)
+			s.Handler(w, e.request)
+			// the httpResponseWriter will send the header as a string and the body as a byte slice.
+			// when sending http over webrtc we signal the end of the response by sending an EOF as a string.
+			w.channel.WriteDataChannel([]byte("EOF"), true)
+		}
 	}
-	w := newHTTPResponseWriter(d)
-
-	s.Handler(w, r)
-
-	w.channel.WriteDataChannel([]byte("EOF"), true)
-
-	// TODO(raphaelreyna): handle errors from errs / block until done
-	//var err error
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-	case e := <-pcErrs:
-		err = e
-	case e := <-dcErrs:
-		err = e
-	}
-
-	return err
 }
