@@ -20,6 +20,8 @@ github.com/jackpal/gateway v1.0.7/go.mod h1:aRcO0UFKt+MgIZmRmvOmnejdDT4Y1DNiNOsS
 github.com/jf-tech/go-corelib v0.0.1/go.mod h1:+sIxnA2kmfH2extpn0QQb2Ow72HPfO1m3efu2+6Kqa4=
 github.com/jf-tech/go-corelib v0.0.7 h1:OrQLto3CtKECnbeHy5+9IM1XL4vfWJceuRdbpGjIRCo=
 github.com/jf-tech/go-corelib v0.0.7/go.mod h1:0+Fejzd53JtexKE5VI8I06WiBNATLIURRJgPrv4Yysg=
+github.com/jf-tech/go-corelib v0.0.18 h1:ml1uZ3ghcL/D8ge4Hg2gS2wn9YPimIVnqplHPKgh2TI=
+github.com/jf-tech/go-corelib v0.0.18/go.mod h1:0+Fejzd53JtexKE5VI8I06WiBNATLIURRJgPrv4Yysg=
 github.com/jf-tech/iohelper v1.0.7 h1:2fqNn0Dq8HsmojGV4IIQAQL9h12L8B3BnFj2J36YoTQ=
 github.com/jf-tech/iohelper v1.0.7/go.mod h1:FvoFMzpZAbPacHqQin7isKqu9OPBswxZhmNsK5UMvO0=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
