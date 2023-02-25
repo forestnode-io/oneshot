@@ -1,4 +1,4 @@
-package webrtc
+package server
 
 import (
 	"bytes"
@@ -6,9 +6,10 @@ import (
 	"net/http"
 
 	"github.com/pion/datachannel"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 )
 
-type httpResponseWriter struct {
+type ResponseWriter struct {
 	header     http.Header
 	sentHeader bool
 	statusCode int
@@ -18,26 +19,26 @@ type httpResponseWriter struct {
 	continueChan   chan struct{}
 }
 
-func newHTTPResponseWriter(dc *dataChannel) *httpResponseWriter {
-	return &httpResponseWriter{
+func NewResponseWriter(dc *dataChannel) *ResponseWriter {
+	return &ResponseWriter{
 		channel:        dc.ReadWriteCloser,
 		continueChan:   dc.continueChan,
 		bufferedAmount: func() int { return int(dc.dc.BufferedAmount()) },
 	}
 }
 
-func (w *httpResponseWriter) Header() http.Header {
+func (w *ResponseWriter) Header() http.Header {
 	if w.header == nil {
 		w.header = make(http.Header)
 	}
 	return w.header
 }
 
-func (w *httpResponseWriter) WriteHeader(statusCode int) {
+func (w *ResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 }
 
-func (w *httpResponseWriter) Write(b []byte) (int, error) {
+func (w *ResponseWriter) Write(b []byte) (int, error) {
 	var err error
 	if err = w.writeHeader(); err != nil {
 		return 0, err
@@ -45,7 +46,7 @@ func (w *httpResponseWriter) Write(b []byte) (int, error) {
 
 	var (
 		total int
-		size  = dataChannelMTU
+		size  = webrtc.DataChannelMTU
 	)
 	for i := 0; i < len(b); i += size {
 		if maxSize := len(b) - i; maxSize < size {
@@ -60,7 +61,7 @@ func (w *httpResponseWriter) Write(b []byte) (int, error) {
 
 		// flow control
 		// wait until the buffered amount (plus what we would send) is less than the maxBufferedAmount
-		if ba := w.bufferedAmount(); maxBufferedAmount < ba+size {
+		if ba := w.bufferedAmount(); webrtc.MaxBufferedAmount < ba+size {
 			<-w.continueChan
 		}
 	}
@@ -68,7 +69,11 @@ func (w *httpResponseWriter) Write(b []byte) (int, error) {
 	return total, nil
 }
 
-func (w *httpResponseWriter) writeHeader() error {
+func (w *ResponseWriter) Flush() error {
+	return w.writeHeader()
+}
+
+func (w *ResponseWriter) writeHeader() error {
 	if w.sentHeader {
 		return nil
 	}
@@ -82,9 +87,9 @@ func (w *httpResponseWriter) writeHeader() error {
 	fmt.Fprint(status, "\n")
 
 	var (
-		buf     = make([]byte, dataChannelMTU)
+		buf     = make([]byte, webrtc.DataChannelMTU)
 		payload = status.Bytes()
-		mtu     = dataChannelMTU
+		mtu     = webrtc.DataChannelMTU
 		err     error
 	)
 	for 0 < len(payload) {

@@ -14,6 +14,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/rproxy"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/version"
+	webrtccmd "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
@@ -97,6 +98,7 @@ func subCommands() []*cobra.Command {
 		redirect.New().Cobra(),
 		send.New().Cobra(),
 		rproxy.New().Cobra(),
+		webrtccmd.New().Cobra(),
 		version.New().Cobra(),
 	}
 }

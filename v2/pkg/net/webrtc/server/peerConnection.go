@@ -1,4 +1,4 @@
-package webrtc
+package server
 
 import (
 	"context"
@@ -81,7 +81,7 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 			p.error(true, err)
 		}
 
-		if err := pc.SetRemoteDescription(*answerSD); err != nil {
+		if err := pc.SetRemoteDescription(answerSD); err != nil {
 			err = fmt.Errorf("unable to set remote session description during webRTC negotiation: %w", err)
 			p.error(true, err)
 		}

@@ -2,11 +2,11 @@ package sdp
 
 import "context"
 
-// Signaller is an interface that allows a client to connect to a server.
+// ServerSignaller is an interface that allows a client to connect to a server.
 // When a client wants to connect, the session signaller will call on the RequestHandler.
 // The session signaller handles the exchange of SDP offers and answers via the AnswerOffer func it
 // provides to the RequestHandler.
-type Signaller interface {
+type ServerSignaller interface {
 	Start(context.Context, RequestHandler) error
 	// Shutdown stops the Signaller from accepting new requests.
 	Shutdown() error
@@ -26,4 +26,13 @@ type HandleRequest func(context.Context, AnswerOffer) error
 
 func (h HandleRequest) HandleRequest(ctx context.Context, offer AnswerOffer) error {
 	return h(ctx, offer)
+}
+
+type ClientSignaller interface {
+	Start(context.Context, OfferHandler) error
+	Shutdown() error
+}
+
+type OfferHandler interface {
+	HandleOffer(context.Context, Offer) (Answer, error)
 }

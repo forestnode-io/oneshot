@@ -1,4 +1,4 @@
-package ttysignaller
+package sdp
 
 import (
 	"bufio"
@@ -9,18 +9,17 @@ import (
 
 	"github.com/muesli/cancelreader"
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
-type ttySignaller struct {
+type ttyServerSignaller struct {
 	cancel func()
 }
 
-func New() sdp.Signaller {
-	return &ttySignaller{}
+func NewTTYServerSignaller() ServerSignaller {
+	return &ttyServerSignaller{}
 }
 
-func (s *ttySignaller) Start(ctx context.Context, handler sdp.RequestHandler) error {
+func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 
@@ -52,13 +51,13 @@ func (s *ttySignaller) Start(ctx context.Context, handler sdp.RequestHandler) er
 	return nil
 }
 
-func (s *ttySignaller) Shutdown() error {
+func (s *ttyServerSignaller) Shutdown() error {
 	s.cancel()
 	s.cancel = nil
 	return nil
 }
 
-func (s *ttySignaller) answerOffer(ctx context.Context, offer sdp.Offer) (sdp.Answer, error) {
+func (s *ttyServerSignaller) answerOffer(ctx context.Context, offer Offer) (Answer, error) {
 	fmt.Printf("offer: \n%s\n", string(offer))
 	fmt.Println("Please paste the client SDP below and press enter:")
 
@@ -89,5 +88,5 @@ func (s *ttySignaller) answerOffer(ctx context.Context, offer sdp.Offer) (sdp.An
 		return "", err
 	}
 
-	return sdp.Answer(sd.SDP), nil
+	return Answer(sd.SDP), nil
 }

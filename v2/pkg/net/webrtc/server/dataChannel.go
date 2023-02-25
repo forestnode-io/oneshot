@@ -1,4 +1,4 @@
-package webrtc
+package server
 
 import (
 	"bufio"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
+	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 )
 
 type dataChannelEvent struct {
@@ -30,12 +31,12 @@ type dataChannel struct {
 func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, error) {
 	dcChan := make(chan datachannel.ReadWriteCloser, 1)
 
-	dc, err := pc.CreateDataChannel(dataChannelName, nil)
+	dc, err := pc.CreateDataChannel(oneshotwebrtc.DataChannelName, nil)
 	if err != nil {
 		err = fmt.Errorf("unable to create data channel for webRTC peer connection: %w", err)
 		return nil, err
 	}
-	dc.SetBufferedAmountLowThreshold(bufferedAmountLowThreshold)
+	dc.SetBufferedAmountLowThreshold(oneshotwebrtc.BufferedAmountLowThreshold)
 
 	d := &dataChannel{
 		dc:           dc,
@@ -90,7 +91,7 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 			}
 
 			var (
-				buf               = make([]byte, dataChannelMTU)
+				buf               = make([]byte, oneshotwebrtc.DataChannelMTU)
 				headerBuf         = bytes.NewBuffer(nil)
 				doneReadingHeader = false
 			)
@@ -176,33 +177,19 @@ func (d *dataChannel) error(err error) {
 	}()
 }
 
-type dataChannelReader struct {
-	datachannel.ReadWriteCloser
-	count int
-}
-
-func (r *dataChannelReader) Read(p []byte) (int, error) {
-	n, isString, err := r.ReadWriteCloser.ReadDataChannel(p)
-	r.count += n
-	if err == nil && isString {
-		err = io.EOF
-	}
-	return n, err
-}
-
 type body struct {
 	buf      *bufio.Reader
-	r        *dataChannelReader
+	r        *oneshotwebrtc.DataChannelByteReader
 	doneChan chan error
 	done     bool
 }
 
 func newBody(dcRaw datachannel.ReadWriteCloser) *body {
 	b := body{
-		r:        &dataChannelReader{dcRaw, 0},
+		r:        &oneshotwebrtc.DataChannelByteReader{ReadWriteCloser: dcRaw},
 		doneChan: make(chan error, 1),
 	}
-	b.buf = bufio.NewReaderSize(b.r, dataChannelMTU)
+	b.buf = bufio.NewReaderSize(b.r, oneshotwebrtc.DataChannelMTU)
 	return &b
 }
 

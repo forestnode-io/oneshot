@@ -1,4 +1,4 @@
-package filesignaller
+package sdp
 
 import (
 	"context"
@@ -8,21 +8,20 @@ import (
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
-type fileSignaller struct {
+type fileServerSignaller struct {
 	dirPath string
 	watcher *fsnotify.Watcher
 }
 
-func New(dir string) sdp.Signaller {
-	return &fileSignaller{
+func NewFileServerSignaller(dir string) ServerSignaller {
+	return &fileServerSignaller{
 		dirPath: dir,
 	}
 }
 
-func (s *fileSignaller) Start(ctx context.Context, handler sdp.RequestHandler) error {
+func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
 	err := os.RemoveAll(s.dirPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -56,9 +55,9 @@ func (s *fileSignaller) Start(ctx context.Context, handler sdp.RequestHandler) e
 					}
 				}
 
-				handler.HandleRequest(ctx, func(ctx context.Context, o sdp.Offer) (sdp.Answer, error) {
+				handler.HandleRequest(ctx, func(ctx context.Context, o Offer) (Answer, error) {
 					offerPath := filepath.Join(event.Name, "offer")
-					offer, err := o.JSON()
+					offer, err := o.MarshalJSON()
 					if err != nil {
 						return "", fmt.Errorf("unable to marshal offer: %w", err)
 					}
@@ -72,7 +71,7 @@ func (s *fileSignaller) Start(ctx context.Context, handler sdp.RequestHandler) e
 					}
 					defer watcher.Close()
 
-					answerChan := make(chan sdp.Answer)
+					answerChan := make(chan Answer)
 					go func() {
 						answerPath := filepath.Join(event.Name, "answer")
 						for {
@@ -89,7 +88,7 @@ func (s *fileSignaller) Start(ctx context.Context, handler sdp.RequestHandler) e
 									}
 
 									if len(answerBytes) != 0 {
-										answer, err := sdp.AnswerFromJSON(answerBytes)
+										answer, err := AnswerFromJSON(answerBytes)
 										if err != nil {
 											log.Printf("unable to unmarshal answer: %v", err)
 											return
@@ -129,7 +128,7 @@ func (s *fileSignaller) Start(ctx context.Context, handler sdp.RequestHandler) e
 	return nil
 }
 
-func (s *fileSignaller) Shutdown() error {
+func (s *fileServerSignaller) Shutdown() error {
 	s.watcher.Close()
 	return nil
 }

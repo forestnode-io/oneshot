@@ -13,11 +13,9 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
-	filesignaller "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/fileSignaller"
-	ttysignaller "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/ttySignaller"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/rs/cors"
@@ -71,19 +69,19 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		var signaller sdp.Signaller
+		var signaller sdp.ServerSignaller
 		if output.IsTTYForContentOnly(ctx) {
 			if webRTCSignallingDir == "" {
 				return errors.New("signalling directory must be set (--webrtc-signalling-dir) when serving from stdin or to stdout")
 			}
-			signaller = filesignaller.New(webRTCSignallingDir)
+			signaller = sdp.NewFileServerSignaller(webRTCSignallingDir)
 		} else if webRTCSignallingDir != "" {
-			signaller = filesignaller.New(webRTCSignallingDir)
+			signaller = sdp.NewFileServerSignaller(webRTCSignallingDir)
 		} else {
-			signaller = ttysignaller.New()
+			signaller = sdp.NewTTYServerSignaller()
 		}
 
-		a := oneshotwebrtc.Subsystem{
+		a := server.Server{
 			Handler: http.HandlerFunc(r.server.ServeHTTP),
 			Config:  r.webrtcConfig,
 		}
