@@ -13,11 +13,12 @@ type peerConnection struct {
 	ctx         context.Context
 	errChan     chan<- error
 	answerOffer sdp.AnswerOffer
+	sessionID   int32
 
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, sao sdp.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
+func newPeerConnection(ctx context.Context, id int32, sao sdp.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
 	var (
 		err  error
 		errs = make(chan error, 1)
@@ -27,6 +28,7 @@ func newPeerConnection(ctx context.Context, sao sdp.AnswerOffer, c *webrtc.Confi
 		ctx:         ctx,
 		errChan:     errs,
 		answerOffer: sao,
+		sessionID:   id,
 	}
 
 	se := webrtc.SettingEngine{}
@@ -69,7 +71,7 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 	// candidate is nil when gathering is done
 	if doneGathering := candidate == nil; doneGathering {
 		pc := p.PeerConnection
-		answer, err := p.answerOffer(p.ctx, sdp.Offer(pc.LocalDescription().SDP))
+		answer, err := p.answerOffer(p.ctx, p.sessionID, sdp.Offer(pc.LocalDescription().SDP))
 		if err != nil {
 			err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)
 			p.error(true, err)

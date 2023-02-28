@@ -33,8 +33,10 @@ func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) 
 		stdin.Cancel()
 	}()
 
+	id := int32(0)
 	for s.cancel != nil {
-		handler.HandleRequest(ctx, s.answerOffer)
+		handler.HandleRequest(ctx, id, s.answerOffer)
+		id++
 
 	READ_SECTION:
 		var char = make([]byte, 1)
@@ -57,7 +59,7 @@ func (s *ttyServerSignaller) Shutdown() error {
 	return nil
 }
 
-func (s *ttyServerSignaller) answerOffer(ctx context.Context, offer Offer) (Answer, error) {
+func (s *ttyServerSignaller) answerOffer(ctx context.Context, id int32, offer Offer) (Answer, error) {
 	fmt.Printf("offer: \n%s\n", string(offer))
 	fmt.Println("Please paste the client SDP below and press enter:")
 

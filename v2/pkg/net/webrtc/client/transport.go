@@ -25,7 +25,7 @@ type Transport struct {
 	continueChan chan struct{}
 }
 
-func (t *Transport) HandleOffer(ctx context.Context, o sdp.Offer) (sdp.Answer, error) {
+func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
 	se := webrtc.SettingEngine{}
 	se.DetachDataChannels()
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(se))

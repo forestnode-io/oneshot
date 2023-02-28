@@ -40,6 +40,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 	}
 
 	go func() {
+		id := int32(0)
 		for {
 			select {
 			case event := <-s.watcher.Events:
@@ -55,7 +56,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					}
 				}
 
-				handler.HandleRequest(ctx, func(ctx context.Context, o Offer) (Answer, error) {
+				handler.HandleRequest(ctx, id, func(ctx context.Context, id int32, o Offer) (Answer, error) {
 					offerPath := filepath.Join(event.Name, "offer")
 					offer, err := o.MarshalJSON()
 					if err != nil {
@@ -110,6 +111,8 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					ans := <-answerChan
 					return ans, nil
 				})
+
+				id++
 			case err := <-s.watcher.Errors:
 				if err != nil {
 					log.Printf("error from sdp dir watcher: %v", err)

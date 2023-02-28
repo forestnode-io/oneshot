@@ -1,8 +1,9 @@
 package signallingserver
 
 import (
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/start"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/stop"
+	"log"
+
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -20,19 +21,40 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:   "signalling-server",
-		Short: "WebRTC signalling server",
-		Long:  "WebRTC signalling server",
+		Use:     "signalling-server",
+		Aliases: []string{"signaling-server"},
+		Short:   "WebRTC signalling server",
+		Long:    "WebRTC signalling server",
+		RunE:    c.run,
 	}
 
-	c.cobraCommand.AddCommand(subCommands()...)
+	flags := c.cobraCommand.Flags()
+	flags.String("http-address", ":8080", "Address to listen on for HTTP requests")
+	flags.String("api-address", ":8081", "Address to listen on for API requests from oneshot servers")
 
 	return c.cobraCommand
 }
 
-func subCommands() []*cobra.Command {
-	return []*cobra.Command{
-		start.New().Cobra(),
-		stop.New().Cobra(),
+func (c *Cmd) run(cmd *cobra.Command, args []string) error {
+	var (
+		ctx   = cmd.Context()
+		flags = cmd.Flags()
+
+		httpAddress, _ = flags.GetString("http-address")
+		apiAddress, _  = flags.GetString("api-address")
+	)
+
+	output.InvocationInfo(ctx, cmd, args)
+
+	s, err := newServer()
+	if err != nil {
+		return err
 	}
+	if err := s.run(ctx, apiAddress, httpAddress); err != nil {
+		log.Printf("error running server: %v", err)
+	}
+
+	log.Println("server stopped")
+
+	return nil
 }

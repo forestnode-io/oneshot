@@ -7,7 +7,7 @@ VERSION_FLAG=$(GIT_REPO)/pkg/linkerSetValues.Version=$(VERSION)
 STATIC_FLAG=-extldflags=-static
 GOBIN=$(shell go env GOPATH)/bin
 
-$(APP_NAME):
+$(APP_NAME): webrtc-html
 	mkdir -p ./build-output
 	go build -o ./build-output/$(APP_NAME) \
 		-ldflags "${STATIC_FLAG} -X ${VERSION_FLAG} -s -w" \
@@ -45,3 +45,10 @@ vet:
 .PHONY: webrtc-html
 webrtc-html:
 	npm --prefix ./browser/webrtc i && npm --prefix ./browser/webrtc run build
+	cp ./browser/webrtc/dist/index.html ./pkg/commands/webrtc/signalling-server/htmlClientTemplate.html
+
+clean:
+	rm -rf ./build-output
+	rm -rf ./browser/webrtc/dist
+	rm -rf ./browser/webrtc/node_modules
+	rm ./pkg/commands/webrtc/signalling-server/htmlClientTemplate.html

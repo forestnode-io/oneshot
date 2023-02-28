@@ -17,10 +17,10 @@ type Server struct {
 	Config  *webrtc.Configuration
 }
 
-func (s *Server) HandleRequest(ctx context.Context, answerOfferFunc sdp.AnswerOffer) error {
+func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sdp.AnswerOffer) error {
 	// create a new peer connection.
 	// newPeerConnection does not wait for the peer connection to be established.
-	pc, pcErrs := newPeerConnection(ctx, answerOfferFunc, s.Config)
+	pc, pcErrs := newPeerConnection(ctx, id, answerOfferFunc, s.Config)
 	if pc == nil {
 		err := <-pcErrs
 		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)

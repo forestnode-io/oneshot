@@ -29,7 +29,7 @@ func (s *fileClientSignaller) Start(ctx context.Context, offerHandler OfferHandl
 		return fmt.Errorf("failed to parse offer: %w", err)
 	}
 
-	answer, err := offerHandler.HandleOffer(ctx, offer)
+	answer, err := offerHandler.HandleOffer(ctx, 0, offer)
 	if err != nil {
 		return err
 	}
