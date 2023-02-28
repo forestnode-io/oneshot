@@ -31,6 +31,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags := c.cobraCommand.Flags()
 	flags.String("http-address", ":8080", "Address to listen on for HTTP requests")
 	flags.String("api-address", ":8081", "Address to listen on for API requests from oneshot servers")
+	flags.String("required-id", "", "Required ID for clients to connect to this server")
 
 	return c.cobraCommand
 }
@@ -42,11 +43,12 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 
 		httpAddress, _ = flags.GetString("http-address")
 		apiAddress, _  = flags.GetString("api-address")
+		requiredID, _  = flags.GetString("required-id")
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
 
-	s, err := newServer()
+	s, err := newServer(requiredID)
 	if err != nil {
 		return err
 	}

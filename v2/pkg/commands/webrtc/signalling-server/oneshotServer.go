@@ -11,38 +11,56 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/transport"
 )
 
+var id = "oneshot-signalling-server"
+
 type oneshotServer struct {
 	Arrival messages.ArrivalRequest
 	done    chan struct{}
 	msgConn *transport.Transport
 }
 
-func newOneshotServer(conn net.Conn) (*oneshotServer, error) {
+func newOneshotServer(requiredID string, conn net.Conn) (*oneshotServer, error) {
 	o := oneshotServer{
 		msgConn: transport.NewTransport(conn),
 		done:    make(chan struct{}),
 	}
 
 	// exchange version info
-	thisVi := messages.VersionInfo{
-		Version: "0.0.1",
-	}
-	err := o.msgConn.Write(&thisVi)
-	if err != nil {
-		return nil, err
-	}
-
 	m, err := o.msgConn.Read()
 	if err != nil {
 		return nil, err
 	}
-
-	vi, ok := m.(*messages.VersionInfo)
+	rh, ok := m.(*messages.Handshake)
 	if !ok {
 		return nil, messages.ErrInvalidRequestType
 	}
+	if rh.Error != nil {
+		return nil, fmt.Errorf("error from remote: %s", rh.Error)
+	}
 
-	log.Printf("oneshot server version: %s", vi.Version)
+	h := messages.Handshake{
+		ID: id,
+		VersionInfo: messages.VersionInfo{
+			Version: "0.0.1",
+		},
+	}
+
+	if rh.ID != requiredID && requiredID != "" {
+		h.Error = fmt.Errorf("unautharized")
+		err = o.msgConn.Write(&h)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("invalid id")
+	}
+
+	err = o.msgConn.Write(&h)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("oneshot server version: %s", rh.VersionInfo.Version)
 
 	// grab the arrival request and store it
 	m, err = o.msgConn.Read()

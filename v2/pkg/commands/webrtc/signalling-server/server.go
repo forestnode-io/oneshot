@@ -36,16 +36,19 @@ func init() {
 type server struct {
 	htmlClientTemplate *template.Template
 
-	os        *oneshotServer
-	l         net.Listener
-	pendingID int32
+	os               *oneshotServer
+	l                net.Listener
+	pendingSessionID int32
+
+	requiredID string
 }
 
-func newServer() (*server, error) {
+func newServer(requiredID string) (*server, error) {
 	t, err := template.New("htmlClientTemplate").Parse(string(htmlClientTemplateFile))
 	return &server{
-		pendingID:          -1,
+		pendingSessionID:   -1,
 		htmlClientTemplate: t,
+		requiredID:         requiredID,
 	}, err
 }
 
@@ -160,7 +163,7 @@ func (s *server) handleOneshotServer(ctx context.Context, conn net.Conn) error {
 		s.os = nil
 	}()
 
-	if s.os, err = newOneshotServer(conn); err != nil {
+	if s.os, err = newOneshotServer(s.requiredID, conn); err != nil {
 		return fmt.Errorf("error creating new oneshot server: %w", err)
 	}
 
@@ -187,7 +190,7 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
-	if -1 < s.pendingID {
+	if -1 < s.pendingSessionID {
 		http.Error(w, "busy", http.StatusServiceUnavailable)
 		return
 	}
@@ -210,8 +213,8 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.pendingID = rand.Int31()
-	offer, err := s.os.RequestOffer(r.Context(), s.pendingID)
+	s.pendingSessionID = rand.Int31()
+	offer, err := s.os.RequestOffer(r.Context(), s.pendingSessionID)
 	if err != nil {
 		log.Printf("error requesting offer: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -230,23 +233,23 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = s.htmlClientTemplate.Execute(w, map[string]any{
 		"Offer":     string(offerBytes),
-		"SessionID": s.pendingID,
+		"SessionID": s.pendingSessionID,
 	})
 	if err != nil {
 		log.Printf("error writing response: %v", err)
 	}
 
-	log.Printf("sent offer for session id %d", s.pendingID)
+	log.Printf("sent offer for session id %d", s.pendingSessionID)
 }
 
 func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
-	if s.pendingID < 0 {
+	if s.pendingSessionID < 0 {
 		log.Printf("received answer without pending offer")
 		http.Error(w, "no pending offer", http.StatusServiceUnavailable)
 		return
 	}
 
-	log.Printf("received answer for session id %d", s.pendingID)
+	log.Printf("received answer for session id %d", s.pendingSessionID)
 
 	defer r.Body.Close()
 	lr := io.LimitReader(r.Body, maxBodySize)
@@ -268,21 +271,21 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if answer.ID != s.pendingID {
-		log.Printf("received answer with invalid id: %d (expected %d)", answer.ID, s.pendingID)
+	if answer.ID != s.pendingSessionID {
+		log.Printf("received answer with invalid id: %d (expected %d)", answer.ID, s.pendingSessionID)
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
-	if err = s.os.SendAnswer(r.Context(), s.pendingID, sdp.Answer(answer.Answer)); err != nil {
+	if err = s.os.SendAnswer(r.Context(), s.pendingSessionID, sdp.Answer(answer.Answer)); err != nil {
 		log.Printf("error sending answer: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("answer sent for session id %d, closing connection to oneshot server", s.pendingID)
+	log.Printf("answer sent for session id %d, closing connection to oneshot server", s.pendingSessionID)
 
-	s.pendingID = -1
+	s.pendingSessionID = -1
 	if err = s.os.Close(); err != nil {
 		log.Printf("error closing oneshot server connection: %v", err)
 	}

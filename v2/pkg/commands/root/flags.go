@@ -174,7 +174,10 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	wfs.Bool("webrtc", false, `Enable WebRTC support with default values.`)
 	wfs.String("webrtc-ice-servers", "", `Comma separated list of ICE servers to use for WebRTC connections.`)
 	wfs.String("webrtc-signalling-dir", "", `Directory to use for WebRTC signalling.`)
-	wfs.String("webrtc-signalling-url", "", `URL to use for WebRTC signalling.`)
+	wfs.String("webrtc-signalling-server-url", "", `URL to use for WebRTC signalling.`)
+	wfs.String("webrtc-signalling-server-id", "", `ID to use for WebRTC signalling.`)
+	wfs.String("webrtc-signalling-server-request-url", "", `URL that the signalling server will try to reserve for connecting clients.`)
+	wfs.String("webrtc-signalling-server-required-url", "", `URL that the signalling server needs to reserve for connecting clients.`)
 	pflags.AddFlagSet(wfs)
 	cobra.AddTemplateFunc("webrtcFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return wfs

@@ -64,7 +64,17 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 	webrtc, _ := flags.GetBool("webrtc")
 	webRTCSignallingDir, _ := flags.GetString("webrtc-signalling-dir")
-	webRTCSignallingURL, _ := flags.GetString("webrtc-signalling-url")
+	webRTCSignallingURL, _ := flags.GetString("webrtc-signalling-server-url")
+	webRTCSignallingID, _ := flags.GetString("webrtc-signalling-server-id")
+	webRTCSignallingRequestURL, _ := flags.GetString("webrtc-signalling-server-request-url")
+	webRTCSignallingRequiredURL, _ := flags.GetString("webrtc-signalling-server-required-url")
+
+	webrtcClientURL := webRTCSignallingRequestURL
+	webrtcClientURLRequired := false
+	if webRTCSignallingRequiredURL != "" {
+		webrtcClientURL = webRTCSignallingRequiredURL
+		webrtcClientURLRequired = true
+	}
 	if webrtc || webRTCSignallingDir != "" || webRTCSignallingURL != "" {
 		if err := r.configureWebRTC(flags); err != nil {
 			return err
@@ -79,7 +89,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		} else if webRTCSignallingDir != "" {
 			signaller = sdp.NewFileServerSignaller(webRTCSignallingDir)
 		} else if webRTCSignallingURL != "" {
-			signaller = sdp.NewServerServerSignaller(webRTCSignallingURL, "", false)
+			signaller = sdp.NewServerServerSignaller(webRTCSignallingURL, webRTCSignallingID, webrtcClientURL, webrtcClientURLRequired)
 		} else {
 			signaller = sdp.NewTTYServerSignaller()
 		}

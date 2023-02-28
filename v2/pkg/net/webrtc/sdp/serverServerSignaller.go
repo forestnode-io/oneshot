@@ -13,6 +13,7 @@ import (
 type serverServerSignaller struct {
 	cancel func()
 	ssURL  string
+	id     string
 	t      *transport.Transport
 
 	url         string
@@ -20,9 +21,10 @@ type serverServerSignaller struct {
 	offerChan   chan string
 }
 
-func NewServerServerSignaller(ssURL, url string, urlRequired bool) ServerSignaller {
+func NewServerServerSignaller(ssURL, id, url string, urlRequired bool) ServerSignaller {
 	return &serverServerSignaller{
 		ssURL:       ssURL,
+		id:          id,
 		url:         url,
 		urlRequired: urlRequired,
 		offerChan:   make(chan string),
@@ -42,11 +44,14 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	s.t = transport.NewTransport(conn)
 	log.Printf("connected to signalling server at %s", s.ssURL)
 
-	// exchange version info
-	thisVi := messages.VersionInfo{
-		Version: "0.0.1",
+	// exchange handshake
+	h := messages.Handshake{
+		ID: s.id,
+		VersionInfo: messages.VersionInfo{
+			Version: "0.0.1",
+		},
 	}
-	if err = s.t.Write(&thisVi); err != nil {
+	if err = s.t.Write(&h); err != nil {
 		return err
 	}
 
@@ -55,12 +60,12 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		log.Printf("error reading version info: %v", err)
 		return err
 	}
-	vi, ok := m.(*messages.VersionInfo)
+	rh, ok := m.(*messages.Handshake)
 	if !ok {
 		return messages.ErrInvalidRequestType
 	}
 
-	log.Printf("signalling server version: %s", vi.Version)
+	log.Printf("signalling server version: %s", rh.VersionInfo.Version)
 
 	// send the arrival request
 	ar := messages.ArrivalRequest{

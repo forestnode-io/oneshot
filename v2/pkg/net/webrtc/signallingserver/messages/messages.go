@@ -9,8 +9,14 @@ type VersionInfo struct {
 	Version    string
 }
 
-func (v *VersionInfo) Type() string {
-	return "VersionInfo"
+type Handshake struct {
+	ID          string
+	VersionInfo VersionInfo
+	Error       error
+}
+
+func (h *Handshake) Type() string {
+	return "Handshake"
 }
 
 type BasicAuth struct {

@@ -9,10 +9,10 @@ var ErrInvalidRequestType = fmt.Errorf("invalid request type")
 
 func Unmarshal(typeName string, data []byte) (Message, error) {
 	switch typeName {
-	case "VersionInfo":
-		var v VersionInfo
-		err := json.Unmarshal(data, &v)
-		return &v, err
+	case "Handshake":
+		var h Handshake
+		err := json.Unmarshal(data, &h)
+		return &h, err
 	case "ArrivalRequest":
 		var a ArrivalRequest
 		err := json.Unmarshal(data, &a)
