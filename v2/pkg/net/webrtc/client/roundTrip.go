@@ -97,6 +97,11 @@ func (r *dcReader) Read(p []byte) (int, error) {
 	n, isString, err := r.raw.ReadDataChannel(p)
 	if isString {
 		if r.hitBody {
+			// got a string after the body, this is an EOF
+			// tell the server we got the EOF
+			if _, err := r.raw.WriteDataChannel([]byte(""), true); err != nil {
+				log.Printf("unable to send request body EOF: %v", err)
+			}
 			return n, io.EOF
 		}
 	} else {

@@ -82,10 +82,14 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 		var signaller sdp.ServerSignaller
 		if output.IsTTYForContentOnly(ctx) {
-			if webRTCSignallingDir == "" {
-				return errors.New("signalling directory must be set (--webrtc-signalling-dir) when serving from stdin or to stdout")
+			if webRTCSignallingDir == "" && webRTCSignallingURL == "" {
+				return errors.New("signalling directory (--webrtc-signalling-dir) or signalling server url (--webrtc-signalling-server-url) must be set when serving from stdin or to stdout")
 			}
-			signaller = sdp.NewFileServerSignaller(webRTCSignallingDir)
+			if webRTCSignallingURL != "" {
+				signaller = sdp.NewServerServerSignaller(webRTCSignallingURL, webRTCSignallingID, webrtcClientURL, webrtcClientURLRequired)
+			} else {
+				signaller = sdp.NewFileServerSignaller(webRTCSignallingDir)
+			}
 		} else if webRTCSignallingDir != "" {
 			signaller = sdp.NewFileServerSignaller(webRTCSignallingDir)
 		} else if webRTCSignallingURL != "" {
@@ -100,7 +104,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		}
 		go func() {
 			if err := signaller.Start(ctx, &a); err != nil {
-				log.Fatal(err)
+				log.Fatalf("failed to start signalling server: %v", err)
 			}
 		}()
 	}

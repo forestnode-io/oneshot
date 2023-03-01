@@ -23,13 +23,21 @@ import (
 
 const maxBodySize = 1024 * 1024
 
-//go:generate make webrtc-html
-//go:embed htmlClientTemplate.html
-var htmlClientTemplateFile string
+//go:generate make webrtc-client
+//go:embed main.minified.js
+var browserClientJS string
+
+//go:embed index.template.html
+var htmlTemplate string
 
 func init() {
-	if len(htmlClientTemplateFile) == 0 {
-		panic("htmlClientTemplateFile not initialized")
+	if len(browserClientJS) == 0 {
+		panic("browserClientJS is empty")
+	}
+	browserClientJS = "<script>\n" + browserClientJS + "\n</script>"
+
+	if len(htmlTemplate) == 0 {
+		panic("htmlTemplate is empty")
 	}
 }
 
@@ -44,7 +52,7 @@ type server struct {
 }
 
 func newServer(requiredID string) (*server, error) {
-	t, err := template.New("htmlClientTemplate").Parse(string(htmlClientTemplateFile))
+	t, err := template.New("root").Parse(htmlTemplate)
 	return &server{
 		pendingSessionID:   -1,
 		htmlClientTemplate: t,
@@ -232,8 +240,11 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK)
 	err = s.htmlClientTemplate.Execute(w, map[string]any{
-		"Offer":     string(offerBytes),
-		"SessionID": s.pendingSessionID,
+		"AutoConnect":  true,
+		"ClientJS":     template.HTML(browserClientJS),
+		"ICEServerURL": "stun:stun.l.google.com:19302",
+		"SessionID":    s.pendingSessionID,
+		"Offer":        string(offerBytes),
 	})
 	if err != nil {
 		log.Printf("error writing response: %v", err)

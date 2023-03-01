@@ -19,7 +19,8 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
     const filename = filenameFromContentDisposition(cd);
     if (filename) {
         console.log(`triggering download of ${filename}`);
-        triggerDownload(resp.body, filename);
+        const bodyBlob = await resp.blob();
+        triggerDownload(bodyBlob, filename);
         return;
     }
 

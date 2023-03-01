@@ -104,6 +104,10 @@ func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID int32) (sdp.
 }
 
 func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID int32, answer sdp.Answer) error {
+	defer func() {
+		o.done <- struct{}{}
+	}()
+
 	req := messages.GotAnswerRequest{
 		SessionID: sessionID,
 		Answer:    string(answer),
@@ -121,12 +125,6 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID int32, answer 
 	if !ok {
 		return fmt.Errorf("invalid request type, expected GotAnswerResponse, got: %s", resp.Type())
 	}
-
-	if gar.SessionID != sessionID {
-		return fmt.Errorf("session id mismatch: %d != %d", gar.SessionID, sessionID)
-	}
-
-	o.done <- struct{}{}
 
 	return gar.Error
 }

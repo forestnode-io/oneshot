@@ -5,20 +5,32 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
     const method = options?.method || 'GET';
     let headerString = `${method} ${resource} HTTP/1.1\n`;
 
-    if (options?.headers) {
-        if (options.headers instanceof Headers) {
-            options.headers.forEach((value, key) => {
-                headerString += `${key}: ${value}\n`;
-            });
-        } else if (typeof options.headers === 'object') {
-            if (options.headers instanceof Array) {
-                for (var i = 0 ; i < options.headers.length; i++) {
-                    headerString += `${options.headers[i][0]}: ${options.headers[i][1]}\n`;
+    let headers = options?.headers ? options!.headers! : new Headers();
+    if (headers instanceof Headers) {
+        if (!headers.has('User-Agent')) {
+            headers.append('User-Agent', navigator.userAgent);
+        }
+        headers.forEach((value, key) => {
+            headerString += `${key}: ${value}\n`;
+        });
+    } else if (typeof headers === 'object') {
+        if (headers instanceof Array) {
+            var foundUserAgent = false;
+            for (var i = 0; i < headers.length; i++) {
+                headerString += `${headers[i][0]}: ${headers[i][1]}\n`;
+                if (headers[i][0] === 'User-Agent') {
+                    foundUserAgent = true;
                 }
-            } else {
-                for (const key in options.headers) {
-                    headerString += `${key}: ${options.headers[key]}\n`;
-                }
+            }
+            if (!foundUserAgent) {
+                headerString += `User-Agent: ${navigator.userAgent}\n`;
+            }
+        } else {
+            if (!headers['User-Agent']) {
+                headers['User-Agent'] = navigator.userAgent;
+            }
+            for (const key in headers) {
+                headerString += `${key}: ${headers[key]}\n`;
             }
         }
     }

@@ -40,11 +40,12 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if err != nil {
 		return fmt.Errorf("unable to connect to signalling server: %w", err)
 	}
-
-	s.t = transport.NewTransport(conn)
 	log.Printf("connected to signalling server at %s", s.ssURL)
 
+	s.t = transport.NewTransport(conn)
+
 	// exchange handshake
+	log.Println("exchanging handshake with signalling server ...")
 	h := messages.Handshake{
 		ID: s.id,
 		VersionInfo: messages.VersionInfo{
@@ -54,7 +55,9 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if err = s.t.Write(&h); err != nil {
 		return err
 	}
+	log.Println("... sent handshake to the signalling server...")
 
+	log.Println("... waiting for handshake from the signalling server...")
 	m, err := s.t.Read()
 	if err != nil {
 		log.Printf("error reading version info: %v", err)
@@ -64,10 +67,16 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if !ok {
 		return messages.ErrInvalidRequestType
 	}
-
+	log.Println("... received handshake from the signalling server...")
+	log.Printf("... finished handshake with signalling server")
 	log.Printf("signalling server version: %s", rh.VersionInfo.Version)
+	log.Printf("signalling server api version: %s", rh.VersionInfo.APIVersion)
+	if rh.ID != "" {
+		log.Printf("signalling server id: %s", rh.ID)
+	}
 
 	// send the arrival request
+	log.Println("sending arrival request to signalling server ...")
 	ar := messages.ArrivalRequest{
 		ID:        "",
 		BasicAuth: nil,
@@ -76,6 +85,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if err = s.t.Write(&ar); err != nil {
 		return err
 	}
+	log.Println("... sent arrival request to signalling server...")
 
 	// wait for the arrival response
 	m, err = s.t.Read()
@@ -89,8 +99,11 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if resp.Error != "" {
 		return fmt.Errorf("signalling server responded with error: %s", resp.Error)
 	}
+	log.Println("... received arrival response from signalling server.")
 
-	log.Printf("signalling server assigned url: %s", resp.AssignedURL)
+	if resp.AssignedURL != "" {
+		log.Printf("signalling server assigned url: %s", resp.AssignedURL)
+	}
 
 	go func() {
 		for {
@@ -101,6 +114,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			}
 
 			// wait for the offer request
+			log.Println("waiting for offer request from signalling server ...")
 			m, err := s.t.Read()
 			if err != nil {
 				log.Printf("error reading from signalling server: %s", err)
@@ -111,13 +125,15 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 				log.Printf("invalid request type from signalling server: %T", m)
 				return
 			}
+			log.Println("... got offer request from signalling server")
 
 			// get the offer
+			log.Println("sending offer request to handler ...")
 			if err := handler.HandleRequest(ctx, req.SessionID, s.answerOffer); err != nil {
 				log.Printf("error handling request: %s", err)
 				return
 			}
-
+			log.Println("... handler finished processing offer request")
 		}
 	}()
 
@@ -131,35 +147,37 @@ func (s *serverServerSignaller) Shutdown() error {
 
 func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID int32, offer Offer) (Answer, error) {
 	// send the offer to the signalling server
+	log.Println("sending offer to signalling server ...")
 	gor := messages.GetOfferResponse{
 		Offer: string(offer),
 	}
 	if err := s.t.Write(&gor); err != nil {
 		return "", err
 	}
+	log.Println("... sent offer to signalling server")
 
 	// wait for the answer to come back
+	log.Println("waiting for answer from signalling server ...")
 	m, err := s.t.Read()
-	log.Printf("got answer: %v", m)
 	if err != nil {
 		log.Printf("error reading answer: %v", err)
 		return "", err
 	}
 	a, ok := m.(*messages.GotAnswerRequest)
-	log.Printf("got answer1: %v", a)
 	if !ok {
 		return "", messages.ErrInvalidRequestType
 	}
 
+	log.Println("got answer from signalling server")
+	log.Println("verifying with signalling server that answer was received ...")
+
 	// let the signalling server know we got the answer
-	log.Println("sending got answer response")
 	gar := messages.GotAnswerResponse{}
 	if err := s.t.Write(&gar); err != nil {
 		return "", err
 	}
-	log.Println("sent got answer response")
 
-	log.Printf("got answer2: %v", a.Answer)
+	log.Println("... verified to signalling server that answer was received")
 
 	return Answer(a.Answer), nil
 }

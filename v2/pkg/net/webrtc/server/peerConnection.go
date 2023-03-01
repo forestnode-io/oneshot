@@ -130,7 +130,8 @@ func (p *peerConnection) onSignalingStateChange(state webrtc.SignalingState) {
 }
 
 func (p *peerConnection) onNegotiationNeeded() {
-	log.Println("negotiation needed")
+	log.Println("webrtc peer connection negotiation needed ...")
+	defer log.Println("... peer connection negotiated")
 
 	pc := p.PeerConnection
 	// ready to negotiate a new offer session description

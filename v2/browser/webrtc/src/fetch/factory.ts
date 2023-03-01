@@ -7,6 +7,7 @@ import { boundary, BufferedAmountLowThreshold } from './constants';
 // rtcFetchFactory returns a function that can be used as an almost drop-in replacement for the fetch API
 export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response> {
     dc.bufferedAmountLowThreshold = BufferedAmountLowThreshold;
+    dc.binaryType = 'arraybuffer';
     return (resource: RequestInfo | URL, options?: RequestInit | undefined): Promise<Response> => {
         var requestPromiseResolve: (value: Response) => void = () => { };
         var requestPromiseReject: (reason?: any) => void = () => { };
@@ -19,13 +20,13 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
         var status: number = -1;
         var statusText: string = '';
         var header: HTTPHeader = {};
-        let chan = new MessageChannel();
+        const chan = new MessageChannel();
         var buf: ArrayBuffer[] = [];
 
-        dc.onmessage = async (event: MessageEvent) => {
+        dc.onmessage = (event: MessageEvent) => {
             // parse the response
-            if (event.data instanceof Blob) {
-                // reading body which is sent as a blob
+            if (event.data instanceof ArrayBuffer) {
+                // reading body which is sent as an ArrayBuffer
                 // check if header has been parsed, if not, parse it
                 // shave off the status line
                 if (status === -1) {
@@ -40,11 +41,10 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                     header = parseHeader(headerBuf);
                     headerBuf = '';
 
-                    let ab = await (event.data as Blob).arrayBuffer();
-                    buf.push(ab);
+                    buf.push(event.data);
                     chan.port1.postMessage(null);
 
-                    var h = new Headers();
+                    const h = new Headers();
                     for (const key in header) {
                         h.append(key, header[key]);
                     }
@@ -68,6 +68,8 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                                 chan.port2.onmessage = (event: MessageEvent) => {
                                     const s = buf.shift();
                                     if (!s) {
+                                        // let the server know we got the eof
+                                        dc.send("");
                                         controller.close();
                                         resolve();
                                         return;
@@ -81,10 +83,9 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                     let response = new Response(responseBody, responseInit);
                     requestPromiseResolve(response);
                 } else {
-                    const blob = event.data as Blob;
-                    if (blob.size !== 0) {
-                        let ab = await blob.arrayBuffer();
-                        buf.push(ab);
+                    const blob = event.data as ArrayBuffer;
+                    if (0 < blob.byteLength) {
+                        buf.push(blob);
                         chan.port1.postMessage(null);
                     }
                 }

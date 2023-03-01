@@ -2,7 +2,7 @@
   "name": "webrtc",
   "version": "0.1.0",
   "description": "",
-  "main": "index.js",
+  "main": "main.ts",
   "scripts": {
     "build": "node ./build.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"

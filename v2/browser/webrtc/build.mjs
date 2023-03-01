@@ -7,14 +7,12 @@ let buildHTML = {
     name: 'build-html',
     setup(build) {
         build.onEnd(async result => {
-            let tmplt = fs.readFileSync('./index.template.html', 'utf8');
-            let buf = fs.readFileSync('./dist/main.js', 'utf8');
-            buf = UglifyJS.minify(buf, { compress: false, mangle: true}).code;
-            buf = Mustache.render(tmplt, { main: buf, iceServerURL: 'stun:stun.l.google.com:19302' });
-            fs.writeFile('./dist/index.html', buf, 'utf8', (err) => { 
-                if (err) throw err;
-            });
-            fs.unlink('./dist/main.js', (err) => {
+            let mainJS = fs.readFileSync('./dist/main.js', 'utf8');
+            mainJS = UglifyJS.minify(mainJS, {
+                compress: false,
+                mangle: true,
+            }).code;
+            fs.writeFileSync('./dist/main.minified.js', mainJS, 'utf8', (err) => {
                 if (err) throw err;
             });
         });
@@ -22,7 +20,7 @@ let buildHTML = {
 }
 
 await esbuild.build({
-    entryPoints: ['./src/connect.ts'],
+    entryPoints: ['./main.ts'],
     bundle: true,
     outfile: './dist/main.js',
     target: ['chrome58', 'firefox57', 'safari11', 'edge16'],

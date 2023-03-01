@@ -1,0 +1,31 @@
+{{ define "sdp-component" }}
+<div id="sdp-component">
+    <label for="ice-server-url">ICE Server URL</label><br>
+    <input type="text" id="ice-server-url" value="{{ .ICEServerURL }}"><br>
+    <br>
+    <label for="offer-sdp">Oneshot Session Offer</label><br>
+    <textarea id="offer-sdp" rows="10" cols="50"></textarea><br>
+    <br>
+    <button type="button" id="connect-button">Generate Answer & Copy to Clipboard</button><br>
+    <div id="answer-container">
+        <span id="answer-span"></span>
+    </div>
+</div>
+{{ end }}
+{{ define "index" }}
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>{{ if not .AutoConnect }}
+    {{ template "sdp-component" . }}{{ else }}
+    <input type="hidden" id="ice-server-url" value="{{ .ICEServerURL }}">
+    <input type="hidden" id="session-id" value="{{ .SessionID }}">
+    <input type="hidden" id="offer-sdp" value="{{ .Offer }}">
+    {{ end }}
+</body>
+<footer>
+    {{ .ClientJS }}
+</footer>
+</html>
+{{ end }}
+{{ template "index" . }}

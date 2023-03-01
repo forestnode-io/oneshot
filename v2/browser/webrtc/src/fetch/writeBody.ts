@@ -2,6 +2,8 @@ import { boundary, DataChannelMTU } from './constants';
 
 export async function writeBody(channel: RTCDataChannel, body: BodyInit | null | undefined): Promise<void> {
     if (!body) {
+        channel.send(new Uint8Array(0));
+        channel.send("");
         return Promise.resolve();
     }
 
@@ -60,6 +62,7 @@ function sendPump(channel: RTCDataChannel, data: ArrayBuffer, resolve?: (() => v
             channel.send(chunk);
 
             if (mtu != DataChannelMTU) {
+                channel.send("");
                 if (resolve) resolve();
                 return;
             }
@@ -123,7 +126,7 @@ async function pumpForm(channel: RTCDataChannel, form: FormData): Promise<void> 
         }
 
         channel.send(encoder.encode(`\n--${boundary}--\n`));
-        channel.send("EOF")
+        channel.send("")
 
         resolve();
     });

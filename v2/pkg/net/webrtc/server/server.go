@@ -39,7 +39,7 @@ func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sd
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("webrtc server context cancelled: %w", ctx.Err())
 		case e := <-pcErrs:
 			return fmt.Errorf("error on peer connection: %w", e)
 		case e := <-d.eventsChan:
@@ -57,6 +57,10 @@ func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sd
 			if _, err := w.channel.WriteDataChannel([]byte(""), true); err != nil {
 				log.Printf("unable to send EOF to client: %v", err)
 			}
+
+			eofBuf := make([]byte, 3)
+			// wait for the EOF to be verified by the client
+			w.channel.ReadDataChannel(eofBuf)
 		}
 	}
 }

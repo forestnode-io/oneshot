@@ -1,4 +1,4 @@
-export function triggerDownload(data: any, filename: string) {
+export function triggerDownload(data: Blob, filename: string) {
     const a = document.createElement("a");
     a.setAttribute("style", "display: none");
     document.body.appendChild(a);
