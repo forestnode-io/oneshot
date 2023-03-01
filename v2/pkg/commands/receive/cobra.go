@@ -30,7 +30,6 @@ func init() {
 		panic("browserClientJS is empty")
 	}
 	browserClientJS = "<script>\n" + browserClientJS + "\n</script>"
-	log.Println("browserClientJS", browserClientJS)
 
 	if len(htmlTemplate) == 0 {
 		panic("htmlTemplate is empty")

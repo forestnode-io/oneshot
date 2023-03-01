@@ -25,18 +25,18 @@ const maxBodySize = 1024 * 1024
 
 //go:generate make webrtc-client
 //go:embed main.js
-var browserClientJS string
+var BrowserClientJS string
 
 //go:embed index.template.html
-var htmlTemplate string
+var HTMLTemplate string
 
 func init() {
-	if len(browserClientJS) == 0 {
+	if len(BrowserClientJS) == 0 {
 		panic("browserClientJS is empty")
 	}
-	browserClientJS = "<script>\n" + browserClientJS + "\n</script>"
+	BrowserClientJS = "<script>\n" + BrowserClientJS + "\n</script>"
 
-	if len(htmlTemplate) == 0 {
+	if len(HTMLTemplate) == 0 {
 		panic("htmlTemplate is empty")
 	}
 }
@@ -52,7 +52,7 @@ type server struct {
 }
 
 func newServer(requiredID string) (*server, error) {
-	t, err := template.New("root").Parse(htmlTemplate)
+	t, err := template.New("root").Parse(HTMLTemplate)
 	return &server{
 		pendingSessionID:   -1,
 		htmlClientTemplate: t,
@@ -241,7 +241,7 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = s.htmlClientTemplate.Execute(w, map[string]any{
 		"AutoConnect":  true,
-		"ClientJS":     template.HTML(browserClientJS),
+		"ClientJS":     template.HTML(BrowserClientJS),
 		"ICEServerURL": "stun:stun.l.google.com:19302",
 		"SessionID":    s.pendingSessionID,
 		"Offer":        string(offerBytes),

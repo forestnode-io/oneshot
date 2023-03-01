@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	browserclient "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/browser-client"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/client"
 	signallingserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server"
 	"github.com/spf13/cobra"
@@ -34,5 +35,6 @@ func subCommands() []*cobra.Command {
 	return []*cobra.Command{
 		client.New().Cobra(),
 		signallingserver.New().Cobra(),
+		browserclient.New().Cobra(),
 	}
 }
