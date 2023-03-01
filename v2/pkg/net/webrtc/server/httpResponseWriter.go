@@ -13,6 +13,7 @@ type ResponseWriter struct {
 	header     http.Header
 	sentHeader bool
 	statusCode int
+	wroteCount int64
 
 	channel        datachannel.ReadWriteCloser
 	bufferedAmount func() int
@@ -66,11 +67,38 @@ func (w *ResponseWriter) Write(b []byte) (int, error) {
 		}
 	}
 
+	w.wroteCount += int64(total)
+
 	return total, nil
 }
 
 func (w *ResponseWriter) Flush() error {
-	return w.writeHeader()
+	err := w.writeHeader()
+	if err != nil {
+		return err
+	}
+
+	if w.wroteCount == 0 {
+		// if we havent written anything, send an empty binary message before the EOF
+		_, err = w.channel.WriteDataChannel([]byte(""), false)
+		if err != nil {
+			return fmt.Errorf("unable to send empty binary message: %w", err)
+		}
+	}
+
+	// send the EOF
+	if _, err := w.channel.WriteDataChannel([]byte(""), true); err != nil {
+		return fmt.Errorf("unable to send EOF: %w", err)
+	}
+
+	// wait for the eof ack
+	eofBuf := make([]byte, 3)
+	_, err = w.channel.Read(eofBuf)
+	if err != nil {
+		err = fmt.Errorf("unable to read EOF ACK: %w", err)
+	}
+
+	return err
 }
 
 func (w *ResponseWriter) writeHeader() error {

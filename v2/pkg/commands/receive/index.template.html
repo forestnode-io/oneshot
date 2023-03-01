@@ -1,0 +1,33 @@
+{{ define "file-section" }}<form id="file-form" action="/" method="post" enctype="multipart/form-data">
+    {{ if ne .CSRFToken "" }}<input type="hidden" name="csrf-token" value="{{ .CSRFToken }}" />{{ end }}
+    <h5>Select a file to upload</h5>
+    <input type="file" name="oneshot"/>
+    <br><br>
+    <input type="submit" value="Upload"/>
+</form>
+{{ end }}
+
+{{ define "text-section" }}<form id="text-form" action="/" method="post">
+    {{ if ne .CSRFToken "" }}<input type="hidden" name="csrf-token" value="{{ .CSRFToken }}" />{{ end }}
+    <h5>Or paste the contents of a file here: </h5>
+    <textarea id="text-input" name="oneshot"></textarea>
+    <br><br>
+    <input type="submit" value="Upload"/>
+</form>
+{{ end }}
+
+{{ define "index" }}<!DOCTYPE html>
+<html>
+    <head>{{ if .IconURL }}
+        <link rel="apple-touch-icon" href="{{ .IconURL }}" />
+        <link rel="icon" type="image/png" href="{{ .IconURL }}" />
+    {{ end }}</head>
+    <body>{{ if .FileSection }}{{ template "file-section" . }}
+        {{ end }}{{ if .InputSection }}{{ if .FileSection }}<br>OR<br/>
+        {{ end }}{{ template "text-section" . }}
+    {{ end }}</body>
+    {{ .ClientJS }}
+</html>
+{{ end }}
+
+{{ template "index" .}}

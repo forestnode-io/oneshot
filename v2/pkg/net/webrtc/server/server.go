@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/pion/webrtc/v3"
@@ -52,15 +51,6 @@ func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sd
 			if err = w.Flush(); err != nil {
 				return fmt.Errorf("unable to flush response: %w", err)
 			}
-			// the httpResponseWriter will send the header as a string and the body as a byte slice.
-			// when sending http over webrtc we signal the end of the response by sending an EOF as an empty string.
-			if _, err := w.channel.WriteDataChannel([]byte(""), true); err != nil {
-				log.Printf("unable to send EOF to client: %v", err)
-			}
-
-			eofBuf := make([]byte, 3)
-			// wait for the EOF to be verified by the client
-			w.channel.ReadDataChannel(eofBuf)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package receive
 
 import (
+	_ "embed"
 	"errors"
 	"html/template"
 	"io"
@@ -16,6 +17,25 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
+
+//go:generate make upload-client
+//go:embed main.js
+var browserClientJS string
+
+//go:embed index.template.html
+var htmlTemplate string
+
+func init() {
+	if len(browserClientJS) == 0 {
+		panic("browserClientJS is empty")
+	}
+	browserClientJS = "<script>\n" + browserClientJS + "\n</script>"
+	log.Println("browserClientJS", browserClientJS)
+
+	if len(htmlTemplate) == 0 {
+		panic("htmlTemplate is empty")
+	}
+}
 
 func New() *Cmd {
 	return &Cmd{
@@ -150,14 +170,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// create the writeTemplate func to execute the template into the RequestWriter.
-		tmpl = template.New("pkg")
-		if tmpl, err = tmpl.Parse(receivePageFileSectionTemplate); err != nil {
-			return err
-		}
-		if tmpl, err = tmpl.Parse(receivePageInputSectionTemplate); err != nil {
-			return err
-		}
-		if tmpl, err = tmpl.Parse(receivePageBaseTemplate); err != nil {
+		tmpl, err = template.New("root").Parse(htmlTemplate)
+		if err != nil {
 			return err
 		}
 	}
@@ -173,15 +187,16 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		FileSection  bool
 		InputSection bool
 		CSRFToken    string
-		WithJS       bool
+		IconURL      string
+		ClientJS     template.HTML
 	}{
 		FileSection:  true,
 		InputSection: true,
 		CSRFToken:    c.csrfToken,
 	}
 	c.writeTemplate = func(w io.Writer, withJS bool) error {
-		sections.WithJS = withJS
-		return tmpl.ExecuteTemplate(w, "oneshot", &sections)
+		sections.ClientJS = template.HTML(browserClientJS)
+		return tmpl.Execute(w, &sections)
 	}
 
 	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)

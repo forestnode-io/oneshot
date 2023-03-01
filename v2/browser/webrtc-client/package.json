@@ -1,16 +1,12 @@
 {
-  "name": "webrtc",
+  "name": "oneshot-webrtc-client",
   "version": "0.1.0",
-  "description": "",
+  "author": "Raphael Reyna",
   "main": "main.ts",
   "scripts": {
-    "build": "node ./build.mjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node ./build.mjs"
   },
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "mustache": "^4.2.0",
     "tsup": "^6.6.0",
     "typescript": "^4.9.5"
   },

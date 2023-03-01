@@ -1,0 +1,16 @@
+{
+  "name": "oneshot-upload-client",
+  "version": "0.0.1",
+  "author": "Raphael Reyna",
+  "main": "main.ts",
+  "scripts": {
+    "build": "node ./build.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "esbuild": "^0.17.10",
+    "uglify-js": "^3.17.4"
+  }
+}

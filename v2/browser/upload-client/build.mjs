@@ -1,7 +1,6 @@
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
 import UglifyJS from 'uglify-js';
-import Mustache from 'mustache';
 
 let buildHTML = {
     name: 'build-html',

@@ -24,7 +24,7 @@ import (
 const maxBodySize = 1024 * 1024
 
 //go:generate make webrtc-client
-//go:embed main.minified.js
+//go:embed main.js
 var browserClientJS string
 
 //go:embed index.template.html

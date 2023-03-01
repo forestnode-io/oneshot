@@ -18,6 +18,10 @@ function main() {
             connect(getConfig(false));
         };
     } else {
+        const span = document.createElement('span');
+        span.innerText = 'tunnelling to oneshot server...';
+        document.body.appendChild(span);
+
         connect(getConfig(true));
     }
 }
