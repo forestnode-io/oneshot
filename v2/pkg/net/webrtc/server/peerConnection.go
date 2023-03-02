@@ -70,12 +70,13 @@ func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState
 }
 
 func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
-	log.Println("ICE candidate gathered", candidate)
-
 	if candidate != nil {
+		log.Println("ICE candidate gathered", candidate)
 		p.paMu.Lock()
 		p.peerAddresses = append(p.peerAddresses, fmt.Sprintf("%s:%d", candidate.Address, candidate.Port))
 		p.paMu.Unlock()
+	} else {
+		log.Println("ICE candidate gathering complete")
 	}
 
 	// candidate is nil when gathering is done

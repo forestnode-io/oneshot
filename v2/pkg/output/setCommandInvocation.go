@@ -37,6 +37,8 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 	case "redirect":
 	case "webrtc client send":
 		fallthrough
+	case "webrtc client receive":
+		fallthrough
 	case "send":
 		switch argc {
 		case 0: // sending from stdin

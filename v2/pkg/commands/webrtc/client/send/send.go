@@ -66,10 +66,12 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		ctx   = cmd.Context()
 		paths = args
 
-		flags             = cmd.Flags()
-		fileName, _       = flags.GetString("name")
-		offerFilePath, _  = flags.GetString("offer-file")
-		answerFilePath, _ = flags.GetString("answer-file")
+		flags                  = cmd.Flags()
+		fileName, _            = flags.GetString("name")
+		offerFilePath, _       = flags.GetString("offer-file")
+		answerFilePath, _      = flags.GetString("answer-file")
+		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
+		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
@@ -82,8 +84,6 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	webRTCSignallingDir, _ := flags.GetString("webrtc-signalling-dir")
-	webRTCSignallingURL, _ := flags.GetString("webrtc-signalling-server-url")
 	if err := c.configureWebRTC(flags); err != nil {
 		return err
 	}
@@ -190,19 +190,18 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to send file: %s", resp.Status)
+	}
 
 	fileReport.TransferEndTime = time.Now()
 	if buf != nil {
 		fileReport.TransferSize = int64(buf.Len())
 		fileReport.Content = buf.Bytes()
 	}
-	events.Raise(ctx, &fileReport)
 
-	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("failed to send file: %s", resp.Status)
-	} else {
-		events.Success(ctx)
-	}
+	events.Raise(ctx, &fileReport)
+	events.Success(ctx)
 	events.Stop(ctx)
 
 	return err

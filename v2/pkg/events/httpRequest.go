@@ -63,6 +63,10 @@ func NewHTTPRequest(r *http.Request) *HTTPRequest {
 // This allows for the body to be written out later in a report should we need to.
 func NewHTTPRequest_WithBody(r *http.Request) *HTTPRequest {
 	ht := NewHTTPRequest(r)
+	if r.Body == nil {
+		return ht
+	}
+
 	buf := bytes.NewBuffer(nil)
 	r.Body = io.NopCloser(io.TeeReader(r.Body, buf))
 	ht.body = func() ([]byte, error) {
