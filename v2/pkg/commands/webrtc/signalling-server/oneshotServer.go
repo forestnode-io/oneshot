@@ -19,7 +19,7 @@ type oneshotServer struct {
 	msgConn *transport.Transport
 }
 
-func newOneshotServer(requiredID string, conn net.Conn) (*oneshotServer, error) {
+func newOneshotServer(requiredID string, conn net.Conn, requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
 	o := oneshotServer{
 		msgConn: transport.NewTransport(conn),
 		done:    make(chan struct{}),
@@ -75,6 +75,14 @@ func newOneshotServer(requiredID string, conn net.Conn) (*oneshotServer, error) 
 	o.Arrival = *ar
 
 	resp := messages.ServerArrivalResponse{}
+	if rurl := ar.URL; rurl != nil {
+		assignedURL, err := requestURL(rurl.URL, rurl.Required)
+		if err != nil {
+			return nil, fmt.Errorf("unable to assign requested url: %w", err)
+		}
+		resp.AssignedURL = assignedURL
+	}
+
 	if err = o.msgConn.Write(&resp); err != nil {
 		return nil, err
 	}

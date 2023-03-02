@@ -3,12 +3,16 @@ package signallingserver
 import (
 	"log"
 
+	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 type Cmd struct {
 	cobraCommand *cobra.Command
+	webrtcConfig *webrtc.Configuration
 }
 
 func New() *Cmd {
@@ -48,7 +52,12 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 
 	output.InvocationInfo(ctx, cmd, args)
 
-	s, err := newServer(requiredID)
+	if err := c.configureWebRTC(flags); err != nil {
+		return err
+	}
+
+	iceServerURL := c.webrtcConfig.ICEServers[0].URLs[0]
+	s, err := newServer(iceServerURL, requiredID)
 	if err != nil {
 		return err
 	}
@@ -57,6 +66,23 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	log.Println("server stopped")
+
+	return nil
+}
+
+func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
+	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
+	if len(urls) == 0 {
+		urls = ice.STUNServerURLS
+	}
+
+	c.webrtcConfig = &webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: urls,
+			},
+		},
+	}
 
 	return nil
 }

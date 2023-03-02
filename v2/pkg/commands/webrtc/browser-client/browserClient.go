@@ -6,11 +6,14 @@ import (
 	"html/template"
 	"log"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/browser"
 	signallingserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func New() *Cmd {
@@ -19,6 +22,7 @@ func New() *Cmd {
 
 type Cmd struct {
 	cobraCommand *cobra.Command
+	webrtcConfig *webrtc.Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -47,6 +51,10 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		events.Stop(ctx)
 	}()
 
+	if err := c.configureWebRTC(cmd.Flags()); err != nil {
+		return err
+	}
+
 	t, err := template.New("root").Parse(signallingserver.HTMLTemplate)
 	if err != nil {
 		return fmt.Errorf("failed to parse HTML template: %w", err)
@@ -55,7 +63,7 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	err = t.Execute(buf, map[string]any{
 		"AutoConnect":  false,
 		"ClientJS":     template.HTML(signallingserver.BrowserClientJS),
-		"ICEServerURL": "stun:stun.l.google.com:19302",
+		"ICEServerURL": c.webrtcConfig.ICEServers[0].URLs[0],
 		"SessionID":    0,
 		"Offer":        "",
 	})
@@ -70,4 +78,21 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return err
+}
+
+func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
+	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
+	if len(urls) == 0 {
+		urls = ice.STUNServerURLS
+	}
+
+	c.webrtcConfig = &webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: urls,
+			},
+		},
+	}
+
+	return nil
 }

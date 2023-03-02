@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -43,18 +44,19 @@ func init() {
 }
 
 type server struct {
+	iceServerURL       string
 	htmlClientTemplate *template.Template
-
-	os               *oneshotServer
-	l                net.Listener
-	pendingSessionID int32
-
-	requiredID string
+	os                 *oneshotServer
+	l                  net.Listener
+	pendingSessionID   int32
+	requiredID         string
+	path               string
 }
 
-func newServer(requiredID string) (*server, error) {
+func newServer(iceServerURL string, requiredID string) (*server, error) {
 	t, err := template.New("root").Parse(HTMLTemplate)
 	return &server{
+		iceServerURL:       iceServerURL,
 		pendingSessionID:   -1,
 		htmlClientTemplate: t,
 		requiredID:         requiredID,
@@ -172,7 +174,7 @@ func (s *server) handleOneshotServer(ctx context.Context, conn net.Conn) error {
 		s.os = nil
 	}()
 
-	if s.os, err = newOneshotServer(s.requiredID, conn); err != nil {
+	if s.os, err = newOneshotServer(s.requiredID, conn, s.handleURLRequest); err != nil {
 		return fmt.Errorf("error creating new oneshot server: %w", err)
 	}
 
@@ -199,6 +201,13 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
+	if s.path != "" {
+		if r.URL.Path != s.path {
+			http.NotFound(w, r)
+			return
+		}
+	}
+
 	if -1 < s.pendingSessionID {
 		http.Error(w, "busy", http.StatusServiceUnavailable)
 		return
@@ -265,7 +274,7 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 	err = s.htmlClientTemplate.Execute(w, map[string]any{
 		"AutoConnect":  true,
 		"ClientJS":     template.HTML(BrowserClientJS),
-		"ICEServerURL": "stun:stun.l.google.com:19302",
+		"ICEServerURL": s.iceServerURL,
 		"SessionID":    s.pendingSessionID,
 		"Offer":        string(offerBytes),
 	})
@@ -324,4 +333,22 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 		log.Printf("error closing oneshot server connection: %v", err)
 	}
 	s.os = nil
+}
+
+func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
+	if rurl == "" {
+		if required {
+			return "", errors.New("no url provided")
+		}
+		return "", nil
+	}
+
+	u, err := url.Parse(rurl)
+	if err != nil {
+		return "", fmt.Errorf("invalid url: %w", err)
+	}
+
+	s.path = u.Path
+
+	return rurl, nil
 }

@@ -37,8 +37,6 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 	case "redirect":
 	case "webrtc client send":
 		fallthrough
-	case "webrtc client receive":
-		fallthrough
 	case "send":
 		switch argc {
 		case 0: // sending from stdin
@@ -57,6 +55,8 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 				o.enableDynamicOutput(nil)
 			}
 		}
+	case "webrtc client receive":
+		fallthrough
 	case "receive":
 		switch argc {
 		case 0: // receiving to stdout
@@ -85,6 +85,8 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 		if o.Format == "json" {
 			includeContent()
 		}
+	case "webrtc signalling-server":
+	case "webrtc browser-client":
 	case "version":
 	default:
 	}
