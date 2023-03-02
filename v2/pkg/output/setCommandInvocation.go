@@ -21,6 +21,12 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 	)
 
 	o.cmdName = name
+	cmd.VisitParents(func(c *cobra.Command) {
+		if c.Name() == "oneshot" {
+			return
+		}
+		o.cmdName = c.Name() + " " + o.cmdName
+	})
 	log.SetPrefix("oneshot " + name + ": ")
 
 	switch name {
@@ -29,6 +35,8 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 			includeContent()
 		}
 	case "redirect":
+	case "webrtc client send":
+		fallthrough
 	case "send":
 		switch argc {
 		case 0: // sending from stdin

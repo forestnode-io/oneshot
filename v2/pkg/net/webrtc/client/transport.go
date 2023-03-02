@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
@@ -20,9 +21,13 @@ type dcBundle struct {
 type Transport struct {
 	Config *webrtc.Configuration
 
-	peerConn     *webrtc.PeerConnection
-	dcChan       chan dcBundle
-	continueChan chan struct{}
+	peerAddresses []string
+	paMu          sync.Mutex
+
+	peerConn              *webrtc.PeerConnection
+	dcChan                chan dcBundle
+	continueChan          chan struct{}
+	connectionEstablished chan struct{}
 }
 
 func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
@@ -38,6 +43,8 @@ func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp
 
 	t.dcChan = make(chan dcBundle, 1)
 	t.continueChan = make(chan struct{}, 1)
+	t.connectionEstablished = make(chan struct{})
+
 	pc.OnDataChannel(func(d *webrtc.DataChannel) {
 		d.OnOpen(func() {
 			d.SetBufferedAmountLowThreshold(oneshotwebrtc.BufferedAmountLowThreshold)
@@ -69,7 +76,19 @@ func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp
 			if err = t.peerConn.Close(); err != nil {
 				log.Printf("unable to close peer connection: %v", err)
 			}
+		} else if state == webrtc.PeerConnectionStateConnected {
+			close(t.connectionEstablished)
 		}
+	})
+
+	t.peerAddresses = make([]string, 0)
+	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+		t.paMu.Lock()
+		defer t.paMu.Unlock()
+		t.peerAddresses = append(t.peerAddresses, fmt.Sprintf("%s:%d", c.Address, c.Port))
 	})
 
 	offer, err := o.WebRTCSessionDescription()
@@ -93,4 +112,14 @@ func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp
 	<-webrtc.GatheringCompletePromise(pc)
 
 	return sdp.Answer(answer.SDP), nil
+}
+
+func (t *Transport) PeerAddresses() []string {
+	t.paMu.Lock()
+	defer t.paMu.Unlock()
+	return t.peerAddresses
+}
+
+func (t *Transport) ConnectionEstablished() <-chan struct{} {
+	return t.connectionEstablished
 }

@@ -192,6 +192,27 @@ func NewBufferedWriter(ctx context.Context, w io.Writer) (io.Writer, func() []by
 	return w, nil
 }
 
+func NewBufferedReader(ctx context.Context, r io.Reader) (io.Reader, *bytes.Buffer) {
+	o := getOutput(ctx)
+
+	if _, ok := o.FormatOpts["exclude-file-contents"]; ok {
+		return r, nil
+	}
+
+	_, includeFileContents := o.FormatOpts["include-file-contents"]
+
+	// if the command name is 'reverse-proxy' or the format
+	// is json for any other command, buffer the output
+	if o.Format == "json" || o.cmdName == "reverse-proxy" || includeFileContents {
+		buf := bytes.NewBuffer(nil)
+		tr := io.TeeReader(r, buf)
+
+		return tr, buf
+	}
+
+	return r, nil
+}
+
 type teeWriter struct {
 	w, copy io.Writer
 }

@@ -54,7 +54,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	path := req.URL.RequestURI()
 	fmt.Fprintf(headerBuf, "%s %s %s\n", req.Method, path, req.Proto)
 	for k, v := range req.Header {
-		fmt.Fprintf(headerBuf, "%s: %s\n", k, v)
+		fmt.Fprintf(headerBuf, "%s: %s\n", k, v[0])
 	}
 	fmt.Fprintf(headerBuf, "\n")
 

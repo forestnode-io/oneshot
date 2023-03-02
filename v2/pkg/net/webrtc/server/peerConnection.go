@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
@@ -14,6 +15,9 @@ type peerConnection struct {
 	errChan     chan<- error
 	answerOffer sdp.AnswerOffer
 	sessionID   int32
+
+	peerAddresses []string
+	paMu          sync.Mutex
 
 	*webrtc.PeerConnection
 }
@@ -67,6 +71,12 @@ func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState
 
 func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 	log.Println("ICE candidate gathered", candidate)
+
+	if candidate != nil {
+		p.paMu.Lock()
+		p.peerAddresses = append(p.peerAddresses, fmt.Sprintf("%s:%d", candidate.Address, candidate.Port))
+		p.paMu.Unlock()
+	}
 
 	// candidate is nil when gathering is done
 	if doneGathering := candidate == nil; doneGathering {
@@ -153,6 +163,12 @@ func (p *peerConnection) error(local bool, err error) {
 		e.local = local
 		p.errChan <- e
 	}()
+}
+
+func (p *peerConnection) getPeerAddresses() []string {
+	p.paMu.Lock()
+	defer p.paMu.Unlock()
+	return p.peerAddresses
 }
 
 type peerConnectionError struct {

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 )
 
@@ -76,6 +78,12 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 		d.ReadWriteCloser = rawDC
 	}
 
+	preferredAddress, preferredPort := oneshotnet.PreferNonPrivateIP(pc.getPeerAddresses())
+	remoteAddr := ""
+	if preferredAddress != "" {
+		remoteAddr = net.JoinHostPort(preferredAddress, preferredPort)
+	}
+
 	// start http request pump.
 	// client can send fragmented http requests.
 	// the client will send the head as a string and the body as binary.
@@ -111,6 +119,7 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("received binary data during header parsing")}
 					return
 				}
+
 				// if the client stopped sending string data, we have reached the end of the header.
 				headerBreakIdx := bytes.Index(buf[:n], []byte("\n\n"))
 				if headerBreakIdx != -1 {
@@ -130,6 +139,7 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 				d.eventsChan <- dataChannelEvent{err: err}
 				return
 			}
+			req.RemoteAddr = remoteAddr
 
 			// create the request body as a reader that reads from
 			// the data channel until the client sends a string message

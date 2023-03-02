@@ -64,6 +64,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Size:              int64(size),
 		TransferStartTime: time.Now(),
 	}
+
 	n, err := io.Copy(bw, rts)
 	fileReport.TransferSize = n
 	fileReport.TransferEndTime = time.Now()

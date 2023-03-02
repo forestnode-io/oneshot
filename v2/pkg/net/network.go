@@ -1,6 +1,7 @@
 package network
 
 import (
+	"log"
 	"net"
 	"strings"
 
@@ -64,4 +65,46 @@ func GetSourceIP(target, port string) (string, error) {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP.String(), nil
+}
+
+func PreferNonPrivateIP(ips []string) (string, string) {
+	if len(ips) == 0 {
+		return "", ""
+	}
+
+	var (
+		preferredAddress net.IP
+		port             string
+	)
+
+	for _, addr := range ips {
+		host, p, err := net.SplitHostPort(addr)
+		if err != nil {
+			log.Printf("Failed to parse peer address: %s", err.Error())
+			continue
+		}
+		ip := net.ParseIP(host)
+		if ip == nil {
+			log.Printf("Failed to parse peer address: %s", host)
+			continue
+		}
+
+		if !ip.IsPrivate() {
+			preferredAddress = ip
+			port = p
+			break
+		}
+	}
+
+	if preferredAddress == nil {
+		host, p, err := net.SplitHostPort(ips[0])
+		if err != nil {
+			log.Printf("Failed to parse peer address: %s", err)
+		} else {
+			preferredAddress = net.ParseIP(host)
+			port = p
+		}
+	}
+
+	return preferredAddress.String(), port
 }

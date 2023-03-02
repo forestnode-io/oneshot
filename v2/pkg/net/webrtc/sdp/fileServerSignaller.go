@@ -44,7 +44,6 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 		for {
 			select {
 			case event := <-s.watcher.Events:
-				fmt.Printf("event: %+v\n", event)
 				if event.Has(fsnotify.Create) {
 					stat, err := os.Stat(event.Name)
 					if err != nil {
