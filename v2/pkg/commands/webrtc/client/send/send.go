@@ -1,7 +1,10 @@
 package send
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -14,9 +17,11 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func New() *Cmd {
@@ -26,6 +31,7 @@ func New() *Cmd {
 type Cmd struct {
 	cobraCommand  *cobra.Command
 	archiveMethod archiveFlag
+	webrtcConfig  *webrtc.Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -43,7 +49,6 @@ func (c *Cmd) Cobra() *cobra.Command {
 	flags := c.cobraCommand.Flags()
 	flags.StringP("name", "n", "", "Name of file presented to the server.")
 	flags.StringP("offer-file", "O", "", "Path to file containing the SDP offer.")
-	c.cobraCommand.MarkFlagRequired("offer-file")
 	flags.StringP("answer-file", "A", "", "Path to file which the SDP answer should be written to.")
 	flags.VarP(&c.archiveMethod, "archive-method", "a", `Which archive method to use when sending directories.
 Recognized values are "zip", "tar" and "tar.gz".`)
@@ -77,17 +82,36 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	transport := client.Transport{
-		Config: &webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{
-				{
-					URLs: []string{"stun:stun.l.google.com:19302"},
-				},
-			},
-		},
+	webRTCSignallingDir, _ := flags.GetString("webrtc-signalling-dir")
+	webRTCSignallingURL, _ := flags.GetString("webrtc-signalling-server-url")
+	if err := c.configureWebRTC(flags); err != nil {
+		return err
 	}
-	signaller := sdp.NewFileClientSignaller(offerFilePath, answerFilePath)
-	signaller.Start(ctx, &transport)
+
+	transport, err := client.NewTransport(c.webrtcConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create transport: %w", err)
+	}
+
+	var signaller sdp.ClientSignaller
+	if webRTCSignallingDir != "" && webRTCSignallingURL != "" {
+		return fmt.Errorf("cannot use both --webrtc-signalling-dir and --webrtc-signalling-server-url")
+	}
+	if webRTCSignallingDir == "" && webRTCSignallingURL == "" {
+		return fmt.Errorf("must specify either --webrtc-signalling-dir or --webrtc-signalling-server-url")
+	}
+
+	if webRTCSignallingDir != "" {
+		signaller = sdp.NewFileClientSignaller(offerFilePath, answerFilePath)
+	} else {
+		signaller = sdp.NewServerClientSignaller(webRTCSignallingURL, nil)
+	}
+
+	go func() {
+		if err := signaller.Start(ctx, transport); err != nil {
+			log.Printf("signaller error: %v", err)
+		}
+	}()
 	defer signaller.Shutdown()
 
 	archiveMethod := string(c.archiveMethod)
@@ -122,7 +146,14 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		TransferStartTime: time.Now(),
 	}
 
-	<-transport.ConnectionEstablished()
+	log.Println("waiting for connection to oneshot server to be established...")
+	if err = transport.WaitForConnectionEstablished(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("... connection not established: %v", err)
+			return nil
+		}
+	}
+	log.Println("... connection established")
 
 	preferredAddress, preferredPort := oneshotnet.PreferNonPrivateIP(transport.PeerAddresses())
 
@@ -142,7 +173,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}
 
 	httpClient := http.Client{
-		Transport: &transport,
+		Transport: transport,
 	}
 
 	events.Raise(ctx, output.NewHTTPRequest(req))
@@ -195,4 +226,21 @@ func (a *archiveFlag) Set(value string) error {
 
 func (a archiveFlag) Type() string {
 	return "string"
+}
+
+func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
+	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
+	if len(urls) == 0 {
+		urls = ice.STUNServerURLS
+	}
+
+	c.webrtcConfig = &webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: urls,
+			},
+		},
+	}
+
+	return nil
 }

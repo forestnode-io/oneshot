@@ -9,8 +9,8 @@ export function autoOnAnswerFactory(sessionID: number | undefined): (answer: RTC
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                "id": sessionID,
-                "answer": answer.sdp,
+                "SessionID": sessionID,
+                "Answer": answer.sdp,
             })
         }).then((res) => {
             if (res.status !== 200) {

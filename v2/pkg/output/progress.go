@@ -11,11 +11,6 @@ import (
 )
 
 const progDisplayTimeFormat = "2006-01-02T15:04:05-0700"
-const (
-	kb = 1000
-	mb = kb * 1000
-	gb = mb * 1000
-)
 
 func displayDynamicProgress(o *output, prefix string, start time.Time, prog *atomic.Int64, total int64) time.Time {
 	var (

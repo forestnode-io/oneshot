@@ -55,17 +55,19 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 
 	output.InvocationInfo(ctx, cmd, args)
 
-	transport := client.Transport{
-		Config: &webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{
-				{
-					URLs: []string{"stun:stun.l.google.com:19302"},
-				},
+	transport, err := client.NewTransport(&webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
 			},
 		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create transport: %w", err)
 	}
+
 	signaller := sdp.NewFileClientSignaller(offerFilePath, answerFilePath)
-	signaller.Start(ctx, &transport)
+	signaller.Start(ctx, transport)
 	defer signaller.Shutdown()
 
 	req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/", nil)
@@ -75,7 +77,7 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 	req.Close = true
 
 	httpClient := http.Client{
-		Transport: &transport,
+		Transport: transport,
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {

@@ -13,12 +13,12 @@ func Unmarshal(typeName string, data []byte) (Message, error) {
 		var h Handshake
 		err := json.Unmarshal(data, &h)
 		return &h, err
-	case "ArrivalRequest":
-		var a ArrivalRequest
+	case "ServerArrivalRequest":
+		var a ServerArrivalRequest
 		err := json.Unmarshal(data, &a)
 		return &a, err
-	case "ArrivalResponse":
-		var a ArrivalResponse
+	case "ServerArrivalResponse":
+		var a ServerArrivalResponse
 		err := json.Unmarshal(data, &a)
 		return &a, err
 	case "GetOfferRequest":
@@ -37,6 +37,22 @@ func Unmarshal(typeName string, data []byte) (Message, error) {
 		var g GotAnswerResponse
 		err := json.Unmarshal(data, &g)
 		return &g, err
+	case "ClientArrivalRequest":
+		var a ClientArrivalRequest
+		err := json.Unmarshal(data, &a)
+		return &a, err
+	case "ClientArrivalResponse":
+		var a ClientArrivalResponse
+		err := json.Unmarshal(data, &a)
+		return &a, err
+	case "AnswerOfferRequest":
+		var a AnswerOfferRequest
+		err := json.Unmarshal(data, &a)
+		return &a, err
+	case "AnswerOfferResponse":
+		var a AnswerOfferResponse
+		err := json.Unmarshal(data, &a)
+		return &a, err
 	}
 
 	return nil, fmt.Errorf("unknown message type: %s", typeName)

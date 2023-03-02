@@ -77,7 +77,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 
 	// send the arrival request
 	log.Println("sending arrival request to signalling server ...")
-	ar := messages.ArrivalRequest{
+	ar := messages.ServerArrivalRequest{
 		ID:        "",
 		BasicAuth: nil,
 		URL:       nil,
@@ -92,7 +92,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if err != nil {
 		return err
 	}
-	resp, ok := m.(*messages.ArrivalResponse)
+	resp, ok := m.(*messages.ServerArrivalResponse)
 	if !ok {
 		return messages.ErrInvalidRequestType
 	}

@@ -27,9 +27,9 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 		}
 		o.cmdName = c.Name() + " " + o.cmdName
 	})
-	log.SetPrefix("oneshot " + name + ": ")
+	log.SetPrefix("oneshot " + o.cmdName + ": ")
 
-	switch name {
+	switch o.cmdName {
 	case "exec":
 		if o.Format == "json" {
 			includeContent()

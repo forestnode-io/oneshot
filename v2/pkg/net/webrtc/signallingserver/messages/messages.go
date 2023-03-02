@@ -30,24 +30,62 @@ type SessionURLRequest struct {
 }
 
 // sent from the oneshot server to the signalling server after VersionInfo has been exchanged
-type ArrivalRequest struct {
+type ServerArrivalRequest struct {
 	ID        string
 	BasicAuth *BasicAuth
 	URL       *SessionURLRequest
 }
 
-func (a *ArrivalRequest) Type() string {
-	return "ArrivalRequest"
+func (a *ServerArrivalRequest) Type() string {
+	return "ServerArrivalRequest"
 }
 
 // sent from the signalling server to the oneshot server when it first connects in response to an ArrivalRequest
-type ArrivalResponse struct {
+type ServerArrivalResponse struct {
 	AssignedURL string
 	Error       string
 }
 
-func (a *ArrivalResponse) Type() string {
-	return "ArrivalResponse"
+func (a *ServerArrivalResponse) Type() string {
+	return "ServerArrivalResponse"
+}
+
+type ClientArrivalRequest struct {
+	ID        string
+	BasicAuth *BasicAuth
+	URL       string
+}
+
+func (a *ClientArrivalRequest) Type() string {
+	return "ClientArrivalRequest"
+}
+
+type ClientArrivalResponse struct {
+	SessionID int32
+	Offer     string
+	Error     string
+}
+
+func (a *ClientArrivalResponse) Type() string {
+	return "ClientArrivalResponse"
+}
+
+type AnswerOfferRequest struct {
+	SessionID int32
+	Answer    string
+}
+
+func (a *AnswerOfferRequest) Type() string {
+	return "AnswerOfferRequest"
+}
+
+type AnswerOfferResponse struct {
+	SessionID int32
+	Error     string
+}
+
+func (a *AnswerOfferResponse) Type() string {
+	return "AnswerOfferResponse"
 }
 
 // sent from the signalling server to the oneshot server when a new session has been request by a client

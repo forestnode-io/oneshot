@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	_ "embed"
@@ -236,6 +237,28 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if accept := r.Header.Get("Accept"); strings.Contains(accept, "application/json") {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+
+		payload, err := json.Marshal(map[string]any{
+			"SessionID": s.pendingSessionID,
+			"Offer":     string(offer),
+		})
+		if err != nil {
+			log.Printf("error marshaling response: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(payload)
+		if err != nil {
+			log.Printf("error writing response: %v", err)
+		}
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK)
@@ -272,8 +295,8 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var answer struct {
-		Answer string `json:"answer"`
-		ID     int32  `json:"id"`
+		Answer    string
+		SessionID int32
 	}
 
 	if err := json.Unmarshal(body, &answer); err != nil {
@@ -282,8 +305,8 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if answer.ID != s.pendingSessionID {
-		log.Printf("received answer with invalid id: %d (expected %d)", answer.ID, s.pendingSessionID)
+	if answer.SessionID != s.pendingSessionID {
+		log.Printf("received answer with invalid id: %d (expected %d)", answer.SessionID, s.pendingSessionID)
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}

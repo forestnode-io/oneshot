@@ -19,7 +19,7 @@ type dcBundle struct {
 }
 
 type Transport struct {
-	Config *webrtc.Configuration
+	config *webrtc.Configuration
 
 	peerAddresses []string
 	paMu          sync.Mutex
@@ -30,23 +30,28 @@ type Transport struct {
 	connectionEstablished chan struct{}
 }
 
-func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
+func NewTransport(config *webrtc.Configuration) (*Transport, error) {
+	t := Transport{
+		config:                config,
+		dcChan:                make(chan dcBundle, 1),
+		continueChan:          make(chan struct{}, 1),
+		connectionEstablished: make(chan struct{}, 1),
+	}
+
 	se := webrtc.SettingEngine{}
 	se.DetachDataChannels()
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(se))
 
-	pc, err := api.NewPeerConnection(*t.Config)
+	pc, err := api.NewPeerConnection(*t.config)
 	if err != nil {
-		return "", fmt.Errorf("unable to create new webRTC peer connection: %w", err)
+		return nil, fmt.Errorf("unable to create new webRTC peer connection: %w", err)
 	}
 	t.peerConn = pc
 
-	t.dcChan = make(chan dcBundle, 1)
-	t.continueChan = make(chan struct{}, 1)
-	t.connectionEstablished = make(chan struct{})
-
 	pc.OnDataChannel(func(d *webrtc.DataChannel) {
+		var opened bool
 		d.OnOpen(func() {
+			log.Printf("data channel opened")
 			d.SetBufferedAmountLowThreshold(oneshotwebrtc.BufferedAmountLowThreshold)
 			rawDC, err := d.Detach()
 			if err != nil {
@@ -54,15 +59,19 @@ func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp
 				close(t.dcChan)
 				return
 			}
+
 			t.dcChan <- dcBundle{dc: d, raw: rawDC}
 			close(t.dcChan)
+			close(t.connectionEstablished)
 		})
 		d.OnBufferedAmountLow(func() {
 			t.continueChan <- struct{}{}
 		})
 		d.OnClose(func() {
 			log.Println("data channel closed")
-			close(t.dcChan)
+			if !opened {
+				close(t.dcChan)
+			}
 		})
 		d.OnError(func(err error) {
 			t.dcChan <- dcBundle{err: err}
@@ -76,8 +85,6 @@ func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp
 			if err = t.peerConn.Close(); err != nil {
 				log.Printf("unable to close peer connection: %v", err)
 			}
-		} else if state == webrtc.PeerConnectionStateConnected {
-			close(t.connectionEstablished)
 		}
 	})
 
@@ -88,8 +95,16 @@ func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp
 		}
 		t.paMu.Lock()
 		defer t.paMu.Unlock()
-		t.peerAddresses = append(t.peerAddresses, fmt.Sprintf("%s:%d", c.Address, c.Port))
+		addr := fmt.Sprintf("%s:%d", c.Address, c.Port)
+		t.peerAddresses = append(t.peerAddresses, addr)
+		log.Println("ICE candidate:", addr)
 	})
+
+	return &t, nil
+}
+
+func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
+	pc := t.peerConn
 
 	offer, err := o.WebRTCSessionDescription()
 	if err != nil {
@@ -120,6 +135,11 @@ func (t *Transport) PeerAddresses() []string {
 	return t.peerAddresses
 }
 
-func (t *Transport) ConnectionEstablished() <-chan struct{} {
-	return t.connectionEstablished
+func (t *Transport) WaitForConnectionEstablished(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.connectionEstablished:
+	}
+	return nil
 }

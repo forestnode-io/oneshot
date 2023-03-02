@@ -14,7 +14,7 @@ import (
 var id = "oneshot-signalling-server"
 
 type oneshotServer struct {
-	Arrival messages.ArrivalRequest
+	Arrival messages.ServerArrivalRequest
 	done    chan struct{}
 	msgConn *transport.Transport
 }
@@ -68,13 +68,13 @@ func newOneshotServer(requiredID string, conn net.Conn) (*oneshotServer, error) 
 		return nil, fmt.Errorf("unable to read arrival request: %w", err)
 	}
 
-	ar, ok := m.(*messages.ArrivalRequest)
+	ar, ok := m.(*messages.ServerArrivalRequest)
 	if !ok {
 		return nil, fmt.Errorf("invalid request type, expected ArrivalRequest, got: %s", m.Type())
 	}
 	o.Arrival = *ar
 
-	resp := messages.ArrivalResponse{}
+	resp := messages.ServerArrivalResponse{}
 	if err = o.msgConn.Write(&resp); err != nil {
 		return nil, err
 	}
