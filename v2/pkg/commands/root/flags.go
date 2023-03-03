@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/rs/cors"
@@ -182,6 +183,11 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	cobra.AddTemplateFunc("webrtcFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return wfs
 	})
+
+	ufs := pflag.NewFlagSet("UPnP IGD Flags", pflag.ContinueOnError)
+	ufs.Bool("map-port", false, `Map port using UPnP.`)
+	ufs.Int("external-port", 31415, `External port to use for UPnP IGD port mapping.`)
+	ufs.Duration("port-mapping-duration", 30*time.Second, `Duration to use for UPnP IGD port mapping.`)
 }
 
 // newCorsConfig returns a new corsConfig from the given flag set.

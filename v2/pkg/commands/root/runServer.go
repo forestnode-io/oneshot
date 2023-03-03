@@ -3,10 +3,13 @@ package root
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
@@ -21,6 +24,8 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/upnp"
 )
 
 func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
@@ -107,6 +112,47 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 				log.Fatalf("failed to start signalling server: %v", err)
 			}
 		}()
+	}
+
+	var (
+		externalPort, _        = flags.GetInt("external-port")
+		portMappingDuration, _ = flags.GetDuration("port-mapping-duration")
+		mapPort, _             = flags.GetBool("map-port")
+	)
+
+	if externalPort != 0 || portMappingDuration != 0 || mapPort {
+		devices := upnp.Discover(ctx, 0, portMappingDuration)
+		if len(devices) == 0 {
+			return errors.New("no UPnP devices found")
+		}
+
+		portString, _ := flags.GetString("port")
+		portString = strings.TrimPrefix(portString, ":")
+		port, err := strconv.Atoi(portString)
+		if err != nil {
+			return fmt.Errorf("failed to parse port: %w", err)
+		}
+
+		_, err = devices[0].AddPortMapping(ctx,
+			nat.TCP,
+			port, externalPort,
+			"oneshot",
+			portMappingDuration,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to add port mapping: %w", err)
+		}
+		log.Printf("added port mapping %d:%d", port, externalPort)
+
+		if igds, ok := devices[0].(*upnp.IGDService); ok {
+			defer func() {
+				err := igds.DeletePortMapping(ctx, nat.TCP, externalPort)
+				if err != nil {
+					log.Printf("failed to delete port mapping: %v", err)
+				}
+				log.Printf("deleted port mapping %d:%d", port, externalPort)
+			}()
+		}
 	}
 
 	return r.listenAndServe(ctx, flags)
