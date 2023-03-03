@@ -10,12 +10,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	upnpigd "github.com/raphaelreyna/oneshot/v2/pkg/net/upnp-igd"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
@@ -24,8 +26,6 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/syncthing/syncthing/lib/upnp"
 )
 
 func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
@@ -120,12 +120,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		mapPort, _             = flags.GetBool("map-port")
 	)
 
-	if externalPort != 0 || portMappingDuration != 0 || mapPort {
-		devices := upnp.Discover(ctx, 0, portMappingDuration)
-		if len(devices) == 0 {
-			return errors.New("no UPnP devices found")
-		}
-
+	if mapPort || externalPort != 0 || portMappingDuration != 0 {
 		portString, _ := flags.GetString("port")
 		portString = strings.TrimPrefix(portString, ":")
 		port, err := strconv.Atoi(portString)
@@ -133,26 +128,31 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to parse port: %w", err)
 		}
 
-		_, err = devices[0].AddPortMapping(ctx,
-			nat.TCP,
-			port, externalPort,
-			"oneshot",
-			portMappingDuration,
-		)
+		devChan, err := upnpigd.Discover("oneshot", 3*time.Second, http.DefaultClient)
 		if err != nil {
+			return fmt.Errorf("failed to discover UPnP IGD: %w", err)
+		}
+
+		devs := make([]*upnpigd.Device, 0)
+		for dev := range devChan {
+			devs = append(devs, dev)
+		}
+
+		if len(devs) == 0 {
+			return errors.New("no UPnP IGD devices found")
+		}
+
+		dev := devs[0]
+		if err := dev.AddPortMapping(ctx, "TCP", externalPort, port, "oneshot", portMappingDuration); err != nil {
 			return fmt.Errorf("failed to add port mapping: %w", err)
 		}
-		log.Printf("added port mapping %d:%d", port, externalPort)
-
-		if igds, ok := devices[0].(*upnp.IGDService); ok {
-			defer func() {
-				err := igds.DeletePortMapping(ctx, nat.TCP, externalPort)
-				if err != nil {
-					log.Printf("failed to delete port mapping: %v", err)
-				}
-				log.Printf("deleted port mapping %d:%d", port, externalPort)
-			}()
-		}
+		log.Printf("added port mapping for %d -> %d", port, externalPort)
+		defer func() {
+			if err := dev.DeletePortMapping(ctx, "TCP", externalPort); err != nil {
+				log.Printf("failed to delete port mapping: %v", err)
+			}
+			log.Printf("deleted port mapping for %d -> %d", port, externalPort)
+		}()
 	}
 
 	return r.listenAndServe(ctx, flags)

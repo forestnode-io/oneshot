@@ -67,6 +67,7 @@ require (
 )
 
 require (
+	github.com/emersion/go-upnp-igd v0.0.0-20200714130311-4320956fc37f
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/moby/moby v20.10.22+incompatible

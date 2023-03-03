@@ -185,9 +185,12 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	})
 
 	ufs := pflag.NewFlagSet("UPnP IGD Flags", pflag.ContinueOnError)
-	ufs.Bool("map-port", false, `Map port using UPnP.`)
 	ufs.Int("external-port", 31415, `External port to use for UPnP IGD port mapping.`)
 	ufs.Duration("port-mapping-duration", 30*time.Second, `Duration to use for UPnP IGD port mapping.`)
+	pflags.AddFlagSet(ufs)
+	cobra.AddTemplateFunc("upnpFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return ufs
+	})
 }
 
 // newCorsConfig returns a new corsConfig from the given flag set.

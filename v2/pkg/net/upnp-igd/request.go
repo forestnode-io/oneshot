@@ -24,6 +24,7 @@ func (r *request) do(ctx context.Context, client *http.Client) ([]byte, error) {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 	addSOAPRequestHeaders(r.header, r.service, r.function)
+	req.Header = r.header
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -52,9 +53,8 @@ func addSOAPRequestHeaders(h http.Header, service, function string) {
 }
 
 func envelope(payload string) string {
-	tmplt := `<?xml version="1.0"?>
-	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
-	s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+	tmplt := `<?xml version="1.0" ?>
+	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
 `
