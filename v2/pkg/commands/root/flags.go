@@ -187,6 +187,7 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	ufs := pflag.NewFlagSet("UPnP IGD Flags", pflag.ContinueOnError)
 	ufs.Int("external-port", 31415, `External port to use for UPnP IGD port mapping.`)
 	ufs.Duration("port-mapping-duration", 30*time.Second, `Duration to use for UPnP IGD port mapping.`)
+	ufs.Duration("upnp-discovery-timeout", 45*time.Second, `Timeout to use for UPnP IGD discovery.`)
 	pflags.AddFlagSet(ufs)
 	cobra.AddTemplateFunc("upnpFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return ufs

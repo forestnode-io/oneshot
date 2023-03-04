@@ -128,7 +128,15 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to parse port: %w", err)
 		}
 
-		devChan, err := upnpigd.Discover("oneshot", 3*time.Second, http.DefaultClient)
+		finishSpinning := output.DisplaySpinner(ctx,
+			333*time.Millisecond,
+			"negotiating port mapping",
+			"negotiating port mapping ... done",
+			[]string{".", "..", "...", ".."},
+		)
+
+		discoveryTimeout, _ := flags.GetDuration("upnp-discovery-timeout")
+		devChan, err := upnpigd.Discover("oneshot", discoveryTimeout, http.DefaultClient)
 		if err != nil {
 			return fmt.Errorf("failed to discover UPnP IGD: %w", err)
 		}
@@ -144,6 +152,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 		dev := devs[0]
 		if err := dev.AddPortMapping(ctx, "TCP", externalPort, port, "oneshot", portMappingDuration); err != nil {
+			finishSpinning()
 			return fmt.Errorf("failed to add port mapping: %w", err)
 		}
 		log.Printf("added port mapping for %d -> %d", port, externalPort)
@@ -153,6 +162,12 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			}
 			log.Printf("deleted port mapping for %d -> %d", port, externalPort)
 		}()
+		finishSpinning()
+
+		t := time.AfterFunc(portMappingDuration, func() {
+			events.Stop(ctx)
+		})
+		defer t.Stop()
 	}
 
 	return r.listenAndServe(ctx, flags)
