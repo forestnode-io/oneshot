@@ -156,6 +156,13 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to add port mapping: %w", err)
 		}
 		log.Printf("added port mapping for %d -> %d", port, externalPort)
+
+		r.externalIP, err = dev.GetExternalIP(ctx)
+		if err != nil {
+			finishSpinning()
+			return fmt.Errorf("failed to get external IP: %w", err)
+		}
+
 		defer func() {
 			if err := dev.DeletePortMapping(ctx, "TCP", externalPort); err != nil {
 				log.Printf("failed to delete port mapping: %v", err)
@@ -248,13 +255,19 @@ func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) 
 	defer l.Close()
 
 	if qr, _ := flags.GetBool("qr-code"); qr {
-		if host == "" {
-			hostIP, err := oneshotnet.GetSourceIP("", "")
-			if err == nil {
-				host = hostIP
+		if r.externalIP != nil {
+			externalPort, _ := flags.GetInt("external-port")
+			ep := strconv.Itoa(externalPort)
+			output.WriteListeningOnQR(ctx, "http", r.externalIP.String(), ep)
+		} else {
+			if host == "" {
+				hostIP, err := oneshotnet.GetSourceIP("", "")
+				if err == nil {
+					host = hostIP
+				}
 			}
+			output.WriteListeningOnQR(ctx, "http", host, port)
 		}
-		output.WriteListeningOnQR(ctx, "http", host, port)
 	}
 
 	return r.server.Serve(ctx, l)

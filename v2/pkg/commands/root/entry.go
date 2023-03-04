@@ -3,6 +3,7 @@ package root
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 
@@ -27,7 +28,8 @@ type rootCommand struct {
 	closers    []io.Closer
 	middleware oneshothttp.Middleware
 
-	outFlag commands.OutputFlagArg
+	outFlag    commands.OutputFlagArg
+	externalIP net.IP
 
 	webrtcConfig *webrtc.Configuration
 
