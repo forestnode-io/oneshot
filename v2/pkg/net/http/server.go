@@ -182,6 +182,8 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		if err = cleanServerShutdownErr(err); err != nil {
 			log.Printf("HTTP(S) server error: %v", err)
 		}
+	} else {
+		log.Println("only listenening for HTTP traffic over webRTC")
 	}
 
 	// wait for the server to shutdown

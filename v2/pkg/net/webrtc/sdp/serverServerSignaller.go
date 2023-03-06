@@ -66,6 +66,9 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	log.Println("... waiting for handshake from the signalling server...")
 	m, err := s.t.Read()
 	if err != nil {
+		if errors.Is(err, net.ErrClosed) {
+			return nil
+		}
 		log.Printf("error reading version info: %v", err)
 		return err
 	}

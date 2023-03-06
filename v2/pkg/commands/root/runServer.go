@@ -84,11 +84,12 @@ func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) 
 		port, _       = flags.GetString("port")
 		webrtcOnly, _ = flags.GetBool("webrtc-only")
 
-		l net.Listener
+		l   net.Listener
+		err error
 	)
 
 	if !webrtcOnly {
-		l, err := net.Listen("tcp", oneshotfmt.Address(host, port))
+		l, err = net.Listen("tcp", oneshotfmt.Address(host, port))
 		if err != nil {
 			return err
 		}
