@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
@@ -34,6 +35,8 @@ type rootCommand struct {
 	webrtcConfig *webrtc.Configuration
 
 	handler http.HandlerFunc
+
+	wg sync.WaitGroup
 }
 
 func ExecuteContext(ctx context.Context) error {

@@ -113,7 +113,6 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 					return
 				}
 				if !isString {
-					// TODO(raphaelreyna): this triggers when it shouldnt sometimes
 					log.Printf("received binary data during header parsing")
 					d.ReadWriteCloser.Close()
 					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("received binary data during header parsing")}

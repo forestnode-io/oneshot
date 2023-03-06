@@ -82,8 +82,39 @@ func NewServer(ctx context.Context, preSucc, postSucc http.HandlerFunc, mw ...Mi
 // Serve starts the server and blocks until the context is canceled or a handler raises a success event.
 // Serve waits for all workers to finish before returning.
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
-	wg := sync.WaitGroup{}
-	shutdownErrChan := make(chan error)
+	var (
+		wg              = sync.WaitGroup{}
+		shutdownErrChan = make(chan error)
+		shuttingDown    bool
+		shuttingDownMu  sync.Mutex
+	)
+
+	shutdown := func(ctx context.Context) {
+		shuttingDownMu.Lock()
+		defer shuttingDownMu.Unlock()
+		if shuttingDown {
+			return
+		}
+		shuttingDown = true
+
+		log.Println("shutting down HTTP server")
+		shutdownErrChan <- s.server.Shutdown(ctx)
+		log.Println("finished shutting down HTTP server")
+	}
+	if l == nil {
+		shutdown = func(_ context.Context) {
+			shuttingDownMu.Lock()
+			defer shuttingDownMu.Unlock()
+			if shuttingDown {
+				return
+			}
+			shuttingDown = true
+
+			log.Println("shutting down HTTP server")
+			shutdownErrChan <- nil
+			log.Println("finished shutting down HTTP server")
+		}
+	}
 
 	postSuccWorker := func() {
 		for wr := range s.queue {
@@ -106,7 +137,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 				}
 
 				ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-				shutdownErrChan <- s.server.Shutdown(ctx)
+				shutdown(ctx)
 				cancel()
 
 				return
@@ -126,35 +157,44 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 			defer cancel()
-			err := s.server.Shutdown(ctx)
-			shutdownErrChan <- err
+			shutdown(ctx)
 		}()
 	} else {
 		go func() {
 			<-ctx.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 			defer cancel()
-			shutdownErrChan <- s.server.Shutdown(ctx)
+			shutdown(ctx)
 		}()
 	}
 
 	var err error
-	if s.TLSCert != "" && s.TLSKey != "" {
-		err = s.server.ServeTLS(l, s.TLSCert, s.TLSKey)
-	} else {
-		err = s.server.Serve(l)
-	}
-	if err = cleanServerShutdownErr(err); err != nil {
-		log.Printf("server error: %v", err)
+	if l != nil {
+		if s.TLSCert != "" && s.TLSKey != "" {
+			log.Println("serving HTTPS")
+			err = s.server.ServeTLS(l, s.TLSCert, s.TLSKey)
+			log.Println("HTTPS server exited")
+		} else {
+			log.Println("serving HTTP")
+			err = s.server.Serve(l)
+			log.Println("HTTP server exited")
+		}
+		if err = cleanServerShutdownErr(err); err != nil {
+			log.Printf("HTTP(S) server error: %v", err)
+		}
 	}
 
 	// wait for the server to shutdown
+	log.Println("waiting for HTTP(S) handler to shutdown")
 	err = <-shutdownErrChan
+	log.Println("done waiting for HTTP(S) server to shutdown")
 
 	close(s.queue)
 
 	// wait for the workers to finish
+	log.Println("waiting for workers to finish")
 	wg.Wait()
+	log.Println("done waiting for workers to finish")
 
 	return cleanServerShutdownErr(err)
 }

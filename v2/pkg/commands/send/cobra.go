@@ -2,6 +2,7 @@ package send
 
 import (
 	"fmt"
+	"mime"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -91,6 +92,11 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	if len(paths) == 1 && fileName == "" {
 		fileName = filepath.Base(paths[0])
+	}
+
+	if fileName != "" && fileMime == "" {
+		ext := filepath.Ext(fileName)
+		fileMime = mime.TypeByExtension(ext)
 	}
 
 	if fileName == "" {

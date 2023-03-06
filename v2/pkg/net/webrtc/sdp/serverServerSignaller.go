@@ -2,6 +2,7 @@ package sdp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -41,6 +42,11 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		return fmt.Errorf("unable to connect to signalling server: %w", err)
 	}
 	log.Printf("connected to signalling server at %s", s.ssURL)
+
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
 
 	s.t = transport.NewTransport(conn)
 
@@ -105,39 +111,36 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		log.Printf("signalling server assigned url: %s", resp.AssignedURL)
 	}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			// wait for the offer request
-			log.Println("waiting for offer request from signalling server ...")
-			m, err := s.t.Read()
-			if err != nil {
-				log.Printf("error reading from signalling server: %s", err)
-				return
-			}
-			req, ok := m.(*messages.GetOfferRequest)
-			if !ok {
-				log.Printf("invalid request type from signalling server: %T", m)
-				return
-			}
-			log.Println("... got offer request from signalling server")
-
-			// get the offer
-			log.Println("sending offer request to handler ...")
-			if err := handler.HandleRequest(ctx, req.SessionID, s.answerOffer); err != nil {
-				log.Printf("error handling request: %s", err)
-				return
-			}
-			log.Println("... handler finished processing offer request")
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("context cancelled, closing conenction with the signalling server")
+			return nil
+		default:
 		}
-	}()
 
-	return nil
+		// wait for the offer request
+		log.Println("waiting for offer request from signalling server ...")
+		m, err := s.t.Read()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+			return fmt.Errorf("error reading from signalling server: %w", err)
+		}
+		req, ok := m.(*messages.GetOfferRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type from signalling server: %T", m)
+		}
+		log.Println("... got offer request from signalling server")
+
+		// get the offer
+		log.Println("sending offer request to handler ...")
+		if err := handler.HandleRequest(ctx, req.SessionID, s.answerOffer); err != nil {
+			return fmt.Errorf("error handling request: %w", err)
+		}
+		log.Println("... handler finished processing offer request")
+	}
 }
 
 func (s *serverServerSignaller) Shutdown() error {

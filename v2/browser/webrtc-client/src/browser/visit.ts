@@ -9,7 +9,6 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
     var ct = header.get('Content-Type') ? header.get('Content-Type')! : '';
     ct = ct.split(';')[0];
     var cd = header.get('Content-Disposition') ? header.get('Content-Disposition')! : '';
-
     if (!ct) {
         ct = 'text/plain';
     }
@@ -18,7 +17,6 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
     // if so, trigger a download
     const filename = filenameFromContentDisposition(cd);
     if (filename) {
-        console.log(`triggering download of ${filename}`);
         const bodyBlob = await resp.blob();
         triggerDownload(bodyBlob, filename);
         return;
@@ -27,8 +25,8 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
     // otherwise, check if the content type is text
     // if so, display the body in the browser
     // otherwise, display the body as a preformatted text
-    const body  = await resp.text();
     if (ct.match(text_MIMERegexp)) {
+        const body = await resp.text();
         if (ct === 'text/html') {
             const parser = new DOMParser();
             const dom = parser.parseFromString(body, 'text/html');
@@ -38,8 +36,14 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
             document.body.innerText = body;
             document.body.innerHTML = `<pre>${body}</pre>`;
         }
+    } else if (ct.startsWith('application/')) {
+        const body = await resp.blob();
+        let file = new Blob([body], { type: ct });
+        let fileURL = URL.createObjectURL(file);
+        window.open(fileURL, "_self");
     } else {
         console.log(`falling back to displaying body as preformatted text`);
+        const body = await resp.text();
         document.body.innerText = body;
         document.body.innerHTML = `<pre>${body}</pre>`;
     }

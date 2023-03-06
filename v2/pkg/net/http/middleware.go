@@ -97,3 +97,14 @@ func LimitReaderMiddleware(limit int64) Middleware {
 		}
 	}
 }
+
+func MiddlewareShim(mw func(http.Handler) http.Handler) Middleware {
+	if mw == nil {
+		return func(next http.HandlerFunc) http.HandlerFunc {
+			return next
+		}
+	}
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return mw(http.HandlerFunc(next)).ServeHTTP
+	}
+}

@@ -2,6 +2,7 @@ package root
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"syscall"
@@ -138,7 +139,7 @@ If the --prompt-password flag is set, this flags will be ignored.`)
 	bafs.String("unauthenticated-view", "", `Path to file that will be served to unauthenticated users.
 If a username or password is not provided, this flag will be ignored.`)
 
-	bafs.Int("unauthenticated-status", 401, `Status code that will be sent to unauthenticated users.
+	bafs.Int("unauthorized-status", http.StatusUnauthorized, `Status code that will be sent to unauthenticated users.
 If a username or password is not provided, this flag will be ignored.`)
 
 	bafs.Bool("dont-trigger-login", false, `Don't trigger login dialog for unauthenticated users.
@@ -165,7 +166,7 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	cfs.Bool("cors-allow-credentials", false, `Allow credentials like cookies, basic auth headers, and ssl certs for CORS requests.`)
 
 	cfs.Bool("cors-allow-private-network", false, `Allow private network for CORS requests.`)
-	cfs.Int("cors-success-status", 204, `Status code that will be sent to successful CORS preflight requests.`)
+	cfs.Int("cors-success-status", http.StatusNoContent, `Status code that will be sent to successful CORS preflight requests.`)
 	pflags.AddFlagSet(cfs)
 	cobra.AddTemplateFunc("corsFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return cfs
@@ -173,6 +174,7 @@ If a wildcard (*) is used, all headers will be allowed.`)
 
 	wfs := pflag.NewFlagSet("WebRTC Flags", pflag.ContinueOnError)
 	wfs.Bool("webrtc", false, `Enable WebRTC support with default values.`)
+	wfs.Bool("webrtc-only", false, `Only allow WebRTC connections.`)
 	wfs.String("webrtc-ice-servers", "", `Comma separated list of ICE servers to use for WebRTC connections.`)
 	wfs.String("webrtc-signalling-dir", "", `Directory to use for WebRTC signalling.`)
 	wfs.String("webrtc-signalling-server-url", "", `URL to use for WebRTC signalling.`)
@@ -185,7 +187,7 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	})
 
 	ufs := pflag.NewFlagSet("UPnP IGD Flags", pflag.ContinueOnError)
-	ufs.Int("external-port", 31415, `External port to use for UPnP IGD port mapping.`)
+	ufs.Int("external-port", 21782, `External port to use for UPnP IGD port mapping.`)
 	ufs.Duration("port-mapping-duration", 30*time.Second, `Duration to use for UPnP IGD port mapping.`)
 	ufs.Duration("upnp-discovery-timeout", 45*time.Second, `Timeout to use for UPnP IGD discovery.`)
 	pflags.AddFlagSet(ufs)
