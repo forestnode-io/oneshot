@@ -20,20 +20,23 @@ type peerConnection struct {
 	peerAddresses []string
 	paMu          sync.Mutex
 
+	closeSignaller func() error
+
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, id int32, sao signallers.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
+func newPeerConnection(ctx context.Context, id int32, sao signallers.AnswerOffer, c *webrtc.Configuration, closeSignaller func() error) (*peerConnection, <-chan error) {
 	var (
 		err  error
 		errs = make(chan error, 1)
 	)
 
 	pc := peerConnection{
-		ctx:         ctx,
-		errChan:     errs,
-		answerOffer: sao,
-		sessionID:   id,
+		ctx:            ctx,
+		errChan:        errs,
+		answerOffer:    sao,
+		sessionID:      id,
+		closeSignaller: closeSignaller,
 	}
 
 	se := webrtc.SettingEngine{}
@@ -109,6 +112,9 @@ func (p *peerConnection) onConnectionStateChange(state webrtc.PeerConnectionStat
 	switch state {
 	case webrtc.PeerConnectionStateNew:
 		log.Println("webRTC connection new")
+		if err := p.closeSignaller(); err != nil {
+			log.Printf("unable to close signaller: %v", err)
+		}
 	case webrtc.PeerConnectionStateConnecting:
 		log.Println("webRTC connection connecting")
 	case webrtc.PeerConnectionStateConnected:

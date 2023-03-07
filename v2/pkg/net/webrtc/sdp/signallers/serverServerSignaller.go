@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,6 +55,9 @@ func (s *serverServerSignaller) startHeartbeat(ctx context.Context) {
 			case <-time.After(s.heartbeatPeriod):
 				err := s.write(&ping)
 				if err != nil {
+					if strings.Contains(err.Error(), "broken pipe") {
+						return
+					}
 					log.Printf("error sending heartbeat: %v", err)
 				}
 			}
