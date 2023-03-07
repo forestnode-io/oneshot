@@ -18,7 +18,7 @@ import (
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -93,7 +93,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create transport: %w", err)
 	}
 
-	var signaller sdp.ClientSignaller
+	var signaller signallers.ClientSignaller
 	if webRTCSignallingDir != "" && webRTCSignallingURL != "" {
 		return fmt.Errorf("cannot use both --webrtc-signalling-dir and --webrtc-signalling-server-url")
 	}
@@ -102,9 +102,9 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}
 
 	if webRTCSignallingDir != "" {
-		signaller = sdp.NewFileClientSignaller(offerFilePath, answerFilePath)
+		signaller = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
-		signaller = sdp.NewServerClientSignaller(webRTCSignallingURL, nil)
+		signaller = signallers.NewServerClientSignaller(webRTCSignallingURL, nil)
 	}
 
 	go func() {

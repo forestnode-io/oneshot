@@ -72,7 +72,7 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 	case e := <-d.eventsChan:
 		if e.err != nil {
 			close(d.eventsChan)
-			return nil, e.err
+			return nil, fmt.Errorf("unable to establish data channel: %w", e.err)
 		}
 	case rawDC := <-dcChan:
 		d.ReadWriteCloser = rawDC
@@ -109,7 +109,7 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 				n, isString, err := d.ReadWriteCloser.ReadDataChannel(buf)
 				if err != nil {
 					d.ReadWriteCloser.Close()
-					d.eventsChan <- dataChannelEvent{err: err}
+					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("unable to read data channel: %w", err)}
 					return
 				}
 				if !isString {

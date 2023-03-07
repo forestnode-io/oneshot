@@ -44,13 +44,13 @@ func (t *Transport) Write(m messages.Message) error {
 	sizePayload := uint64ToBytes(uint64(len(payload)))
 	_, err = t.c.Write(sizePayload)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to write size: %w", err)
 	}
 
 	for 0 < len(payload) {
 		n, err := t.c.Write(payload)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to write payload: %w", err)
 		}
 		payload = payload[n:]
 	}

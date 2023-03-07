@@ -1,4 +1,4 @@
-package sdp
+package signallers
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type serverClientSignaller struct {
@@ -59,7 +61,7 @@ func (s *serverClientSignaller) Start(ctx context.Context, handler OfferHandler)
 		return fmt.Errorf("failed to unmarshal response body: %w\n%s", err, string(body))
 	}
 
-	answer, err := handler.HandleOffer(ctx, respStruct.SessionID, Offer(respStruct.Offer))
+	answer, err := handler.HandleOffer(ctx, respStruct.SessionID, sdp.Offer(respStruct.Offer))
 	if err != nil {
 		return fmt.Errorf("failed to handle offer: %w", err)
 	}

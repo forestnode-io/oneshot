@@ -53,6 +53,13 @@ func Unmarshal(typeName string, data []byte) (Message, error) {
 		var a AnswerOfferResponse
 		err := json.Unmarshal(data, &a)
 		return &a, err
+	case "Ping":
+		var p Ping
+		return &p, nil
+	case "UpdatePingRateRequest":
+		var u UpdatePingRateRequest
+		err := json.Unmarshal(data, &u)
+		return &u, err
 	}
 
 	return nil, fmt.Errorf("unknown message type: %s", typeName)

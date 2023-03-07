@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 )
 
 // Server satisfies the sdp.RequestHandler interface.
@@ -31,7 +31,7 @@ func (s *Server) Wait() {
 	s.wg.Wait()
 }
 
-func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sdp.AnswerOffer) error {
+func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc signallers.AnswerOffer) error {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
@@ -53,10 +53,11 @@ func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sd
 	}
 	defer d.Close()
 
-	for {
+	var done bool
+	for !done {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("webrtc server context cancelled: %w", ctx.Err())
+			return nil
 		case e := <-pcErrs:
 			return fmt.Errorf("error on peer connection: %w", e)
 		case e := <-d.eventsChan:
@@ -67,6 +68,10 @@ func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sd
 			w := NewResponseWriter(d)
 			log.Println("handling http over webrtc request")
 			s.handler(w, e.request)
+			if w.triggersShutdown {
+				done = true
+			}
+
 			log.Println("finished handling http over webrtc request")
 			if err = w.Flush(); err != nil {
 				return fmt.Errorf("unable to flush response: %w", err)
@@ -74,4 +79,6 @@ func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc sd
 			log.Println("flushed response to http over wenrtc request")
 		}
 	}
+
+	return nil
 }

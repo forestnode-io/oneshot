@@ -1,6 +1,10 @@
-package sdp
+package signallers
 
-import "context"
+import (
+	"context"
+
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+)
 
 // ServerSignaller is an interface that allows a client to connect to a server.
 // When a client wants to connect, the session signaller will call on the RequestHandler.
@@ -16,7 +20,7 @@ type RequestHandler interface {
 	HandleRequest(context.Context, int32, AnswerOffer) error
 }
 
-type AnswerOffer func(context.Context, int32, Offer) (Answer, error)
+type AnswerOffer func(context.Context, int32, sdp.Offer) (sdp.Answer, error)
 
 // HandleRequest is a function that handles a request from a client.
 // A HandleRequest func is called when a client wants to connect to connect to oneshot.
@@ -34,5 +38,5 @@ type ClientSignaller interface {
 }
 
 type OfferHandler interface {
-	HandleOffer(context.Context, int32, Offer) (Answer, error)
+	HandleOffer(context.Context, int32, sdp.Offer) (sdp.Answer, error)
 }

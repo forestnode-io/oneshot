@@ -3,6 +3,7 @@ package sdp
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/pion/webrtc/v3"
 )
@@ -66,3 +67,5 @@ func (s Answer) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(sdp)
 }
+
+const PingWindowDuration = 500 * time.Millisecond

@@ -174,7 +174,7 @@ func (s *server) handleOneshotServer(ctx context.Context, conn net.Conn) error {
 		s.os = nil
 	}()
 
-	if s.os, err = newOneshotServer(s.requiredID, conn, s.handleURLRequest); err != nil {
+	if s.os, err = newOneshotServer(ctx, s.requiredID, conn, s.handleURLRequest); err != nil {
 		return fmt.Errorf("error creating new oneshot server: %w", err)
 	}
 

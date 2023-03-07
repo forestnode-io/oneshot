@@ -2,8 +2,13 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/pion/datachannel"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
@@ -18,6 +23,8 @@ type ResponseWriter struct {
 	channel        datachannel.ReadWriteCloser
 	bufferedAmount func() int
 	continueChan   chan struct{}
+
+	triggersShutdown bool
 }
 
 func NewResponseWriter(dc *dataChannel) *ResponseWriter {
@@ -26,6 +33,10 @@ func NewResponseWriter(dc *dataChannel) *ResponseWriter {
 		continueChan:   dc.continueChan,
 		bufferedAmount: func() int { return int(dc.dc.BufferedAmount()) },
 	}
+}
+
+func (w *ResponseWriter) TriggersShutdown() {
+	w.triggersShutdown = true
 }
 
 func (w *ResponseWriter) Header() http.Header {
@@ -91,14 +102,36 @@ func (w *ResponseWriter) Flush() error {
 		return fmt.Errorf("unable to send EOF: %w", err)
 	}
 
+	errs := make(chan error, 1)
 	// wait for the eof ack
-	eofBuf := make([]byte, 3)
-	_, err = w.channel.Read(eofBuf)
-	if err != nil {
-		err = fmt.Errorf("unable to read EOF ACK: %w", err)
-	}
+	go func() {
+		log.Println("waiting for EOF ACK")
+		eofBuf := make([]byte, 3)
+		_, err = w.channel.Read(eofBuf)
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			} else {
+				err = fmt.Errorf("unable to read EOF ACK: %w", err)
+			}
+		}
+		errs <- err
+	}()
 
-	return err
+	select {
+	case err = <-errs:
+		log.Println("EOF ACK received")
+		if err != nil {
+			if strings.Contains(err.Error(), "Closed") ||
+				errors.Is(err, io.EOF) {
+				err = nil
+			}
+		}
+		return err
+	case <-time.After(333 * time.Millisecond):
+		log.Println("EOF ACK timed out")
+		return nil
+	}
 }
 
 func (w *ResponseWriter) writeHeader() error {

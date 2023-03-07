@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/pflag"
@@ -49,10 +49,12 @@ func (r *rootCommand) listenWebRTC(ctx context.Context) error {
 		log.Fatal(err)
 	}
 
+	log.Println("WebRTC signalling mechanism started")
+
 	return nil
 }
 
-func getSignaller(ctx context.Context, flags *pflag.FlagSet) (sdp.ServerSignaller, error) {
+func getSignaller(ctx context.Context, flags *pflag.FlagSet) (signallers.ServerSignaller, error) {
 	var (
 		webRTCSignallingURL, _         = flags.GetString("webrtc-signalling-server-url")
 		webRTCSignallingDir, _         = flags.GetString("webrtc-signalling-dir")
@@ -73,15 +75,15 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet) (sdp.ServerSignalle
 			return nil, fmt.Errorf("signalling directory (--webrtc-signalling-dir) or signalling server url (--webrtc-signalling-server-url) must be set when serving from stdin or to stdout")
 		}
 		if webRTCSignallingURL != "" {
-			return sdp.NewServerServerSignaller(webRTCSignallingURL, webRTCSignallingID, webrtcClientURL, webrtcClientURLRequired), nil
+			return signallers.NewServerServerSignaller(webRTCSignallingURL, webRTCSignallingID, webrtcClientURL, webrtcClientURLRequired), nil
 		}
 
-		return sdp.NewFileServerSignaller(webRTCSignallingDir), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir), nil
 	} else if webRTCSignallingDir != "" {
-		return sdp.NewFileServerSignaller(webRTCSignallingDir), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir), nil
 	} else if webRTCSignallingURL != "" {
-		return sdp.NewServerServerSignaller(webRTCSignallingURL, webRTCSignallingID, webrtcClientURL, webrtcClientURLRequired), nil
+		return signallers.NewServerServerSignaller(webRTCSignallingURL, webRTCSignallingID, webrtcClientURL, webrtcClientURLRequired), nil
 	}
 
-	return sdp.NewTTYServerSignaller(), nil
+	return signallers.NewTTYServerSignaller(), nil
 }

@@ -1,4 +1,4 @@
-package sdp
+package signallers
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type fileServerSignaller struct {
@@ -55,7 +56,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					}
 				}
 
-				handler.HandleRequest(ctx, id, func(ctx context.Context, id int32, o Offer) (Answer, error) {
+				handler.HandleRequest(ctx, id, func(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
 					offerPath := filepath.Join(event.Name, "offer")
 					offer, err := o.MarshalJSON()
 					if err != nil {
@@ -71,7 +72,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					}
 					defer watcher.Close()
 
-					answerChan := make(chan Answer)
+					answerChan := make(chan sdp.Answer)
 					go func() {
 						answerPath := filepath.Join(event.Name, "answer")
 						for {
@@ -88,7 +89,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 									}
 
 									if len(answerBytes) != 0 {
-										answer, err := AnswerFromJSON(answerBytes)
+										answer, err := sdp.AnswerFromJSON(answerBytes)
 										if err != nil {
 											log.Printf("unable to unmarshal answer: %v", err)
 											return

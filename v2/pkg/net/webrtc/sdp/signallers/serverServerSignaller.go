@@ -1,4 +1,4 @@
-package sdp
+package signallers
 
 import (
 	"context"
@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
+	"time"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/transport"
 )
@@ -20,16 +23,89 @@ type serverServerSignaller struct {
 	url         string
 	urlRequired bool
 	offerChan   chan string
+
+	heartbeatPeriod time.Duration
+	heartbeatMu     sync.Mutex
+
+	msgChan chan messages.Message
+	errChan chan error
 }
 
 func NewServerServerSignaller(ssURL, id, url string, urlRequired bool) ServerSignaller {
 	return &serverServerSignaller{
-		ssURL:       ssURL,
-		id:          id,
-		url:         url,
-		urlRequired: urlRequired,
-		offerChan:   make(chan string),
+		ssURL:           ssURL,
+		id:              id,
+		url:             url,
+		urlRequired:     urlRequired,
+		offerChan:       make(chan string),
+		msgChan:         make(chan messages.Message, 1),
+		errChan:         make(chan error, 1),
+		heartbeatPeriod: sdp.PingWindowDuration / 2,
 	}
+}
+
+func (s *serverServerSignaller) startHeartbeat(ctx context.Context) {
+	ping := messages.Ping{}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(s.heartbeatPeriod):
+				err := s.write(&ping)
+				if err != nil {
+					log.Printf("error sending heartbeat: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (s *serverServerSignaller) startReadPump(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				m, err := s.t.Read()
+				if err != nil {
+					s.errChan <- err
+					close(s.msgChan)
+					close(s.errChan)
+					return
+				}
+
+				u, ok := m.(*messages.UpdatePingRateRequest)
+				if ok {
+					if u.Period != 0 {
+						s.heartbeatPeriod = u.Period
+						log.Println("updated heartbeat period to", s.heartbeatPeriod)
+					}
+					continue
+				}
+
+				s.msgChan <- m
+			}
+		}
+	}()
+}
+
+func (s *serverServerSignaller) read() (messages.Message, error) {
+	select {
+	case m := <-s.msgChan:
+		return m, nil
+	case err := <-s.errChan:
+		return nil, err
+	}
+}
+
+func (s *serverServerSignaller) write(m messages.Message) error {
+	s.heartbeatMu.Lock()
+	defer s.heartbeatMu.Unlock()
+	err := s.t.Write(m)
+
+	return err
 }
 
 func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
@@ -45,10 +121,12 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 
 	go func() {
 		<-ctx.Done()
+		log.Println("closing connection to signalling server ...")
 		conn.Close()
 	}()
 
 	s.t = transport.NewTransport(conn)
+	s.startReadPump(ctx)
 
 	// exchange handshake
 	log.Println("exchanging handshake with signalling server ...")
@@ -58,13 +136,13 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			Version: "0.0.1",
 		},
 	}
-	if err = s.t.Write(&h); err != nil {
+	if err = s.write(&h); err != nil {
 		return err
 	}
 	log.Println("... sent handshake to the signalling server...")
 
 	log.Println("... waiting for handshake from the signalling server...")
-	m, err := s.t.Read()
+	m, err := s.read()
 	if err != nil {
 		if errors.Is(err, net.ErrClosed) {
 			return nil
@@ -91,13 +169,13 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		BasicAuth: nil,
 		URL:       nil,
 	}
-	if err = s.t.Write(&ar); err != nil {
+	if err = s.write(&ar); err != nil {
 		return err
 	}
 	log.Println("... sent arrival request to signalling server...")
 
 	// wait for the arrival response
-	m, err = s.t.Read()
+	m, err = s.read()
 	if err != nil {
 		return err
 	}
@@ -114,6 +192,8 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		log.Printf("signalling server assigned url: %s", resp.AssignedURL)
 	}
 
+	s.startHeartbeat(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -124,25 +204,27 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 
 		// wait for the offer request
 		log.Println("waiting for offer request from signalling server ...")
-		m, err := s.t.Read()
+		m, err := s.read()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				return nil
 			}
 			return fmt.Errorf("error reading from signalling server: %w", err)
 		}
-		req, ok := m.(*messages.GetOfferRequest)
-		if !ok {
-			return fmt.Errorf("invalid request type from signalling server: %T", m)
-		}
-		log.Println("... got offer request from signalling server")
 
-		// get the offer
-		log.Println("sending offer request to handler ...")
-		if err := handler.HandleRequest(ctx, req.SessionID, s.answerOffer); err != nil {
-			return fmt.Errorf("error handling request: %w", err)
+		switch m := m.(type) {
+		case *messages.GetOfferRequest:
+			log.Println("... got offer request from signalling server")
+
+			// get the offer
+			log.Println("sending offer request to handler ...")
+			if err := handler.HandleRequest(ctx, m.SessionID, s.answerOffer); err != nil {
+				return fmt.Errorf("error handling request: %w", err)
+			}
+			log.Println("... handler finished processing offer request")
+		default:
+			return fmt.Errorf("unexpected message type: %T", m)
 		}
-		log.Println("... handler finished processing offer request")
 	}
 }
 
@@ -151,20 +233,20 @@ func (s *serverServerSignaller) Shutdown() error {
 	return nil
 }
 
-func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID int32, offer Offer) (Answer, error) {
+func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID int32, offer sdp.Offer) (sdp.Answer, error) {
 	// send the offer to the signalling server
 	log.Println("sending offer to signalling server ...")
 	gor := messages.GetOfferResponse{
 		Offer: string(offer),
 	}
-	if err := s.t.Write(&gor); err != nil {
+	if err := s.write(&gor); err != nil {
 		return "", err
 	}
 	log.Println("... sent offer to signalling server")
 
 	// wait for the answer to come back
 	log.Println("waiting for answer from signalling server ...")
-	m, err := s.t.Read()
+	m, err := s.read()
 	if err != nil {
 		log.Printf("error reading answer: %v", err)
 		return "", err
@@ -179,11 +261,11 @@ func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID int32
 
 	// let the signalling server know we got the answer
 	gar := messages.GotAnswerResponse{}
-	if err := s.t.Write(&gar); err != nil {
+	if err := s.write(&gar); err != nil {
 		return "", err
 	}
 
 	log.Println("... verified to signalling server that answer was received")
 
-	return Answer(a.Answer), nil
+	return sdp.Answer(a.Answer), nil
 }

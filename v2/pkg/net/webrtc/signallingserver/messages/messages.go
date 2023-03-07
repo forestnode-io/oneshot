@@ -1,5 +1,7 @@
 package messages
 
+import "time"
+
 type Message interface {
 	Type() string
 }
@@ -145,4 +147,18 @@ type FinishedSessionResponse struct {
 
 func (f *FinishedSessionResponse) Type() string {
 	return "FinishedSessionResponse"
+}
+
+type Ping struct{}
+
+func (p *Ping) Type() string {
+	return "Ping"
+}
+
+type UpdatePingRateRequest struct {
+	Period time.Duration
+}
+
+func (u *UpdatePingRateRequest) Type() string {
+	return "UpdatePingRateRequest"
 }

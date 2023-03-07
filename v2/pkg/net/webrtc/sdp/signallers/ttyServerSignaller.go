@@ -1,4 +1,4 @@
-package sdp
+package signallers
 
 import (
 	"bufio"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/muesli/cancelreader"
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type ttyServerSignaller struct {
@@ -59,7 +60,7 @@ func (s *ttyServerSignaller) Shutdown() error {
 	return nil
 }
 
-func (s *ttyServerSignaller) answerOffer(ctx context.Context, id int32, offer Offer) (Answer, error) {
+func (s *ttyServerSignaller) answerOffer(ctx context.Context, id int32, offer sdp.Offer) (sdp.Answer, error) {
 	fmt.Printf("offer: \n%s\n", string(offer))
 	fmt.Println("Please paste the client SDP below and press enter:")
 
@@ -90,5 +91,5 @@ func (s *ttyServerSignaller) answerOffer(ctx context.Context, id int32, offer Of
 		return "", err
 	}
 
-	return Answer(sd.SDP), nil
+	return sdp.Answer(sd.SDP), nil
 }

@@ -1,9 +1,11 @@
-package sdp
+package signallers
 
 import (
 	"context"
 	"fmt"
 	"os"
+
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type fileClientSignaller struct {
@@ -24,7 +26,7 @@ func (s *fileClientSignaller) Start(ctx context.Context, offerHandler OfferHandl
 		return fmt.Errorf("failed to read offer file: %w", err)
 	}
 
-	offer, err := OfferFromJSON(offerFileBytes)
+	offer, err := sdp.OfferFromJSON(offerFileBytes)
 	if err != nil {
 		return fmt.Errorf("failed to parse offer: %w", err)
 	}

@@ -8,12 +8,13 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 )
 
 type peerConnection struct {
 	ctx         context.Context
 	errChan     chan<- error
-	answerOffer sdp.AnswerOffer
+	answerOffer signallers.AnswerOffer
 	sessionID   int32
 
 	peerAddresses []string
@@ -22,7 +23,7 @@ type peerConnection struct {
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, id int32, sao sdp.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
+func newPeerConnection(ctx context.Context, id int32, sao signallers.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
 	var (
 		err  error
 		errs = make(chan error, 1)

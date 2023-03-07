@@ -124,12 +124,20 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		wg.Done()
 	}
 
+	type ts interface {
+		TriggersShutdown()
+	}
+
 	preSuccWorker := func() {
 		for wr := range s.queue {
 			s.PreSuccessHandler(wr.w, wr.r.WithContext(ctx))
-			wr.done()
 
 			if !wr.w.ignoreOutcome && (events.Succeeded(ctx) || s.ExitOnFail) {
+				tsw, ok := wr.w.ResponseWriter.(ts)
+				if ok {
+					tsw.TriggersShutdown()
+				}
+
 				cpuCount := runtime.NumCPU()
 				wg.Add(cpuCount)
 				for i := 0; i < cpuCount; i++ {
@@ -140,7 +148,10 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 				shutdown(ctx)
 				cancel()
 
+				wr.done()
 				return
+			} else {
+				wr.done()
 			}
 		}
 	}
