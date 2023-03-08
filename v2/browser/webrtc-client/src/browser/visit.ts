@@ -4,7 +4,34 @@ import { triggerDownload } from './triggerDownload';
 const text_MIMERegexp = /^text\/.*$/;
 
 export async function visit(request: RequestInfo | URL, options?: RequestInit | undefined): Promise<void> {
-    var resp = await fetch(request, options);
+    const spinnerEl = document.createElement('span');
+    document.body.innerHTML = '';
+    document.body.appendChild(spinnerEl);
+
+    var contentLength = 0;
+    var downloaded = 0;
+    const progCallback = (n: number, total?: number): Promise<void> => {
+        if (n === -1 && total) {
+            contentLength = total;
+        } else if (0 < n) {
+            downloaded += n;
+            if (contentLength) {
+                const percent = (downloaded / contentLength * 100).toFixed(2);
+                spinnerEl.innerText = `receiving data: ${percent}%`;
+            } else {
+                spinnerEl.innerText = `receiving data: ${downloaded} bytes`;
+            }
+        } else {
+            spinnerEl.innerText = `receiving data: done`;
+        }
+
+        return Promise.resolve();
+    };
+    interface progFetchIface {
+        (request: RequestInfo | URL, options?: RequestInit | undefined, progCallback?: (n: number, total?: number) => Promise<void>): Promise<Response>;
+    }
+    const progFetch = fetch as progFetchIface;
+    var resp = await progFetch(request, options, progCallback);
     const header = resp.headers!;
     var ct = header.get('Content-Type') ? header.get('Content-Type')! : '';
     ct = ct.split(';')[0];

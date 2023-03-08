@@ -8,7 +8,7 @@ import { boundary, BufferedAmountLowThreshold } from './constants';
 export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response> {
     dc.bufferedAmountLowThreshold = BufferedAmountLowThreshold;
     dc.binaryType = 'arraybuffer';
-    return (resource: RequestInfo | URL, options?: RequestInit | undefined): Promise<Response> => {
+    let f = (resource: RequestInfo | URL, options?: RequestInit | undefined, progCallback?: (n: number, total?: number) => Promise<void>): Promise<Response> => {
         var requestPromiseResolve: (value: Response) => void = () => { };
         var requestPromiseReject: (reason?: any) => void = () => { };
         const p = new Promise<Response>((resolve, reject) => {
@@ -48,6 +48,10 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                     for (const key in header) {
                         h.append(key, header[key]);
                     }
+                    if (h.has('Content-Length') && progCallback) {
+                        const contentLength = parseInt(h.get('Content-Length')!);
+                        progCallback(-1, contentLength);
+                    }
 
                     let responseInit: ResponseInit = {
                         status: status,
@@ -72,10 +76,13 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                                         dc.send("");
                                         controller.close();
                                         resolve();
+                                        progCallback?.(0);
                                         return;
                                     }
+                                    const n = s.byteLength;
                                     controller.enqueue(new Uint8Array(s));
                                     resolve();
+                                    progCallback?.(n);
                                 }
                             })
                         },
@@ -86,6 +93,7 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                     const blob = event.data as ArrayBuffer;
                     if (0 < blob.byteLength) {
                         buf.push(blob);
+
                         chan.port1.postMessage(null);
                     }
                 }
@@ -124,5 +132,7 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
 
         return p;
     }
+
+    return f;
 }
 

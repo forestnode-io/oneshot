@@ -51,6 +51,10 @@ export class WebRTCClient {
         pc.oniceconnectionstatechange = (event) => {
             console.log("oniceconnectionstatechange", pc.iceConnectionState);
         };
+
+        pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
+            console.log("onicecandidate", event);
+        }
     }
 
     public async answerOffer(offer: RTCSessionDescription): Promise<void> {
