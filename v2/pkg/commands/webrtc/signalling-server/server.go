@@ -10,7 +10,6 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,6 +18,7 @@ import (
 
 	_ "embed"
 
+	"github.com/google/uuid"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
@@ -48,7 +48,7 @@ type server struct {
 	htmlClientTemplate *template.Template
 	os                 *oneshotServer
 	l                  net.Listener
-	pendingSessionID   int32
+	pendingSessionID   string
 	requiredID         string
 	path               string
 }
@@ -57,7 +57,6 @@ func newServer(iceServerURL string, requiredID string) (*server, error) {
 	t, err := template.New("root").Parse(HTMLTemplate)
 	return &server{
 		iceServerURL:       iceServerURL,
-		pendingSessionID:   -1,
 		htmlClientTemplate: t,
 		requiredID:         requiredID,
 	}, err
@@ -208,7 +207,7 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if -1 < s.pendingSessionID {
+	if s.pendingSessionID != "" {
 		http.Error(w, "busy", http.StatusServiceUnavailable)
 		return
 	}
@@ -231,7 +230,7 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.pendingSessionID = rand.Int31()
+	s.pendingSessionID = uuid.New().String()
 	offer, err := s.os.RequestOffer(r.Context(), s.pendingSessionID)
 	if err != nil {
 		log.Printf("error requesting offer: %v", err)
@@ -286,7 +285,7 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
-	if s.pendingSessionID < 0 {
+	if s.pendingSessionID == "" {
 		log.Printf("received answer without pending offer")
 		http.Error(w, "no pending offer", http.StatusServiceUnavailable)
 		return
@@ -305,7 +304,7 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 
 	var answer struct {
 		Answer    string
-		SessionID int32
+		SessionID string
 	}
 
 	if err := json.Unmarshal(body, &answer); err != nil {
@@ -328,7 +327,7 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("answer sent for session id %d, closing connection to oneshot server", s.pendingSessionID)
 
-	s.pendingSessionID = -1
+	s.pendingSessionID = ""
 	if err = s.os.Close(); err != nil {
 		log.Printf("error closing oneshot server connection: %v", err)
 	}

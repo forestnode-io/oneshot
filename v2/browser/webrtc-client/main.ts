@@ -34,7 +34,7 @@ function getConfig(autoAnswer: boolean): connectConfig {
     el.parentNode?.removeChild(el);
 
     var el = (document.getElementById('session-id') as HTMLInputElement);
-    config.sessionID = parseInt(el.value);
+    config.sessionID = el.value;
     el.parentNode?.removeChild(el);
 
     var el = (document.getElementById('offer-sdp') as HTMLInputElement);

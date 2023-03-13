@@ -54,7 +54,7 @@ func (s *serverClientSignaller) Start(ctx context.Context, handler OfferHandler)
 	}
 
 	var respStruct struct {
-		SessionID int32
+		SessionID string
 		Offer     string
 	}
 	if err := json.Unmarshal(body, &respStruct); err != nil {

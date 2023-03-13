@@ -17,10 +17,10 @@ type ServerSignaller interface {
 }
 
 type RequestHandler interface {
-	HandleRequest(context.Context, int32, AnswerOffer) error
+	HandleRequest(context.Context, string, AnswerOffer) error
 }
 
-type AnswerOffer func(context.Context, int32, sdp.Offer) (sdp.Answer, error)
+type AnswerOffer func(context.Context, string, sdp.Offer) (sdp.Answer, error)
 
 // HandleRequest is a function that handles a request from a client.
 // A HandleRequest func is called when a client wants to connect to connect to oneshot.
@@ -28,7 +28,7 @@ type AnswerOffer func(context.Context, int32, sdp.Offer) (sdp.Answer, error)
 // The sdp exchange is transacted via the AnswerOffer arg.
 type HandleRequest func(context.Context, AnswerOffer) error
 
-func (h HandleRequest) HandleRequest(ctx context.Context, id int32, offer AnswerOffer) error {
+func (h HandleRequest) HandleRequest(ctx context.Context, id string, offer AnswerOffer) error {
 	return h(ctx, offer)
 }
 
@@ -38,5 +38,5 @@ type ClientSignaller interface {
 }
 
 type OfferHandler interface {
-	HandleOffer(context.Context, int32, sdp.Offer) (sdp.Answer, error)
+	HandleOffer(context.Context, string, sdp.Offer) (sdp.Answer, error)
 }

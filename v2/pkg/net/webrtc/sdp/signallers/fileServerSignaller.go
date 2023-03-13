@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
@@ -41,7 +42,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 	}
 
 	go func() {
-		id := int32(0)
+		id := 0
 		for {
 			select {
 			case event := <-s.watcher.Events:
@@ -56,7 +57,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					}
 				}
 
-				handler.HandleRequest(ctx, id, func(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
+				handler.HandleRequest(ctx, strconv.Itoa(id), func(ctx context.Context, id string, o sdp.Offer) (sdp.Answer, error) {
 					offerPath := filepath.Join(event.Name, "offer")
 					offer, err := o.MarshalJSON()
 					if err != nil {

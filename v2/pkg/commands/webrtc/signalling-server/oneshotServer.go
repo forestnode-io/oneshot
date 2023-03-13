@@ -176,7 +176,7 @@ func newOneshotServer(ctx context.Context, requiredID string, conn net.Conn, req
 	return &o, nil
 }
 
-func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID int32) (sdp.Offer, error) {
+func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID string) (sdp.Offer, error) {
 	req := messages.GetOfferRequest{
 		SessionID: sessionID,
 	}
@@ -197,7 +197,7 @@ func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID int32) (sdp.
 	return sdp.Offer(gor.Offer), nil
 }
 
-func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID int32, answer sdp.Answer) error {
+func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer sdp.Answer) error {
 	defer func() {
 		o.done <- struct{}{}
 	}()

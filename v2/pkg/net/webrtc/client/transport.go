@@ -103,7 +103,7 @@ func NewTransport(config *webrtc.Configuration) (*Transport, error) {
 	return &t, nil
 }
 
-func (t *Transport) HandleOffer(ctx context.Context, id int32, o sdp.Offer) (sdp.Answer, error) {
+func (t *Transport) HandleOffer(ctx context.Context, id string, o sdp.Offer) (sdp.Answer, error) {
 	pc := t.peerConn
 
 	offer, err := o.WebRTCSessionDescription()

@@ -63,7 +63,7 @@ func (a *ClientArrivalRequest) Type() string {
 }
 
 type ClientArrivalResponse struct {
-	SessionID int32
+	SessionID string
 	Offer     string
 	Error     string
 }
@@ -73,7 +73,7 @@ func (a *ClientArrivalResponse) Type() string {
 }
 
 type AnswerOfferRequest struct {
-	SessionID int32
+	SessionID string
 	Answer    string
 }
 
@@ -82,7 +82,7 @@ func (a *AnswerOfferRequest) Type() string {
 }
 
 type AnswerOfferResponse struct {
-	SessionID int32
+	SessionID string
 	Error     string
 }
 
@@ -92,7 +92,7 @@ func (a *AnswerOfferResponse) Type() string {
 
 // sent from the signalling server to the oneshot server when a new session has been request by a client
 type GetOfferRequest struct {
-	SessionID int32
+	SessionID string
 }
 
 func (g *GetOfferRequest) Type() string {
@@ -101,7 +101,7 @@ func (g *GetOfferRequest) Type() string {
 
 // sent from the oneshot server to the signalling server when it has crafted an offer for the client requesting a session
 type GetOfferResponse struct {
-	SessionID int32
+	SessionID string
 	Offer     string
 }
 
@@ -111,7 +111,7 @@ func (g *GetOfferResponse) Type() string {
 
 // sent from the signalling server to the oneshot server when a client has answered the offer
 type GotAnswerRequest struct {
-	SessionID int32
+	SessionID string
 	Answer    string
 }
 
@@ -121,7 +121,7 @@ func (g *GotAnswerRequest) Type() string {
 
 // sent from the oneshot server to the signalling server when it has accepted the answer and started the session
 type GotAnswerResponse struct {
-	SessionID int32
+	SessionID string
 	Error     error
 }
 
@@ -131,7 +131,7 @@ func (g *GotAnswerResponse) Type() string {
 
 // sent from the oneshot server to the signalling server when a session has ended
 type FinishedSessionRequest struct {
-	SessionID int32
+	SessionID string
 	Error     error
 }
 
@@ -141,7 +141,7 @@ func (f *FinishedSessionRequest) Type() string {
 
 // sent from the signalling server to the oneshot server when it has received the FinishedSessionRequest
 type FinishedSessionResponse struct {
-	SessionID int32
+	SessionID string
 	Error     error
 }
 

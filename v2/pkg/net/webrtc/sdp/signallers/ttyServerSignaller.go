@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/muesli/cancelreader"
 	"github.com/pion/webrtc/v3"
@@ -34,9 +35,9 @@ func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) 
 		stdin.Cancel()
 	}()
 
-	id := int32(0)
+	id := 0
 	for s.cancel != nil {
-		handler.HandleRequest(ctx, id, s.answerOffer)
+		handler.HandleRequest(ctx, strconv.Itoa(id), s.answerOffer)
 		id++
 
 	READ_SECTION:
@@ -60,7 +61,7 @@ func (s *ttyServerSignaller) Shutdown() error {
 	return nil
 }
 
-func (s *ttyServerSignaller) answerOffer(ctx context.Context, id int32, offer sdp.Offer) (sdp.Answer, error) {
+func (s *ttyServerSignaller) answerOffer(ctx context.Context, id string, offer sdp.Offer) (sdp.Answer, error) {
 	fmt.Printf("offer: \n%s\n", string(offer))
 	fmt.Println("Please paste the client SDP below and press enter:")
 

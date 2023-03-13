@@ -237,7 +237,7 @@ func (s *serverServerSignaller) Shutdown() error {
 	return nil
 }
 
-func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID int32, offer sdp.Offer) (sdp.Answer, error) {
+func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID string, offer sdp.Offer) (sdp.Answer, error) {
 	// send the offer to the signalling server
 	log.Println("sending offer to signalling server ...")
 	gor := messages.GetOfferResponse{

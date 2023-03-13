@@ -1,7 +1,7 @@
 import { visit } from "./browser/visit";
 import { WebRTCClient } from "./webrtcClient";
 
-export function autoOnAnswerFactory(sessionID: number | undefined): (answer: RTCSessionDescription) => void {
+export function autoOnAnswerFactory(sessionID: string | undefined): (answer: RTCSessionDescription) => void {
     return (answer: RTCSessionDescription) => {
         fetch('/api/sdp/answer', {
             method: 'POST',
@@ -37,7 +37,7 @@ export type connectConfig = {
     onAnswer: (answer: RTCSessionDescription) => void;
     iceURL: string;
     offer: string;
-    sessionID: number | undefined;
+    sessionID: string | undefined;
 }
 
 export function connect(config: connectConfig) {

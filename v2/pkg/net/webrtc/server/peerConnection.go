@@ -15,7 +15,7 @@ type peerConnection struct {
 	ctx         context.Context
 	errChan     chan<- error
 	answerOffer signallers.AnswerOffer
-	sessionID   int32
+	sessionID   string
 
 	peerAddresses []string
 	paMu          sync.Mutex
@@ -25,7 +25,7 @@ type peerConnection struct {
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, id int32, sao signallers.AnswerOffer, c *webrtc.Configuration, closeSignaller func() error) (*peerConnection, <-chan error) {
+func newPeerConnection(ctx context.Context, id string, sao signallers.AnswerOffer, c *webrtc.Configuration, closeSignaller func() error) (*peerConnection, <-chan error) {
 	var (
 		err  error
 		errs = make(chan error, 1)

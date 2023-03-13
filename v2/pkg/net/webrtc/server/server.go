@@ -33,7 +33,7 @@ func (s *Server) Wait() {
 	s.wg.Wait()
 }
 
-func (s *Server) HandleRequest(ctx context.Context, id int32, answerOfferFunc signallers.AnswerOffer) error {
+func (s *Server) HandleRequest(ctx context.Context, id string, answerOfferFunc signallers.AnswerOffer) error {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
