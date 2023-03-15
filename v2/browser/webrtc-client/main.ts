@@ -40,9 +40,13 @@ function getConfig(autoAnswer: boolean): connectConfig {
     var el = (document.getElementById('offer-sdp') as HTMLInputElement);
     config.offer = el.value;
     el.parentNode?.removeChild(el);
+
+    var el = (document.getElementById('endpoint') as HTMLInputElement);
+    config.endpoint = el.value;
+    el.parentNode?.removeChild(el);
     
     if (autoAnswer) {
-        config.onAnswer = autoOnAnswerFactory(config.sessionID);
+        config.onAnswer = autoOnAnswerFactory(config.endpoint, config.sessionID);
     }  else {
         config.onAnswer = manualOnAnswer;
     }

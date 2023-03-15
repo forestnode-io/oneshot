@@ -14,18 +14,16 @@ import (
 // Server satisfies the sdp.RequestHandler interface.
 // Server acts as a factory for new peer connections when a client request comes in.
 type Server struct {
-	handler        http.HandlerFunc
-	config         *webrtc.Configuration
-	wg             sync.WaitGroup
-	closeSignaller func() error
+	handler http.HandlerFunc
+	config  *webrtc.Configuration
+	wg      sync.WaitGroup
 }
 
-func NewServer(config *webrtc.Configuration, closeSignaller func() error, handler http.HandlerFunc) *Server {
+func NewServer(config *webrtc.Configuration, handler http.HandlerFunc) *Server {
 	return &Server{
-		handler:        handler,
-		config:         config,
-		wg:             sync.WaitGroup{},
-		closeSignaller: closeSignaller,
+		handler: handler,
+		config:  config,
+		wg:      sync.WaitGroup{},
 	}
 }
 
@@ -39,7 +37,7 @@ func (s *Server) HandleRequest(ctx context.Context, id string, answerOfferFunc s
 
 	// create a new peer connection.
 	// newPeerConnection does not wait for the peer connection to be established.
-	pc, pcErrs := newPeerConnection(ctx, id, answerOfferFunc, s.config, s.closeSignaller)
+	pc, pcErrs := newPeerConnection(ctx, id, answerOfferFunc, s.config)
 	if pc == nil {
 		err := <-pcErrs
 		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)

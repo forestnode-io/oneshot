@@ -276,12 +276,13 @@ func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 		"ICEServerURL": s.iceServerURL,
 		"SessionID":    s.pendingSessionID,
 		"Offer":        string(offerBytes),
+		"Endpoint":     "/",
 	})
 	if err != nil {
 		log.Printf("error writing response: %v", err)
 	}
 
-	log.Printf("sent offer for session id %d", s.pendingSessionID)
+	log.Printf("sent offer for session id %s", s.pendingSessionID)
 }
 
 func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +292,7 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("received answer for session id %d", s.pendingSessionID)
+	log.Printf("received answer for session id %s", s.pendingSessionID)
 
 	defer r.Body.Close()
 	lr := io.LimitReader(r.Body, maxBodySize)
@@ -314,7 +315,7 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if answer.SessionID != s.pendingSessionID {
-		log.Printf("received answer with invalid id: %d (expected %d)", answer.SessionID, s.pendingSessionID)
+		log.Printf("received answer with invalid id: %s (expected %s)", answer.SessionID, s.pendingSessionID)
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
@@ -325,7 +326,7 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("answer sent for session id %d, closing connection to oneshot server", s.pendingSessionID)
+	log.Printf("answer sent for session id %s, closing connection to oneshot server", s.pendingSessionID)
 
 	s.pendingSessionID = ""
 	if err = s.os.Close(); err != nil {

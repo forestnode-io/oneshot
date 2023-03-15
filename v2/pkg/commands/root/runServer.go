@@ -75,7 +75,11 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	}
 	defer cancel()
 
-	return r.listenAndServe(ctx, flags)
+	err = r.listenAndServe(ctx, flags)
+	if err != nil {
+		log.Printf("failed to listen for http connections: %v", err)
+	}
+	return err
 }
 
 func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) error {

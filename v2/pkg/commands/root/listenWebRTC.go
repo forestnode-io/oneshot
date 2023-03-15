@@ -40,8 +40,9 @@ func (r *rootCommand) listenWebRTC(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get WebRTC signaller: %w", err)
 	}
+	defer signaller.Shutdown()
 
-	a := server.NewServer(r.webrtcConfig, signaller.Shutdown, http.HandlerFunc(r.server.ServeHTTP))
+	a := server.NewServer(r.webrtcConfig, http.HandlerFunc(r.server.ServeHTTP))
 	defer a.Wait()
 
 	log.Println("starting WebRTC signalling mechanism")
