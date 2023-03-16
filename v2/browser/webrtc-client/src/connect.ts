@@ -35,20 +35,20 @@ export function manualOnAnswer(answer: RTCSessionDescription): void {
 
 export type connectConfig = {
     onAnswer: (answer: RTCSessionDescription) => void;
-    iceURL: string;
-    offer: string;
+    rtcConfig: RTCConfiguration;
+    offer: RTCSessionDescription;
     sessionID: string | undefined;
     endpoint: string;
 }
 
 export function connect(config: connectConfig) {
-    const offerJSON = config.offer ? JSON.parse(config.offer) : undefined;
-    if (!offerJSON || !config.iceURL) {
-        alert('missing offer or ice-url');
+    if (!config.offer) {
+        alert('no offer');
         return;
     }
-    new WebRTCClient(config.iceURL, config.onAnswer).
-        answerOffer(offerJSON as RTCSessionDescription).then(() => {
+
+    new WebRTCClient(config.rtcConfig, config.onAnswer).
+        answerOffer(config.offer).then(() => {
             visit('/', {})
         });
 }

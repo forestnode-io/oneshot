@@ -13,21 +13,35 @@
 </div>
 {{ end }}
 
+{{/*
+{
+    AutoConnect bool
+    ICEServerURL string
+    RTCConfiguration string
+    SessionID string
+    Offer string
+    Endpoint string
+}
+*/}}
 {{ define "index" }}
 <!DOCTYPE html>
 <html>
-<head></head>
-<body>{{ if not .AutoConnect }}
-    {{ template "sdp-component" . }}{{ else }}
-    <input type="hidden" id="ice-server-url" value="{{ .ICEServerURL }}">
-    <input type="hidden" id="session-id" value="{{ .SessionID }}">
-    <input type="hidden" id="offer-sdp" value="{{ .Offer }}">
-    <input type="hidden" id="endpoint" value="{{ .Endpoint }}">
-    {{ end }}
-</body>
+<head>
+    {{ if .AutoConnect }}<script>
+        window.config = {
+            RTCConfigurationJSON: "{{ .RTCConfiguration }}",
+            SessionID: "{{ .SessionID }}",
+            OfferJSON: "{{ .Offer }}",
+            Endpoint: "{{ .Endpoint }}",
+        };
+    </script>{{ end }}
+</head>
+<body>
+{{ if not .AutoConnect }}{{ template "sdp-component" . }}{{ end }}
 <footer>
     {{ .ClientJS }}
 </footer>
+</body>
 </html>
 {{ end }}
 

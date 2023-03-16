@@ -9,11 +9,9 @@ export class WebRTCClient {
 
     onAnswer: (answer: RTCSessionDescription) => void;
 
-    constructor(iceServerURL: string, onAnswer: (answer: RTCSessionDescription) => void | undefined) {
+    constructor(rtcConfig: RTCConfiguration, onAnswer: (answer: RTCSessionDescription) => void) {
         this.onAnswer = onAnswer;
-        this.peerConnection = new RTCPeerConnection({
-            iceServers: [{ urls: iceServerURL }],
-        });
+        this.peerConnection = new RTCPeerConnection(rtcConfig);
 
         this.connectionPromise = new Promise<void>((resolve, reject) => {
             this.connectionPromiseResolve = resolve;
