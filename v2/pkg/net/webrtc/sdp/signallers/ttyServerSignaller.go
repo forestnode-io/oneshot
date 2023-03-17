@@ -37,7 +37,7 @@ func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) 
 
 	id := 0
 	for s.cancel != nil {
-		handler.HandleRequest(ctx, strconv.Itoa(id), s.answerOffer)
+		handler.HandleRequest(ctx, strconv.Itoa(id), nil, s.answerOffer)
 		id++
 
 	READ_SECTION:

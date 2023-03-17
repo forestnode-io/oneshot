@@ -1,6 +1,10 @@
 package messages
 
-import "time"
+import (
+	"time"
+
+	"github.com/pion/webrtc/v3"
+)
 
 type Message interface {
 	Type() string
@@ -92,7 +96,8 @@ func (a *AnswerOfferResponse) Type() string {
 
 // sent from the signalling server to the oneshot server when a new session has been request by a client
 type GetOfferRequest struct {
-	SessionID string
+	SessionID     string
+	Configuration *webrtc.Configuration `json:",omitempty"`
 }
 
 func (g *GetOfferRequest) Type() string {

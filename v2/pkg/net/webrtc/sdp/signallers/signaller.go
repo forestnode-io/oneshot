@@ -3,6 +3,7 @@ package signallers
 import (
 	"context"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
@@ -17,7 +18,7 @@ type ServerSignaller interface {
 }
 
 type RequestHandler interface {
-	HandleRequest(context.Context, string, AnswerOffer) error
+	HandleRequest(context.Context, string, *webrtc.Configuration, AnswerOffer) error
 }
 
 type AnswerOffer func(context.Context, string, sdp.Offer) (sdp.Answer, error)
@@ -26,10 +27,10 @@ type AnswerOffer func(context.Context, string, sdp.Offer) (sdp.Answer, error)
 // A HandleRequest func is called when a client wants to connect to connect to oneshot.
 // The HandleRequest func is expected to create a peer and use it create an offer to the client.
 // The sdp exchange is transacted via the AnswerOffer arg.
-type HandleRequest func(context.Context, AnswerOffer) error
+type HandleRequest func(context.Context, string, *webrtc.Configuration, AnswerOffer) error
 
-func (h HandleRequest) HandleRequest(ctx context.Context, id string, offer AnswerOffer) error {
-	return h(ctx, offer)
+func (h HandleRequest) HandleRequest(ctx context.Context, id string, conf *webrtc.Configuration, offer AnswerOffer) error {
+	return h(ctx, id, conf, offer)
 }
 
 type ClientSignaller interface {

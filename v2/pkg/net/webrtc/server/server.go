@@ -31,13 +31,16 @@ func (s *Server) Wait() {
 	s.wg.Wait()
 }
 
-func (s *Server) HandleRequest(ctx context.Context, id string, answerOfferFunc signallers.AnswerOffer) error {
+func (s *Server) HandleRequest(ctx context.Context, id string, conf *webrtc.Configuration, answerOfferFunc signallers.AnswerOffer) error {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
+	if conf == nil {
+		conf = s.config
+	}
 	// create a new peer connection.
 	// newPeerConnection does not wait for the peer connection to be established.
-	pc, pcErrs := newPeerConnection(ctx, id, answerOfferFunc, s.config)
+	pc, pcErrs := newPeerConnection(ctx, id, answerOfferFunc, conf)
 	if pc == nil {
 		err := <-pcErrs
 		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)

@@ -222,7 +222,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 
 			// get the offer
 			log.Println("sending offer request to handler ...")
-			if err := handler.HandleRequest(ctx, m.SessionID, s.answerOffer); err != nil {
+			if err := handler.HandleRequest(ctx, m.SessionID, m.Configuration, s.answerOffer); err != nil {
 				return fmt.Errorf("error handling request: %w", err)
 			}
 			log.Println("... handler finished processing offer request")
