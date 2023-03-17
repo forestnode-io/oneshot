@@ -57,6 +57,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					}
 				}
 
+				// TODO(raphaelreyna): send the webrtcconfig to the handler
 				handler.HandleRequest(ctx, strconv.Itoa(id), nil, func(ctx context.Context, id string, o sdp.Offer) (sdp.Answer, error) {
 					offerPath := filepath.Join(event.Name, "offer")
 					offer, err := o.MarshalJSON()

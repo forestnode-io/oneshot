@@ -169,7 +169,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	// send the arrival request
 	log.Println("sending arrival request to signalling server ...")
 	ar := messages.ServerArrivalRequest{
-		ID:        "",
+		ID:        s.id,
 		BasicAuth: nil,
 		URL:       nil,
 	}

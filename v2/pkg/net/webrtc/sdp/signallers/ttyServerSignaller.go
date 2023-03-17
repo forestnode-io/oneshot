@@ -37,6 +37,7 @@ func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) 
 
 	id := 0
 	for s.cancel != nil {
+		// TODO(raphaelreyna): send the webrtcconfig to the handler
 		handler.HandleRequest(ctx, strconv.Itoa(id), nil, s.answerOffer)
 		id++
 
