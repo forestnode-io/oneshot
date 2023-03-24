@@ -1,7 +1,6 @@
 import { DataChannelMTU } from "./constants";
 
 export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo | URL, options?: RequestInit): Promise<void> {
-    console.log('writeHeader: ', resource, options)
     const method = options?.method || 'GET';
     let headerString = `${method} ${resource} HTTP/1.1\n`;
 
@@ -10,6 +9,7 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
         if (!headers.has('User-Agent')) {
             headers.append('User-Agent', navigator.userAgent);
         }
+        console.log("writing HTTPOverWebRTC header: ", headers)
         headers.forEach((value, key) => {
             headerString += `${key}: ${value}\n`;
         });

@@ -52,9 +52,6 @@ export function rtcFetchFactory(dc: RTCDataChannel, basicAuthToken?: string): (r
                         const contentLength = parseInt(h.get('Content-Length')!);
                         progCallback(-1, contentLength);
                     }
-                    if (basicAuthToken) {
-                        h.append('X-HTTPOverWebRTC-Authorization', basicAuthToken);
-                    }
 
                     let responseInit: ResponseInit = {
                         status: status,
@@ -110,10 +107,14 @@ export function rtcFetchFactory(dc: RTCDataChannel, basicAuthToken?: string): (r
             }
         }
 
+        if (!options) {
+            options = {};
+        }
+        if (!options.headers) {
+            options.headers = new Headers();
+        }
+
         if (options?.body instanceof FormData) {
-            if (!options.headers) {
-                options.headers = new Headers();
-            }
             if (options.headers instanceof Headers) {
                 options.headers.append('Content-Type', 'multipart/form-data; boundary=' + boundary);
             } else if (typeof options.headers === 'object') {
@@ -121,6 +122,18 @@ export function rtcFetchFactory(dc: RTCDataChannel, basicAuthToken?: string): (r
                     options.headers.push(['Content-Type', 'multipart/form-data; boundary=' + boundary]);
                 } else {
                     options.headers['Content-Type'] = 'multipart/form-data; boundary=' + boundary;
+                }
+            }
+        }
+
+        if (basicAuthToken) {
+            if (options.headers instanceof Headers) {
+                options.headers.append('X-HTTPOverWebRTC-Authorization', basicAuthToken);
+            } else if (typeof options.headers === 'object') {
+                if (options.headers instanceof Array) {
+                    options.headers.push(['X-HTTPOverWebRTC-Authorization', basicAuthToken]);
+                } else {
+                    options.headers['X-HTTPOverWebRTC-Authorization'] = basicAuthToken;
                 }
             }
         }
