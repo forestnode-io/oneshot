@@ -5,7 +5,7 @@ import { parseStatusLine, parseHeader } from '../util';
 import { boundary, BufferedAmountLowThreshold } from './constants';
 
 // rtcFetchFactory returns a function that can be used as an almost drop-in replacement for the fetch API
-export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response> {
+export function rtcFetchFactory(dc: RTCDataChannel, basicAuthToken?: string): (resource: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response> {
     dc.bufferedAmountLowThreshold = BufferedAmountLowThreshold;
     dc.binaryType = 'arraybuffer';
     let f = (resource: RequestInfo | URL, options?: RequestInit | undefined, progCallback?: (n: number, total?: number) => Promise<void>): Promise<Response> => {
@@ -51,6 +51,9 @@ export function rtcFetchFactory(dc: RTCDataChannel): (resource: RequestInfo | UR
                     if (h.has('Content-Length') && progCallback) {
                         const contentLength = parseInt(h.get('Content-Length')!);
                         progCallback(-1, contentLength);
+                    }
+                    if (basicAuthToken) {
+                        h.append('X-HTTPOverWebRTC-Authorization', basicAuthToken);
                     }
 
                     let responseInit: ResponseInit = {

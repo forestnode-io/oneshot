@@ -1,5 +1,5 @@
 {
-  "name": "oneshot-webrtc-client",
+  "name": "@oneshot-uno/http-over-webrtc",
   "version": "0.1.0",
   "author": "Raphael Reyna",
   "main": "main.ts",

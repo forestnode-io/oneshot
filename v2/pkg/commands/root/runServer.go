@@ -59,12 +59,13 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if err := r.configureServer(flags); err != nil {
-		return err
+	baMessage, err := r.configureServer(flags)
+	if err != nil {
+		return fmt.Errorf("failed to configure server: %w", err)
 	}
 
 	go func() {
-		if err := r.listenWebRTC(ctx); err != nil {
+		if err := r.listenWebRTC(ctx, baMessage); err != nil {
 			log.Printf("failed to listen for WebRTC connections: %v", err)
 		}
 	}()

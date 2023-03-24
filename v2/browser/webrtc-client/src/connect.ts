@@ -1,5 +1,4 @@
-import { visit } from "./browser/visit";
-import { WebRTCClient } from "./webrtcClient";
+import { HTTPOverWebRTCClient } from "./webrtcClient";
 
 export function autoOnAnswerFactory(endpoint: string, sessionID: string | undefined): (answer: RTCSessionDescription) => void {
     return (answer: RTCSessionDescription) => {
@@ -39,6 +38,7 @@ export type connectConfig = {
     offer: RTCSessionDescription;
     sessionID: string | undefined;
     endpoint: string;
+    baToken: string | undefined;
 }
 
 export function connect(config: connectConfig) {
@@ -47,8 +47,8 @@ export function connect(config: connectConfig) {
         return;
     }
 
-    new WebRTCClient(config.rtcConfig, config.onAnswer).
-        answerOffer(config.offer).then(() => {
-            visit('/', {})
-        });
+    const client = new HTTPOverWebRTCClient(config.rtcConfig, config.baToken);
+    const resp = client.answerOffer(config.offer);
+    resp.ConnectionEstablished.then(() => client.visit('/', {}));
+    resp.Answer.then(config.onAnswer);
 }

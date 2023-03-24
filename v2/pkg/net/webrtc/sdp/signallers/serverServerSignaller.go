@@ -28,11 +28,18 @@ type serverServerSignaller struct {
 	heartbeatPeriod time.Duration
 	heartbeatMu     sync.Mutex
 
+	basicAuth *messages.BasicAuth
+
 	msgChan chan messages.Message
 	errChan chan error
 }
 
-func NewServerServerSignaller(ssURL, id, url string, urlRequired bool) ServerSignaller {
+type BasicAuth struct {
+	Username string
+	Password string
+}
+
+func NewServerServerSignaller(ssURL, id, url string, urlRequired bool, ba *messages.BasicAuth) ServerSignaller {
 	return &serverServerSignaller{
 		ssURL:           ssURL,
 		id:              id,
@@ -42,6 +49,7 @@ func NewServerServerSignaller(ssURL, id, url string, urlRequired bool) ServerSig
 		msgChan:         make(chan messages.Message, 1),
 		errChan:         make(chan error, 1),
 		heartbeatPeriod: sdp.PingWindowDuration / 2,
+		basicAuth:       ba,
 	}
 }
 
@@ -170,8 +178,13 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	log.Println("sending arrival request to signalling server ...")
 	ar := messages.ServerArrivalRequest{
 		ID:        s.id,
-		BasicAuth: nil,
-		URL:       nil,
+		BasicAuth: s.basicAuth,
+	}
+	if s.url != "" {
+		ar.URL = &messages.SessionURLRequest{
+			URL:      s.url,
+			Required: s.urlRequired,
+		}
 	}
 	if err = s.write(&ar); err != nil {
 		return err

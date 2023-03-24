@@ -6,11 +6,12 @@ import (
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/rs/cors"
 	"github.com/spf13/pflag"
 )
 
-func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
+func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth, error) {
 	var (
 		timeout, _    = flags.GetDuration("timeout")
 		allowBots, _  = flags.GetBool("allow-bots")
@@ -19,7 +20,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 
 	uname, passwd, err := usernamePassword(flags)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var (
@@ -31,7 +32,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 		if viewPath != "" {
 			unauthenticatedViewBytes, err = os.ReadFile(viewPath)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
@@ -40,7 +41,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 
 	tlsCert, tlsKey, err := tlsCertAndKey(flags)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	goneHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,21 +54,22 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) error {
 	}
 
 	sfa := flags.Lookup("max-read-size").Value.(*commands.SizeFlagArg)
-
 	noLoginTrigger, _ := flags.GetBool("dont-trigger-login")
+	baMiddleware, basicAuthMessage, err := oneshothttp.BasicAuthMiddleware(
+		unauthenticatedHandler(!noLoginTrigger, unauthenticatedStatus, unauthenticatedViewBytes),
+		uname, passwd)
+
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
 			Chain(oneshothttp.LimitReaderMiddleware(int64(*sfa))).
 			Chain(oneshothttp.MiddlewareShim(corsMW)).
 			Chain(oneshothttp.BotsMiddleware(allowBots)).
-			Chain(oneshothttp.BasicAuthMiddleware(
-				unauthenticatedHandler(!noLoginTrigger, unauthenticatedStatus, unauthenticatedViewBytes),
-				uname, passwd)),
+			Chain(baMiddleware),
 	}...)
 	r.server.TLSCert = tlsCert
 	r.server.TLSKey = tlsKey
 	r.server.Timeout = timeout
 	r.server.ExitOnFail = exitOnFail
 
-	return nil
+	return basicAuthMessage, nil
 }

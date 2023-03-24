@@ -16,24 +16,17 @@
 {{/*
 {
     AutoConnect bool
-    ICEServerURL string
-    RTCConfiguration string
-    SessionID string
-    Offer string
-    Endpoint string
+    SessionToken string
+    BasicAuthToken string
 }
 */}}
 {{ define "index" }}
 <!DOCTYPE html>
 <html>
 <head>
+    <script>window.basicAuthToken = "{{ .BasicAuthToken }}"</script>
     {{ if .AutoConnect }}<script>
-        window.config = {
-            RTCConfigurationJSON: "{{ .RTCConfiguration }}",
-            SessionID: "{{ .SessionID }}",
-            OfferJSON: "{{ .Offer }}",
-            Endpoint: "{{ .Endpoint }}",
-        };
+        window.sessionToken = "{{ .SessionToken }}";
     </script>{{ end }}
 </head>
 <body>

@@ -1,40 +1,83 @@
-import { WebRTCClient } from './src/webrtcClient';
+import { HTTPOverWebRTCClient } from './src/webrtcClient';
 import { autoOnAnswerFactory, manualOnAnswer, connect, connectConfig } from './src/connect';
 
 declare global {
     interface Window {
         WebRTCClient: Function;
         rtcReady: boolean;
-        config: {
-            RTCConfigurationJSON: string;
-            SessionID: string;
-            OfferJSON: string;
-            Endpoint: string;
-        };
+        sessionToken: string;
+        basicAuthToken: string | undefined;
     }
 }
 
-window.WebRTCClient = WebRTCClient;
+// export webrtc client to global scope
+window.WebRTCClient = HTTPOverWebRTCClient;
 
-function main() {
+type Config = {
+    RTCConfiguration: RTCConfiguration;
+    RTCSessionDescription: RTCSessionDescription;
+    SessionID: string;
+};
+
+function fetchConfig(): Promise<Config> {
+    let opts: RequestInit = {
+        credentials: 'same-origin',
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Session-Token': window.sessionToken,
+        },
+    }
+    return fetch(window.location.href, opts)
+        .then((res) => {
+            if (res.status !== 200) {
+                throw new Error('failed to fetch config: ' + res.status + ' ' + res.statusText);
+            }
+            return res.json();
+        })
+        .then((json) => {
+            if (!json.RTCSessionDescription || !json.RTCConfiguration || !json.SessionID) {
+                throw new Error('failed to fetch config: invalid json');
+            }
+
+            return json as Config;
+        })
+        .catch((err) => {
+            throw new Error(`failed to fetch config: ${err}`);
+        });
+}
+
+
+async function main() {
     const button = document.getElementById('connect-button');
 
     if (button) {
-        button.onclick = () => {
-            try {
-                connect(getConfig(false));
-            } catch (e) {
-                alert(e);
-                return;
-            }
-        };
+        // no autoconnect, assign connection handler to button
+        try {
+            let conf = await getConfig(false);
+            button.onclick = () => {
+                try {
+                    connect(conf);
+                } catch (e) {
+                    alert(e);
+                    return;
+                }
+            };
+        } catch (e) {
+            alert(e);
+            return;
+        }
     } else {
+        // autoconnect
         const span = document.createElement('span');
         span.innerText = 'tunnelling to oneshot server...';
         document.body.appendChild(span);
 
         try {
-            connect(getConfig(true));
+            let conf = await getConfig(true);
+            console.log('got connection config: ', conf);
+            connect(conf);
         } catch (e) {
             alert(e);
             return;
@@ -42,37 +85,24 @@ function main() {
     }
 }
 
-function getConfig(autoAnswer: boolean): connectConfig {
-    const cconfig: connectConfig = {} as connectConfig;
-    const config = window.config;
-    if (!config) {
-        throw new Error('no config');
-    }
+async function getConfig(autoAnswer: boolean): Promise<connectConfig> {
+    let cconfig = {} as connectConfig;
+    try {
+        let remoteConfig = await fetchConfig();
+        cconfig.rtcConfig = remoteConfig.RTCConfiguration;
+        cconfig.offer = remoteConfig.RTCSessionDescription;
+        cconfig.sessionID = remoteConfig.SessionID;
+        cconfig.endpoint = window.location.href;
+        cconfig.baToken = window.basicAuthToken;
 
-    cconfig.rtcConfig = JSON.parse(config.RTCConfigurationJSON);
-    if (!cconfig.rtcConfig) {
-        throw new Error('no rtc config');
-    }
-    if (!cconfig.rtcConfig.iceServers) {
-        throw new Error('no ice servers');
-    }
-    cconfig.sessionID = config.SessionID;
-    if (!cconfig.sessionID) {
-        throw new Error('no session id');
-    }
-    cconfig.offer = JSON.parse(config.OfferJSON);
-    if (!cconfig.offer) {
-        throw new Error('no offer');
-    }
-    cconfig.endpoint = config.Endpoint;
-    if (!cconfig.endpoint) {
-        throw new Error('no endpoint');
-    }
-
-    if (autoAnswer) {
-        cconfig.onAnswer = autoOnAnswerFactory(cconfig.endpoint, cconfig.sessionID);
-    } else {
-        cconfig.onAnswer = manualOnAnswer;
+        if (autoAnswer) {
+            cconfig.onAnswer = autoOnAnswerFactory(cconfig.endpoint, cconfig.sessionID);
+        } else {
+            cconfig.onAnswer = manualOnAnswer;
+        }
+    } catch (e) {
+        alert(e);
+        return Promise.reject(e);
     }
 
     return cconfig;

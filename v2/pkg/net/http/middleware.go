@@ -1,8 +1,14 @@
 package http
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Middleware func(http.HandlerFunc) http.HandlerFunc
@@ -37,15 +43,33 @@ func BotsMiddleware(block bool) Middleware {
 	}
 }
 
-func BasicAuthMiddleware(unauthenticated http.HandlerFunc, username, password string) Middleware {
+func BasicAuthMiddleware(unauthenticated http.HandlerFunc, username, password string) (Middleware, *messages.BasicAuth, error) {
 	if username == "" && password == "" {
 		return func(hf http.HandlerFunc) http.HandlerFunc {
 			return hf
-		}
+		}, nil, nil
+	}
+
+	uHash := sha256.Sum256([]byte(username))
+	pHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to hash username or password: %w", err)
+	}
+	ba := messages.BasicAuth{
+		UsernameHash: uHash[:],
+		PasswordHash: pHash,
+		Token:        uuid.NewString(),
 	}
 
 	return func(authenticated http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			if token := r.Header.Get("X-HTTPOverWebRTC-Authorization"); token != "" {
+				if token == ba.Token {
+					authenticated(w, r)
+					return
+				}
+			}
+
 			u, p, ok := r.BasicAuth()
 			if !ok {
 				unauthenticated(w, r)
@@ -62,7 +86,7 @@ func BasicAuthMiddleware(unauthenticated http.HandlerFunc, username, password st
 			}
 			authenticated(w, r)
 		}
-	}
+	}, &ba, nil
 }
 
 // botHeaders are the known User-Agent header values in use by bots / machines

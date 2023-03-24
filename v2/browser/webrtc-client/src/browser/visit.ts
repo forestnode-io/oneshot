@@ -3,7 +3,10 @@ import { triggerDownload } from './triggerDownload';
 
 const text_MIMERegexp = /^text\/.*$/;
 
-export async function visit(request: RequestInfo | URL, options?: RequestInit | undefined): Promise<void> {
+export async function visit(request: RequestInfo | URL,
+    options?: RequestInit | undefined,
+    fetcher: ((request: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response>) = fetch,
+    ): Promise<void> {
     const spinnerEl = document.createElement('span');
     document.body.innerHTML = '';
     document.body.appendChild(spinnerEl);
@@ -30,7 +33,7 @@ export async function visit(request: RequestInfo | URL, options?: RequestInit | 
     interface progFetchIface {
         (request: RequestInfo | URL, options?: RequestInit | undefined, progCallback?: (n: number, total?: number) => Promise<void>): Promise<Response>;
     }
-    const progFetch = fetch as progFetchIface;
+    const progFetch = fetcher as progFetchIface;
     var resp = await progFetch(request, options, progCallback);
     const header = resp.headers!;
     var ct = header.get('Content-Type') ? header.get('Content-Type')! : '';
