@@ -57,6 +57,9 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	iceServerURL := c.webrtcConfig.ICEServers[0].URLs[0]
+	if iceServerURL == "" {
+		iceServerURL = ice.STUNServerURLS[0]
+	}
 	s, err := newServer(iceServerURL, requiredID)
 	if err != nil {
 		return err
@@ -85,4 +88,10 @@ func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
 	}
 
 	return nil
+}
+
+type ClientOfferRequestResponse struct {
+	RTCSessionDescription *webrtc.SessionDescription `json:"RTCSessionDescription"`
+	RTCConfiguration      *webrtc.Configuration      `json:"RTCConfiguration"`
+	SessionID             string                     `json:"SessionID"`
 }

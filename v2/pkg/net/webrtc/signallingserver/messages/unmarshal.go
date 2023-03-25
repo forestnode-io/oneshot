@@ -3,6 +3,8 @@ package messages
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 )
 
 var ErrInvalidRequestType = fmt.Errorf("invalid request type")
@@ -63,4 +65,19 @@ func Unmarshal(typeName string, data []byte) (Message, error) {
 	}
 
 	return nil, fmt.Errorf("unknown message type: %s", typeName)
+}
+
+func FromRPCEnvelope(env *proto.Envelope) (Message, error) {
+	return Unmarshal(env.Type, env.Data)
+}
+
+func ToRPCEnvelope(msg Message) (*proto.Envelope, error) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &proto.Envelope{
+		Type: msg.Type(),
+		Data: data,
+	}, nil
 }

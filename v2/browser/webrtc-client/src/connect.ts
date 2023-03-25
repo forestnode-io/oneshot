@@ -5,7 +5,8 @@ export function autoOnAnswerFactory(endpoint: string, sessionID: string | undefi
         fetch(endpoint, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
             },
             body: JSON.stringify({
                 "SessionID": sessionID,

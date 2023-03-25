@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
-	"sync"
-	"time"
 
+	pionwebrtc "github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/transport"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 )
 
 var id = "oneshot-signalling-server"
@@ -18,81 +16,31 @@ var id = "oneshot-signalling-server"
 type oneshotServer struct {
 	Arrival messages.ServerArrivalRequest
 	done    chan struct{}
-	msgConn *transport.Transport
-
-	resetExpirationTimer func()
-
-	slowDownHeartbeatTo    time.Duration
-	slowDownHeartAfter     time.Duration
-	slowDownHeartbeatTimer *time.Timer
 
 	msgChan chan messages.Message
 	errChan chan error
 
-	mu sync.Mutex
+	stream proto.SignallingServer_ConnectServer
 }
 
-func (o *oneshotServer) startReadPump(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			m, err := o.msgConn.Read()
-			if err != nil {
-				o.errChan <- err
-				close(o.errChan)
-				close(o.msgChan)
-				return
-			}
-
-			_, ok := m.(*messages.Ping)
-			if ok {
-				o.resetExpirationTimer()
-				continue
-			}
-
-			o.msgChan <- m
-		}
-	}()
-}
-
-func (o *oneshotServer) read() (messages.Message, error) {
-	select {
-	case msg := <-o.msgChan:
-		return msg, nil
-	case err := <-o.errChan:
-		return nil, err
-	}
-}
-
-func (o *oneshotServer) write(msg messages.Message) error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	return o.msgConn.Write(msg)
-}
-
-func newOneshotServer(ctx context.Context, requiredID string, conn net.Conn, requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
+func newOneshotServer(ctx context.Context, requiredID string, stream proto.SignallingServer_ConnectServer, requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
 	o := oneshotServer{
-		msgConn:             transport.NewTransport(conn),
-		done:                make(chan struct{}),
-		slowDownHeartbeatTo: 8 * sdp.PingWindowDuration,
-		slowDownHeartAfter:  6 * time.Second,
-		msgChan:             make(chan messages.Message, 1),
-		errChan:             make(chan error, 1),
+		done:    make(chan struct{}),
+		stream:  stream,
+		msgChan: make(chan messages.Message, 1),
+		errChan: make(chan error, 1),
 	}
-
-	o.startReadPump(ctx)
 
 	// exchange version info
-	m, err := o.read()
+	env, err := stream.Recv()
 	if err != nil {
 		return nil, fmt.Errorf("unable to read handshake: %w", err)
 	}
+	m, err := messages.FromRPCEnvelope(env)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read handshake: %w", err)
+	}
+
 	rh, ok := m.(*messages.Handshake)
 	if !ok {
 		return nil, messages.ErrInvalidRequestType
@@ -100,6 +48,7 @@ func newOneshotServer(ctx context.Context, requiredID string, conn net.Conn, req
 	if rh.Error != nil {
 		return nil, fmt.Errorf("error from remote: %s", rh.Error)
 	}
+	log.Printf("oneshot client version: %s", rh.VersionInfo.Version)
 
 	h := messages.Handshake{
 		ID: id,
@@ -110,15 +59,24 @@ func newOneshotServer(ctx context.Context, requiredID string, conn net.Conn, req
 
 	if rh.ID != requiredID && requiredID != "" {
 		h.Error = fmt.Errorf("unautharized")
-		err = o.write(&h)
+		env, err = messages.ToRPCEnvelope(&h)
 		if err != nil {
+			return nil, err
+		}
+		if err = stream.Send(env); err != nil {
 			return nil, err
 		}
 
 		return nil, fmt.Errorf("invalid id")
 	}
 
-	err = o.write(&h)
+	env, err = messages.ToRPCEnvelope(&h)
+	if err != nil {
+		return nil, err
+	}
+	if err = stream.Send(env); err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, fmt.Errorf("unable to write handshake: %w", err)
 	}
@@ -126,7 +84,11 @@ func newOneshotServer(ctx context.Context, requiredID string, conn net.Conn, req
 	log.Printf("oneshot server version: %s", rh.VersionInfo.Version)
 
 	// grab the arrival request and store it
-	m, err = o.read()
+	env, err = stream.Recv()
+	if err != nil {
+		return nil, fmt.Errorf("unable to read arrival request: %w", err)
+	}
+	m, err = messages.FromRPCEnvelope(env)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read arrival request: %w", err)
 	}
@@ -138,60 +100,56 @@ func newOneshotServer(ctx context.Context, requiredID string, conn net.Conn, req
 	o.Arrival = *ar
 
 	resp := messages.ServerArrivalResponse{}
-	if rurl := ar.URL; rurl != nil {
-		assignedURL, err := requestURL(rurl.URL, rurl.Required)
-		if err != nil {
-			return nil, fmt.Errorf("unable to assign requested url: %w", err)
-		}
-		resp.AssignedURL = assignedURL
+	rurl := ""
+	rurlRequired := false
+	if ar.URL != nil {
+		rurl = ar.URL.URL
+		rurlRequired = ar.URL.Required
 	}
+	assignedURL, err := requestURL(rurl, rurlRequired)
+	if err != nil {
+		return nil, fmt.Errorf("unable to assign requested url: %w", err)
+	}
+	resp.AssignedURL = assignedURL
+	log.Printf("assigned url: %s", assignedURL)
 
-	if err = o.write(&resp); err != nil {
+	env, err = messages.ToRPCEnvelope(&resp)
+	if err != nil {
 		return nil, err
 	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	pwd := sdp.PingWindowDuration
-	t := time.AfterFunc(pwd, func() {
-		log.Printf("ping window expired")
-		cancel()
-	})
-	o.resetExpirationTimer = func() {
-		t.Reset(pwd)
+	if err = stream.Send(env); err != nil {
+		return nil, err
 	}
-
-	o.slowDownHeartbeatTimer = time.AfterFunc(o.slowDownHeartAfter, func() {
-		newPwd := o.slowDownHeartbeatTo
-		diff := newPwd - pwd
-		pwd = newPwd
-		if diff > 0 {
-			time.Sleep(diff)
-		}
-		o.write(&messages.UpdatePingRateRequest{
-			Period: newPwd / 2,
-		})
-		log.Printf("slowed down heartbeat period to %+v", pwd)
-	})
 
 	return &o, nil
 }
 
-func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID string) (sdp.Offer, error) {
+func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID string, conf *pionwebrtc.Configuration) (sdp.Offer, error) {
 	req := messages.GetOfferRequest{
-		SessionID: sessionID,
-	}
-	if err := o.write(&req); err != nil {
-		return "", err
+		SessionID:     sessionID,
+		Configuration: conf,
 	}
 
-	resp, err := o.read()
+	env, err := messages.ToRPCEnvelope(&req)
 	if err != nil {
 		return "", err
 	}
+	if err = o.stream.Send(env); err != nil {
+		return "", err
+	}
 
-	gor, ok := resp.(*messages.GetOfferResponse)
+	env, err = o.stream.Recv()
+	if err != nil {
+		return "", fmt.Errorf("unable to read offer: %w", err)
+	}
+	m, err := messages.FromRPCEnvelope(env)
+	if err != nil {
+		return "", fmt.Errorf("unable to read offer: %w", err)
+	}
+
+	gor, ok := m.(*messages.GetOfferResponse)
 	if !ok {
-		return "", fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", resp.Type())
+		return "", fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", m.Type())
 	}
 
 	return sdp.Offer(gor.Offer), nil
@@ -206,26 +164,33 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer
 		SessionID: sessionID,
 		Answer:    string(answer),
 	}
-	if err := o.write(&req); err != nil {
-		return fmt.Errorf("unable to send answer: %w", err)
-	}
-
-	resp, err := o.read()
+	env, err := messages.ToRPCEnvelope(&req)
 	if err != nil {
 		return err
 	}
+	if err = o.stream.Send(env); err != nil {
+		return err
+	}
 
-	gar, ok := resp.(*messages.GotAnswerResponse)
+	env, err = o.stream.Recv()
+	if err != nil {
+		return fmt.Errorf("unable to read offer: %w", err)
+	}
+	m, err := messages.FromRPCEnvelope(env)
+	if err != nil {
+		return fmt.Errorf("unable to read offer: %w", err)
+	}
+
+	gar, ok := m.(*messages.GotAnswerResponse)
 	if !ok {
-		return fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", resp.Type())
+		return fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", m.Type())
 	}
 
 	return gar.Error
 }
 
-func (o *oneshotServer) Close() error {
+func (o *oneshotServer) Close() {
 	close(o.done)
-	return o.msgConn.Close()
 }
 
 func (o *oneshotServer) Done() <-chan struct{} {

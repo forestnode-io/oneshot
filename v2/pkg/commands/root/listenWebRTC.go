@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/pflag"
+	"google.golang.org/grpc"
 )
 
 func (r *rootCommand) listenWebRTC(ctx context.Context, ba *messages.BasicAuth) error {
@@ -77,26 +79,42 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, ba *messages.BasicA
 			return nil, fmt.Errorf("signalling directory (--webrtc-signalling-dir) or signalling server url (--webrtc-signalling-server-url) must be set when serving from stdin or to stdout")
 		}
 		if webRTCSignallingURL != "" {
-			return signallers.NewServerServerSignaller(
-				webRTCSignallingURL,
-				webRTCSignallingID,
-				webrtcClientURL,
-				webrtcClientURLRequired,
-				ba,
-			), nil
+			conf := signallers.ServerServerSignallerConfig{
+				ID:                  webRTCSignallingID,
+				SignallingServerURL: webRTCSignallingURL,
+				GRPCOpts: []grpc.DialOption{
+					grpc.WithInsecure(),
+					grpc.WithBlock(),
+					grpc.WithTimeout(5 * time.Second),
+				},
+
+				URL:         webrtcClientURL,
+				URLRequired: webrtcClientURLRequired,
+
+				BasicAuth: ba,
+			}
+			return signallers.NewServerServerSignaller(&conf), nil
 		}
 
 		return signallers.NewFileServerSignaller(webRTCSignallingDir), nil
 	} else if webRTCSignallingDir != "" {
 		return signallers.NewFileServerSignaller(webRTCSignallingDir), nil
 	} else if webRTCSignallingURL != "" {
-		return signallers.NewServerServerSignaller(
-			webRTCSignallingURL,
-			webRTCSignallingID,
-			webrtcClientURL,
-			webrtcClientURLRequired,
-			ba,
-		), nil
+		conf := signallers.ServerServerSignallerConfig{
+			ID:                  webRTCSignallingID,
+			SignallingServerURL: webRTCSignallingURL,
+			GRPCOpts: []grpc.DialOption{
+				grpc.WithInsecure(),
+				grpc.WithBlock(),
+				grpc.WithTimeout(5 * time.Second),
+			},
+
+			URL:         webrtcClientURL,
+			URLRequired: webrtcClientURLRequired,
+
+			BasicAuth: ba,
+		}
+		return signallers.NewServerServerSignaller(&conf), nil
 	}
 
 	return signallers.NewTTYServerSignaller(), nil

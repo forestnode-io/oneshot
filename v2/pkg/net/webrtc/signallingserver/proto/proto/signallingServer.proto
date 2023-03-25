@@ -1,0 +1,13 @@
+syntax = "proto3";
+package signallingserverproto;
+option go_package = "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto";
+
+message Envelope {
+    string type = 1;
+    bytes data = 2;
+    string error = 3;
+}
+
+service SignallingServer {
+    rpc Connect(stream Envelope) returns (stream Envelope) {}
+}

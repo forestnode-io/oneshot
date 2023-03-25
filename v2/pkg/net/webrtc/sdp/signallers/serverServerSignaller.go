@@ -4,162 +4,100 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
-	"net"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/transport"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"google.golang.org/grpc"
 )
 
 type serverServerSignaller struct {
 	cancel func()
-	ssURL  string
-	id     string
-	t      *transport.Transport
+	stream proto.SignallingServer_ConnectClient
 
-	url         string
-	urlRequired bool
-	offerChan   chan string
+	offerChan chan string
 
-	heartbeatPeriod time.Duration
-	heartbeatMu     sync.Mutex
-
-	basicAuth *messages.BasicAuth
+	conf *ServerServerSignallerConfig
 
 	msgChan chan messages.Message
 	errChan chan error
 }
 
-type BasicAuth struct {
-	Username string
-	Password string
+type ServerServerSignallerConfig struct {
+	ID                  string
+	URL                 string
+	URLRequired         bool
+	BasicAuth           *messages.BasicAuth
+	SignallingServerURL string
+	GRPCOpts            []grpc.DialOption
 }
 
-func NewServerServerSignaller(ssURL, id, url string, urlRequired bool, ba *messages.BasicAuth) ServerSignaller {
+func NewServerServerSignaller(c *ServerServerSignallerConfig) ServerSignaller {
 	return &serverServerSignaller{
-		ssURL:           ssURL,
-		id:              id,
-		url:             url,
-		urlRequired:     urlRequired,
-		offerChan:       make(chan string),
-		msgChan:         make(chan messages.Message, 1),
-		errChan:         make(chan error, 1),
-		heartbeatPeriod: sdp.PingWindowDuration / 2,
-		basicAuth:       ba,
+		conf:      c,
+		offerChan: make(chan string),
+		msgChan:   make(chan messages.Message, 1),
+		errChan:   make(chan error, 1),
 	}
-}
-
-func (s *serverServerSignaller) startHeartbeat(ctx context.Context) {
-	ping := messages.Ping{}
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(s.heartbeatPeriod):
-				err := s.write(&ping)
-				if err != nil {
-					if strings.Contains(err.Error(), "broken pipe") {
-						return
-					}
-					log.Printf("error sending heartbeat: %v", err)
-				}
-			}
-		}
-	}()
-}
-
-func (s *serverServerSignaller) startReadPump(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				m, err := s.t.Read()
-				if err != nil {
-					s.errChan <- err
-					close(s.msgChan)
-					close(s.errChan)
-					return
-				}
-
-				u, ok := m.(*messages.UpdatePingRateRequest)
-				if ok {
-					if u.Period != 0 {
-						s.heartbeatPeriod = u.Period
-						log.Println("updated heartbeat period to", s.heartbeatPeriod)
-					}
-					continue
-				}
-
-				s.msgChan <- m
-			}
-		}
-	}()
-}
-
-func (s *serverServerSignaller) read() (messages.Message, error) {
-	select {
-	case m := <-s.msgChan:
-		return m, nil
-	case err := <-s.errChan:
-		return nil, err
-	}
-}
-
-func (s *serverServerSignaller) write(m messages.Message) error {
-	s.heartbeatMu.Lock()
-	defer s.heartbeatMu.Unlock()
-	err := s.t.Write(m)
-
-	return err
 }
 
 func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 
-	log.Printf("connecting to signalling server at %s", s.ssURL)
-	conn, err := net.Dial("tcp", s.ssURL)
-	if err != nil {
-		return fmt.Errorf("unable to connect to signalling server: %w", err)
+	grpcOpts := []grpc.DialOption{}
+	if s.conf.GRPCOpts != nil {
+		grpcOpts = append(grpcOpts, s.conf.GRPCOpts...)
 	}
-	log.Printf("connected to signalling server at %s", s.ssURL)
+	conn, err := grpc.DialContext(ctx, s.conf.SignallingServerURL, grpcOpts...)
+	if err != nil {
+		return fmt.Errorf("error dialing signalling server: %w", err)
+	}
+	ssClient := proto.NewSignallingServerClient(conn)
 
+	stream, err := ssClient.Connect(ctx)
+	if err != nil {
+		return fmt.Errorf("error connecting to signalling server: %w", err)
+	}
+	s.stream = stream
 	go func() {
 		<-ctx.Done()
 		log.Println("closing connection to signalling server ...")
-		conn.Close()
+		if err := stream.CloseSend(); err != nil {
+			log.Printf("error closing signalling server stream: %v", err)
+		}
+		if err := conn.Close(); err != nil {
+			log.Printf("error closing signalling server connection: %v", err)
+		}
 	}()
-
-	s.t = transport.NewTransport(conn)
-	s.startReadPump(ctx)
 
 	// exchange handshake
 	log.Println("exchanging handshake with signalling server ...")
 	h := messages.Handshake{
-		ID: s.id,
+		ID: s.conf.ID,
 		VersionInfo: messages.VersionInfo{
 			Version: "0.0.1",
 		},
 	}
-	if err = s.write(&h); err != nil {
-		return err
+	env, err := messages.ToRPCEnvelope(&h)
+	if err != nil {
+		return fmt.Errorf("error marshalling handshake: %w", err)
+	}
+	if err = stream.Send(env); err != nil {
+		return fmt.Errorf("error sending handshake: %w", err)
 	}
 	log.Println("... sent handshake to the signalling server...")
 
 	log.Println("... waiting for handshake from the signalling server...")
-	m, err := s.read()
+	env, err = stream.Recv()
 	if err != nil {
-		if errors.Is(err, net.ErrClosed) {
-			return nil
-		}
-		log.Printf("error reading version info: %v", err)
+		return fmt.Errorf("error receiving handshake: %w", err)
+	}
+	m, err := messages.FromRPCEnvelope(env)
+	if err != nil {
+		log.Printf("error reading handshake: %v", err)
 		return err
 	}
 	rh, ok := m.(*messages.Handshake)
@@ -177,22 +115,30 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	// send the arrival request
 	log.Println("sending arrival request to signalling server ...")
 	ar := messages.ServerArrivalRequest{
-		ID:        s.id,
-		BasicAuth: s.basicAuth,
+		ID:        s.conf.ID,
+		BasicAuth: s.conf.BasicAuth,
 	}
-	if s.url != "" {
+	if s.conf.URL != "" {
 		ar.URL = &messages.SessionURLRequest{
-			URL:      s.url,
-			Required: s.urlRequired,
+			URL:      s.conf.URL,
+			Required: s.conf.URLRequired,
 		}
 	}
-	if err = s.write(&ar); err != nil {
-		return err
+	env, err = messages.ToRPCEnvelope(&ar)
+	if err != nil {
+		return fmt.Errorf("error marshalling arrival request: %w", err)
+	}
+	if err = stream.Send(env); err != nil {
+		return fmt.Errorf("error sending arrival request: %w", err)
 	}
 	log.Println("... sent arrival request to signalling server...")
 
 	// wait for the arrival response
-	m, err = s.read()
+	env, err = stream.Recv()
+	if err != nil {
+		return fmt.Errorf("error receiving arrival response: %w", err)
+	}
+	m, err = messages.FromRPCEnvelope(env)
 	if err != nil {
 		return err
 	}
@@ -209,8 +155,6 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		log.Printf("signalling server assigned url: %s", resp.AssignedURL)
 	}
 
-	s.startHeartbeat(ctx)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -221,12 +165,17 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 
 		// wait for the offer request
 		log.Println("waiting for offer request from signalling server ...")
-		m, err := s.read()
+		env, err = stream.Recv()
 		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
+			if errors.Is(err, io.EOF) {
+				log.Println("signalling server closed connection")
 				return nil
 			}
-			return fmt.Errorf("error reading from signalling server: %w", err)
+			return fmt.Errorf("error receiving offer request: %w", err)
+		}
+		m, err = messages.FromRPCEnvelope(env)
+		if err != nil {
+			return fmt.Errorf("error reading offer request: %w", err)
 		}
 
 		switch m := m.(type) {
@@ -256,18 +205,27 @@ func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID strin
 	gor := messages.GetOfferResponse{
 		Offer: string(offer),
 	}
-	if err := s.write(&gor); err != nil {
-		return "", err
+	env, err := messages.ToRPCEnvelope(&gor)
+	if err != nil {
+		return "", fmt.Errorf("error marshalling offer: %w", err)
+	}
+	if err = s.stream.Send(env); err != nil {
+		return "", fmt.Errorf("error sending offer: %w", err)
 	}
 	log.Println("... sent offer to signalling server")
 
 	// wait for the answer to come back
 	log.Println("waiting for answer from signalling server ...")
-	m, err := s.read()
+	env, err = s.stream.Recv()
+	if err != nil {
+		return "", fmt.Errorf("error receiving answer: %w", err)
+	}
+	m, err := messages.FromRPCEnvelope(env)
 	if err != nil {
 		log.Printf("error reading answer: %v", err)
 		return "", err
 	}
+
 	a, ok := m.(*messages.GotAnswerRequest)
 	if !ok {
 		return "", messages.ErrInvalidRequestType
@@ -278,8 +236,12 @@ func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID strin
 
 	// let the signalling server know we got the answer
 	gar := messages.GotAnswerResponse{}
-	if err := s.write(&gar); err != nil {
-		return "", err
+	env, err = messages.ToRPCEnvelope(&gar)
+	if err != nil {
+		return "", fmt.Errorf("error marshalling answer received: %w", err)
+	}
+	if err = s.stream.Send(env); err != nil {
+		return "", fmt.Errorf("error sending answer received: %w", err)
 	}
 
 	log.Println("... verified to signalling server that answer was received")
