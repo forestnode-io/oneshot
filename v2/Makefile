@@ -50,7 +50,7 @@ vet:
 .PHONY: webrtc-client
 webrtc-client:
 	npm --prefix $(WEBRTC_CLIENT_DIR) i && npm --prefix $(WEBRTC_CLIENT_DIR) run build
-	cp $(WEBRTC_CLIENT_DIR)/dist/main.minified.js ./pkg/commands/webrtc/signalling-server/main.js
+	cp $(WEBRTC_CLIENT_DIR)/dist/main.minified.js ./pkg/commands/webrtc/signalling-server/webrtc-client.js
 
 .PHONY: upload-client
 upload-client:

@@ -36,20 +36,17 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
     }
     headerString += '\n';
 
-    var pResolve: (() => void) | undefined = undefined;
-    var pReject: ((reason: any) => void) | undefined = undefined;
-    var p = new Promise<void>((resolve, reject) => {
-        pResolve = resolve;
-        pReject = reject;
-    });
+    const pump = sendPump(channel, headerString);
+    try {
+        pump();
+    } catch (e) {
+        return Promise.reject(e);
+    }
 
-    const pump = sendPump(channel, pResolve!, headerString);
-    pump();
-
-    return p;
+    return Promise.resolve();
 }
 
-function sendPump(channel: RTCDataChannel, resolve: (() => void), data: string): () => void {
+function sendPump(channel: RTCDataChannel, data: string): () => void {
     var mtu = DataChannelMTU;
     const s = function () {
         while (data.length) {
@@ -66,10 +63,23 @@ function sendPump(channel: RTCDataChannel, resolve: (() => void), data: string):
 
             const chunk = data.slice(0, mtu);
             data = data.slice(mtu);
-            channel.send(chunk);
+            try {
+                channel.send(chunk);
+            } catch (e) {
+                if (e instanceof DOMException && e.name === 'InvalidStateError') {
+                    setTimeout(() => {
+                        try {
+                            channel.send(chunk);
+                        } catch (e) {
+                            throw e;
+                        }
+                    }, 500);
+                } else {
+                    throw e;
+                }
+            }
 
             if (mtu != DataChannelMTU) {
-                resolve();
                 return;
             }
         }

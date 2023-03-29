@@ -13,6 +13,9 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 func (r *rootCommand) listenWebRTC(ctx context.Context, ba *messages.BasicAuth) error {
@@ -65,6 +68,11 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, ba *messages.BasicA
 		webRTCSignallingID, _          = flags.GetString("webrtc-signalling-server-id")
 		webRTCSignallingRequestURL, _  = flags.GetString("webrtc-signalling-server-request-url")
 		webRTCSignallingRequiredURL, _ = flags.GetString("webrtc-signalling-server-required-url")
+
+		kacp = keepalive.ClientParameters{
+			Time:    6 * time.Second, // send pings every 10 seconds if there is no activity
+			Timeout: time.Second,     // wait 1 second for ping ack before considering the connection dead
+		}
 	)
 
 	webrtcClientURL := webRTCSignallingRequestURL
@@ -79,20 +87,26 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, ba *messages.BasicA
 			return nil, fmt.Errorf("signalling directory (--webrtc-signalling-dir) or signalling server url (--webrtc-signalling-server-url) must be set when serving from stdin or to stdout")
 		}
 		if webRTCSignallingURL != "" {
+			opts := []grpc.DialOption{
+				grpc.WithBlock(),
+				grpc.WithKeepaliveParams(kacp),
+			}
 			conf := signallers.ServerServerSignallerConfig{
 				ID:                  webRTCSignallingID,
 				SignallingServerURL: webRTCSignallingURL,
-				GRPCOpts: []grpc.DialOption{
-					grpc.WithInsecure(),
-					grpc.WithBlock(),
-					grpc.WithTimeout(5 * time.Second),
-				},
 
 				URL:         webrtcClientURL,
 				URLRequired: webrtcClientURLRequired,
 
 				BasicAuth: ba,
 			}
+			if useInsecure, _ := flags.GetBool("webrtc-signalling-server-insecure"); useInsecure {
+				opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			} else {
+				opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+			}
+			conf.GRPCOpts = opts
+
 			return signallers.NewServerServerSignaller(&conf), nil
 		}
 
@@ -104,9 +118,9 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, ba *messages.BasicA
 			ID:                  webRTCSignallingID,
 			SignallingServerURL: webRTCSignallingURL,
 			GRPCOpts: []grpc.DialOption{
-				grpc.WithInsecure(),
+				grpc.WithTransportCredentials(credentials.NewTLS(nil)),
 				grpc.WithBlock(),
-				grpc.WithTimeout(5 * time.Second),
+				grpc.WithKeepaliveParams(kacp),
 			},
 
 			URL:         webrtcClientURL,

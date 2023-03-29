@@ -181,6 +181,7 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	wfs.String("webrtc-signalling-server-id", "", `ID to use for WebRTC signalling.`)
 	wfs.String("webrtc-signalling-server-request-url", "", `URL that the signalling server will try to reserve for connecting clients.`)
 	wfs.String("webrtc-signalling-server-required-url", "", `URL that the signalling server needs to reserve for connecting clients.`)
+	wfs.Bool("webrtc-signalling-server-insecure", false, `Disable TLS for WebRTC signalling server.`)
 	pflags.AddFlagSet(wfs)
 	cobra.AddTemplateFunc("webrtcFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return wfs

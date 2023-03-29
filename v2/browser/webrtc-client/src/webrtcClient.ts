@@ -48,8 +48,10 @@ export class HTTPOverWebRTCClient {
         const pc = this.peerConnection!;
         pc.onicegatheringstatechange = (event: Event) => {
             console.log("onicegatheringstatechange", pc.iceGatheringState);
+            console.log("event", event)
 
             let target = event.target as RTCPeerConnection;
+            console.log("target", target)
             if (target.iceGatheringState === 'complete' && target.localDescription) {
                 this.resolveAnswerPromise(target.localDescription);
                 //this.onAnswer(target.localDescription);
@@ -74,6 +76,7 @@ export class HTTPOverWebRTCClient {
         };
 
         pc.oniceconnectionstatechange = (event) => {
+            console.log("oniceconnectionstatechange", event)
             console.log("oniceconnectionstatechange", pc.iceConnectionState);
         };
 

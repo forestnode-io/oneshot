@@ -1,19 +1,39 @@
 import { boundary, DataChannelMTU } from './constants';
 
 export async function writeBody(channel: RTCDataChannel, body: BodyInit | null | undefined): Promise<void> {
-    if (!body) {
-        channel.send(new Uint8Array(0));
-        channel.send("");
-        return Promise.resolve();
-    }
-
-    var buf: ArrayBuffer | undefined = undefined;
-    var pResolve: (() => void) | undefined = undefined;
-    var pReject: ((reason: any) => void) | undefined = undefined;
-    var p = new Promise<void>((resolve, reject) => {
+    let pReject: ((reason: any) => void) | undefined = undefined;
+    let pResolve: (() => void) | undefined = undefined;
+    let p = new Promise<void>((resolve, reject) => {
         pResolve = resolve;
         pReject = reject;
     });
+
+    if (!body) {
+        try {
+            channel.send(new Uint8Array(0));
+            channel.send("");
+            pResolve!();
+        } catch (e) {
+            // RTCDatachannels aren't immediately ready in Safari, even after the event
+            // so we have to wait a bit and try again
+            if (e instanceof DOMException && e.name === 'InvalidStateError') {
+                setTimeout(() => {
+                    try {
+                        channel.send(new Uint8Array(0));
+                        channel.send("");
+                    } catch (e) {
+                        pReject!(e);
+                    }
+                }, 1000);
+            } else {
+                pReject!(e);
+            }
+        }
+        return p;
+    }
+
+    var buf: ArrayBuffer | undefined = undefined;
+
 
     if (body instanceof ReadableStream) {
         const streamContents = await body.getReader().read();
@@ -37,7 +57,21 @@ export async function writeBody(channel: RTCDataChannel, body: BodyInit | null |
     }
 
     const pump = sendPump(channel, buf!, pResolve);
-    pump();
+    try {
+        pump();
+    } catch (e) {
+        if (e instanceof DOMException && e.name === 'InvalidStateError') {
+            setTimeout(() => {
+                try {
+                    pump();
+                } catch (e) {
+                    pReject!(e);
+                }
+            }, 500);
+        } else {
+            pReject!(e);
+        }
+    }
 
     return p;
 }

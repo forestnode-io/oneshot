@@ -60,13 +60,7 @@ export function rtcFetchFactory(dc: RTCDataChannel, basicAuthToken?: string): (r
                     };
                     let responseBody = new ReadableStream<Uint8Array>({
                         type: 'bytes',
-                        start(controller) {
-                            if (controller instanceof ReadableByteStreamController) {
-                                if (controller.byobRequest) {
-                                    throw new Error('byobRequest not supported');
-                                }
-                            }
-                        },
+                        start(controller) {},
                         pull(controller) {
                             return new Promise((resolve, reject) => {
                                 chan.port2.onmessage = (event: MessageEvent) => {
@@ -140,9 +134,11 @@ export function rtcFetchFactory(dc: RTCDataChannel, basicAuthToken?: string): (r
 
         writeHeader(dc, resource, options).then(() => {
             writeBody(dc, options?.body).catch((err: any) => {
+                console.log("rejecting promise 1: ", err)
                 requestPromiseReject(err);
             });
         }).catch((err: any) => {
+            console.log("rejecting promise 2: ", err)
             requestPromiseReject(err);
         });
 
