@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"log"
 	"net"
 	"net/http"
@@ -19,26 +18,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const maxBodySize = 1024 * 1024
-
-//go:generate make webrtc-client
-//go:embed webrtc-client.js
-var BrowserClientJS string
-
-//go:embed index.template.html
-var HTMLTemplate string
-
-func init() {
-	if len(BrowserClientJS) == 0 {
-		panic("browserClientJS is empty")
-	}
-	BrowserClientJS = "<script>\n" + BrowserClientJS + "\n</script>"
-
-	if len(HTMLTemplate) == 0 {
-		panic("htmlTemplate is empty")
-	}
-}
-
 type requestBundle struct {
 	w         http.ResponseWriter
 	r         *http.Request
@@ -47,12 +26,9 @@ type requestBundle struct {
 }
 
 type server struct {
-	iceServerURL       string
-	htmlClientTemplate *template.Template
-	os                 *oneshotServer
-	l                  net.Listener
-	requiredID         string
-	sessionURL         string
+	os         *oneshotServer
+	requiredID string
+	sessionURL string
 
 	domain string
 	scheme string
@@ -70,21 +46,12 @@ type server struct {
 	proto.UnimplementedSignallingServerServer
 }
 
-func newServer(iceServerURL string, requiredID string) (*server, error) {
-	t, err := template.New("root").Parse(HTMLTemplate)
+func newServer(requiredID string, config *webrtc.Configuration) *server {
 	return &server{
-		iceServerURL:       iceServerURL,
-		htmlClientTemplate: t,
-		requiredID:         requiredID,
-		queue:              make(chan requestBundle, 10),
-		rtcConfig: &webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{
-				{
-					URLs: []string{iceServerURL},
-				},
-			},
-		},
-	}, err
+		requiredID: requiredID,
+		queue:      make(chan requestBundle, 10),
+		rtcConfig:  config,
+	}
 }
 
 func (s *server) run(ctx context.Context, signallingAddr, httpAddr string) error {

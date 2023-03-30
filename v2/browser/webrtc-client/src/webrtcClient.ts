@@ -30,7 +30,6 @@ export class HTTPOverWebRTCClient {
     private baToken: string | undefined;
 
     constructor(rtcConfig: RTCConfiguration, basicAuthToken?: string) {
-        //this.onAnswer = onAnswer;
         this.peerConnection = new RTCPeerConnection(rtcConfig);
         if (basicAuthToken) {
             this.baToken = basicAuthToken;

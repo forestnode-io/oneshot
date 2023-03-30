@@ -9,17 +9,20 @@ import (
 	"strconv"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type fileServerSignaller struct {
 	dirPath string
 	watcher *fsnotify.Watcher
+	config  *webrtc.Configuration
 }
 
-func NewFileServerSignaller(dir string) ServerSignaller {
+func NewFileServerSignaller(dir string, config *webrtc.Configuration) ServerSignaller {
 	return &fileServerSignaller{
 		dirPath: dir,
+		config:  config,
 	}
 }
 
@@ -57,8 +60,7 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					}
 				}
 
-				// TODO(raphaelreyna): send the webrtcconfig to the handler
-				handler.HandleRequest(ctx, strconv.Itoa(id), nil, func(ctx context.Context, id string, o sdp.Offer) (sdp.Answer, error) {
+				handler.HandleRequest(ctx, strconv.Itoa(id), s.config, func(ctx context.Context, id string, o sdp.Offer) (sdp.Answer, error) {
 					offerPath := filepath.Join(event.Name, "offer")
 					offer, err := o.MarshalJSON()
 					if err != nil {

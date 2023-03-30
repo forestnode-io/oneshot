@@ -3,7 +3,6 @@ package signallingserver
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
 	"log"
 	"net/http"
 	"net/url"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/template"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
@@ -67,15 +67,15 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK)
-	tmpltCtx := map[string]any{
-		"AutoConnect":  true,
-		"ClientJS":     template.HTML(BrowserClientJS),
-		"SessionToken": token,
+	tmpltCtx := template.Context{
+		AutoConnect:  true,
+		ClientJS:     template.ClientJS,
+		SessionToken: token,
 	}
 	if s.os.Arrival.BasicAuth != nil {
-		tmpltCtx["BasicAuthToken"] = s.os.Arrival.BasicAuth.Token
+		tmpltCtx.BasicAuthToken = s.os.Arrival.BasicAuth.Token
 	}
-	err = s.htmlClientTemplate.Execute(w, tmpltCtx)
+	err = template.WriteTo(w, tmpltCtx)
 	if err != nil {
 		log.Printf("error writing response: %v", err)
 	}

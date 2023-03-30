@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -15,12 +16,13 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
+	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v3"
 )
 
 func New() *Cmd {
@@ -189,17 +191,24 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 }
 
 func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
-	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
-	if len(urls) == 0 {
-		urls = ice.STUNServerURLS
+	path, _ := flags.GetString("webrtc-config-file")
+	if path == "" {
+		return nil
 	}
 
-	c.webrtcConfig = &webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: urls,
-			},
-		},
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("unable to read webrtc config file: %w", err)
+	}
+
+	config := oneshotwebrtc.Configuration{}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("unable to parse webrtc config file: %w", err)
+	}
+
+	c.webrtcConfig, err = config.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("unable to configure webrtc: %w", err)
 	}
 
 	return nil

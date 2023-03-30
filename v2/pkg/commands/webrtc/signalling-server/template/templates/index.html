@@ -1,0 +1,28 @@
+{{/*
+{
+    AutoConnect bool
+    ClientJS string
+
+    RTCConfigJSON string
+    OfferJSON string
+    Endpoint string
+    BasicAuthToken string // optional
+    SessionToken string // optional
+
+    Head string
+}
+*/}}
+{{ define "index" }}
+<!DOCTYPE html>
+<html>
+<head>
+{{ .Head }}
+{{ .ClientJS }}
+</head>
+<body>
+{{ if .AutoConnect }}{{ template "auto-connect" . }}{{ else }}{{ template "manual-connect" . }}{{ end }}
+</body>
+</html>
+{{ end }}
+
+{{ template "index" . }}

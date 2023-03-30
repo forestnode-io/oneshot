@@ -1,13 +1,16 @@
 package signallingserver
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
+	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v3"
 )
 
 type Cmd struct {
@@ -53,17 +56,10 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	output.InvocationInfo(ctx, cmd, args)
 
 	if err := c.configureWebRTC(flags); err != nil {
-		return err
+		return fmt.Errorf("unable to configure webrtc: %w", err)
 	}
 
-	iceServerURL := c.webrtcConfig.ICEServers[0].URLs[0]
-	if iceServerURL == "" {
-		iceServerURL = ice.STUNServerURLS[0]
-	}
-	s, err := newServer(iceServerURL, requiredID)
-	if err != nil {
-		return err
-	}
+	s := newServer(requiredID, c.webrtcConfig)
 	if err := s.run(ctx, apiAddress, httpAddress); err != nil {
 		log.Printf("error running server: %v", err)
 	}
@@ -74,17 +70,24 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 }
 
 func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
-	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
-	if len(urls) == 0 {
-		urls = ice.STUNServerURLS
+	path, _ := flags.GetString("webrtc-config-file")
+	if path == "" {
+		return nil
 	}
 
-	c.webrtcConfig = &webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: urls,
-			},
-		},
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("unable to read webrtc config file: %w", err)
+	}
+
+	config := oneshotwebrtc.Configuration{}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("unable to parse webrtc config file: %w", err)
+	}
+
+	c.webrtcConfig, err = config.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("unable to configure webrtc: %w", err)
 	}
 
 	return nil

@@ -15,10 +15,13 @@ import (
 
 type ttyServerSignaller struct {
 	cancel func()
+	config *webrtc.Configuration
 }
 
-func NewTTYServerSignaller() ServerSignaller {
-	return &ttyServerSignaller{}
+func NewTTYServerSignaller(config *webrtc.Configuration) ServerSignaller {
+	return &ttyServerSignaller{
+		config: config,
+	}
 }
 
 func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
@@ -37,8 +40,7 @@ func (s *ttyServerSignaller) Start(ctx context.Context, handler RequestHandler) 
 
 	id := 0
 	for s.cancel != nil {
-		// TODO(raphaelreyna): send the webrtcconfig to the handler
-		handler.HandleRequest(ctx, strconv.Itoa(id), nil, s.answerOffer)
+		handler.HandleRequest(ctx, strconv.Itoa(id), s.config, s.answerOffer)
 		id++
 
 	READ_SECTION:

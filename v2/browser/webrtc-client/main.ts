@@ -7,6 +7,7 @@ declare global {
         rtcReady: boolean;
         sessionToken: string;
         basicAuthToken: string | undefined;
+        config: Config | undefined;
     }
 }
 
@@ -88,10 +89,12 @@ async function main() {
 async function getConfig(autoAnswer: boolean): Promise<connectConfig> {
     let cconfig = {} as connectConfig;
     try {
-        let remoteConfig = await fetchConfig();
-        cconfig.rtcConfig = remoteConfig.RTCConfiguration;
-        cconfig.offer = remoteConfig.RTCSessionDescription;
-        cconfig.sessionID = remoteConfig.SessionID;
+        if (!window.config) {
+            window.config = await fetchConfig();
+        }
+        cconfig.rtcConfig = window.config.RTCConfiguration;
+        cconfig.offer = window.config.RTCSessionDescription;
+        cconfig.sessionID = window.config.SessionID;
         cconfig.endpoint = window.location.href;
         cconfig.baToken = window.basicAuthToken;
 

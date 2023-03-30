@@ -2,18 +2,20 @@ package browserclient
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"html/template"
 	"log"
+	"os"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/browser"
-	signallingserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/template"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/ice"
+	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v3"
 )
 
 func New() *Cmd {
@@ -55,18 +57,21 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	t, err := template.New("root").Parse(signallingserver.HTMLTemplate)
+	rtcConfigJSON, err := json.Marshal(c.webrtcConfig)
 	if err != nil {
-		return fmt.Errorf("failed to parse HTML template: %w", err)
+		return fmt.Errorf("unable to marshal webrtc config: %w", err)
+	}
+
+	tmpltCtx := template.Context{
+		AutoConnect:   false,
+		ClientJS:      template.ClientJS,
+		RTCConfigJSON: string(rtcConfigJSON),
 	}
 	buf := bytes.NewBuffer(nil)
-	err = t.Execute(buf, map[string]any{
-		"AutoConnect":  false,
-		"ClientJS":     template.HTML(signallingserver.BrowserClientJS),
-		"ICEServerURL": c.webrtcConfig.ICEServers[0].URLs[0],
-		"SessionID":    0,
-		"Offer":        "",
-	})
+	err = template.WriteTo(buf, tmpltCtx)
+	if err != nil {
+		return fmt.Errorf("unable to write template: %w", err)
+	}
 
 	openBrowser, _ := cmd.Flags().GetBool("open")
 	if openBrowser {
@@ -81,17 +86,24 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 }
 
 func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
-	urls, _ := flags.GetStringSlice("webrtc-ice-servers")
-	if len(urls) == 0 {
-		urls = ice.STUNServerURLS
+	path, _ := flags.GetString("webrtc-config-file")
+	if path == "" {
+		return nil
 	}
 
-	c.webrtcConfig = &webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: urls,
-			},
-		},
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("unable to read webrtc config file: %w", err)
+	}
+
+	config := oneshotwebrtc.Configuration{}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("unable to parse webrtc config file: %w", err)
+	}
+
+	c.webrtcConfig, err = config.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("unable to configure webrtc: %w", err)
 	}
 
 	return nil

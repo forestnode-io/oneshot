@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
@@ -24,25 +25,27 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, ba *messages.BasicAuth) 
 
 	var (
 		flags                  = r.Flags()
-		webrtc, _              = flags.GetBool("webrtc")
+		useWebRTC, _           = flags.GetBool("webrtc")
 		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
 		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
 		webrtcOnly, _          = flags.GetBool("webrtc-only")
 	)
 
-	if !webrtc &&
+	if !useWebRTC &&
 		!webrtcOnly &&
 		webRTCSignallingDir == "" &&
 		webRTCSignallingURL == "" {
 		return nil
 	}
 
+	config := webrtc.Configuration{}
+
 	err := r.configureWebRTC(flags)
 	if err != nil {
 		return fmt.Errorf("failed to configure WebRTC: %w", err)
 	}
 
-	signaller, err := getSignaller(ctx, flags, ba)
+	signaller, err := getSignaller(ctx, flags, &config, ba)
 	if err != nil {
 		return fmt.Errorf("failed to get WebRTC signaller: %w", err)
 	}
@@ -61,13 +64,10 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, ba *messages.BasicAuth) 
 	return nil
 }
 
-func getSignaller(ctx context.Context, flags *pflag.FlagSet, ba *messages.BasicAuth) (signallers.ServerSignaller, error) {
+func getSignaller(ctx context.Context, flags *pflag.FlagSet, config *webrtc.Configuration, ba *messages.BasicAuth) (signallers.ServerSignaller, error) {
 	var (
-		webRTCSignallingURL, _         = flags.GetString("webrtc-signalling-server-url")
-		webRTCSignallingDir, _         = flags.GetString("webrtc-signalling-dir")
-		webRTCSignallingID, _          = flags.GetString("webrtc-signalling-server-id")
-		webRTCSignallingRequestURL, _  = flags.GetString("webrtc-signalling-server-request-url")
-		webRTCSignallingRequiredURL, _ = flags.GetString("webrtc-signalling-server-required-url")
+		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
+		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
 
 		kacp = keepalive.ClientParameters{
 			Time:    6 * time.Second, // send pings every 10 seconds if there is no activity
@@ -75,61 +75,56 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, ba *messages.BasicA
 		}
 	)
 
-	webrtcClientURL := webRTCSignallingRequestURL
-	webrtcClientURLRequired := false
-	if webRTCSignallingRequiredURL != "" {
-		webrtcClientURL = webRTCSignallingRequiredURL
-		webrtcClientURLRequired = true
-	}
-
 	if output.IsTTYForContentOnly(ctx) {
 		if webRTCSignallingDir == "" && webRTCSignallingURL == "" {
 			return nil, fmt.Errorf("signalling directory (--webrtc-signalling-dir) or signalling server url (--webrtc-signalling-server-url) must be set when serving from stdin or to stdout")
 		}
 		if webRTCSignallingURL != "" {
-			opts := []grpc.DialOption{
-				grpc.WithBlock(),
-				grpc.WithKeepaliveParams(kacp),
-			}
-			conf := signallers.ServerServerSignallerConfig{
-				ID:                  webRTCSignallingID,
-				SignallingServerURL: webRTCSignallingURL,
-
-				URL:         webrtcClientURL,
-				URLRequired: webrtcClientURLRequired,
-
-				BasicAuth: ba,
-			}
-			if useInsecure, _ := flags.GetBool("webrtc-signalling-server-insecure"); useInsecure {
-				opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			} else {
-				opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
-			}
-			conf.GRPCOpts = opts
-
-			return signallers.NewServerServerSignaller(&conf), nil
+			return newServerServerSignaller(flags, ba, kacp), nil
 		}
-
-		return signallers.NewFileServerSignaller(webRTCSignallingDir), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
 	} else if webRTCSignallingDir != "" {
-		return signallers.NewFileServerSignaller(webRTCSignallingDir), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
 	} else if webRTCSignallingURL != "" {
-		conf := signallers.ServerServerSignallerConfig{
-			ID:                  webRTCSignallingID,
-			SignallingServerURL: webRTCSignallingURL,
-			GRPCOpts: []grpc.DialOption{
-				grpc.WithTransportCredentials(credentials.NewTLS(nil)),
-				grpc.WithBlock(),
-				grpc.WithKeepaliveParams(kacp),
-			},
-
-			URL:         webrtcClientURL,
-			URLRequired: webrtcClientURLRequired,
-
-			BasicAuth: ba,
-		}
-		return signallers.NewServerServerSignaller(&conf), nil
+		return newServerServerSignaller(flags, ba, kacp), nil
 	}
 
-	return signallers.NewTTYServerSignaller(), nil
+	return signallers.NewTTYServerSignaller(config), nil
+}
+
+func newServerServerSignaller(flags *pflag.FlagSet, ba *messages.BasicAuth, kacp keepalive.ClientParameters) signallers.ServerSignaller {
+	var (
+		url, _               = flags.GetString("webrtc-signalling-server-url")
+		id, _                = flags.GetString("webrtc-signalling-server-id")
+		assignURL, _         = flags.GetString("webrtc-signalling-server-request-url")
+		assignRequiredURL, _ = flags.GetString("webrtc-signalling-server-required-url")
+	)
+
+	urlRequired := false
+	if assignRequiredURL != "" {
+		assignURL = assignRequiredURL
+		urlRequired = true
+	}
+
+	opts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithKeepaliveParams(kacp),
+	}
+	conf := signallers.ServerServerSignallerConfig{
+		ID:                  id,
+		SignallingServerURL: url,
+
+		URL:         assignURL,
+		URLRequired: urlRequired,
+
+		BasicAuth: ba,
+	}
+	if useInsecure, _ := flags.GetBool("webrtc-signalling-server-insecure"); useInsecure {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+	}
+	conf.GRPCOpts = opts
+
+	return signallers.NewServerServerSignaller(&conf)
 }
