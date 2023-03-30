@@ -9,56 +9,83 @@
         OfferJSON string
         BasicAuthToken string // optional
     }
-/*}}
+*/}}
 {{ define "manual-answer" }}
-<div id="sdp-component">
-    <label for="ice-server-url">RTC Configuration</label><br>
-    <textarea id="rtc-config">{{ .RTCConfigJSON }}</textarea><br>
-    <label for="offer-sdp">Oneshot Session Offer</label><br>
-    <textarea id="offer-sdp" rows="10" cols="50">{{ .OfferJSON }}</textarea><br>
-    <label for="basic-auth-token">Basic Auth Token</label><br>
-    <input type="text" id="basic-auth-token" value="{{ .BasicAuthToken }}"><br>
-    <button type="button" id="connect-button">Generate Answer & Copy to Clipboard</button><br>
-    <div id="answer-container">
-        <span id="answer-span"></span>
+    <div id="sdp-component">
+        <label for="ice-server-url">RTC Configuration</label><br>
+        <textarea id="rtc-config">{{ .RTCConfigJSON }}</textarea><br>
+        <label for="offer-sdp">Oneshot Session Offer</label><br>
+        <textarea id="offer-sdp" rows="10" cols="50">{{ .OfferJSON }}</textarea><br>
+        <label for="basic-auth-token">Basic Auth Token</label><br>
+        <input type="text" id="basic-auth-token" value="{{ .BasicAuthToken }}"><br>
+        <button type="button" id="connect-button">Generate Answer & Copy to Clipboard</button><br>
+        <div id="answer-container">
+            <span id="answer-span"></span>
+        </div>
     </div>
-</div>
-<script>
-    const WebRTClient = window.WebRTCClient;
-    if (!WebRTClient) {
-        throw new Error("WebRTCClient not found");
-    }
-
-    function answer() {
-        const configTextArea = document.getElementById("rtc-config");
-        const config = JSON.parse(configTextArea.value);
-        if (!config) {
-            throw new Error("RTC Configuration is required");
+    <script>
+        const WebRTClient = window.WebRTCClient;
+        if (!WebRTClient) {
+            throw new Error("WebRTCClient not found");
         }
 
-        const offerTextArea = document.getElementById("offer-sdp");
-        const offer = JSON.parse(offerTextArea.value);
-        if (!offer) {
-            throw new Error("Offer SDP is required");
+        let finishSpinning = false;
+        function spinner(node) {
+            if (finishSpinning) {
+                return;
+            }
+            node.innerText += ".";
+            setTimeout(() => {
+                spinner(node);
+            }, 500);
         }
 
-        const basicAuthToken = document.getElementById("basic-auth-token").value;
+        function answer() {
+            const configTextArea = document.getElementById("rtc-config");
+            const config = JSON.parse(configTextArea.value);
+            if (!config) {
+                throw new Error("RTC Configuration is required");
+            }
 
-        const client = new WebRTCClient(config, basicAuthToken ? basicAuthToken : null);
-        client.answerOffer(offer).then((answer) => {
-            const answerTextArea = document.getElementById("answer-span");
-            answerTextArea.innerText = JSON.stringify(answer);
-            // Copy to clipboard
-            const range = document.createRange();
-            range.selectNode(answerTextArea);
-            window.getSelection().removeAllRanges();
-            window.getSelection().addRange(range);
-            document.execCommand("copy");
-            window.getSelection().removeAllRanges();
-        });
-    };
+            const offerTextArea = document.getElementById("offer-sdp");
+            const offer = JSON.parse(offerTextArea.value);
+            if (!offer) {
+                throw new Error("Offer SDP is required");
+            }
 
-    const connectButton = document.getElementById("connect-button");
-    connectButton.addEventListener("click", answer);
-</script>
+            const basicAuthToken = document.getElementById("basic-auth-token").value;
+
+            const client = new WebRTCClient(config, basicAuthToken ? basicAuthToken : null);
+            const { Answer, ConnectionEstablished } = client.answerOffer(offer);
+            const spinnerNode = document.createElement("span");
+            spinnerNode.innerText = "Tunneling ";
+            document.body.appendChild(spinnerNode);
+            spinner(spinnerNode);
+
+            ConnectionEstablished.then(() => {
+                console.log("Connection established");
+                client.visit('/').then(() => {
+                    finishSpinning = true;
+                });
+            }).catch((err) => {
+                console.error(err);
+            });
+            Answer.then((answer) => {
+                const answerTextArea = document.getElementById("answer-span");
+                answerTextArea.innerText = JSON.stringify(answer);
+                // Copy to clipboard
+                const range = document.createRange();
+                range.selectNode(answerTextArea);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand("copy");
+                window.getSelection().removeAllRanges();
+            }).catch((err) => {
+                console.error(err);
+            });
+        };
+
+        const connectButton = document.getElementById("connect-button");
+        connectButton.addEventListener("click", answer);
+    </script>
 {{ end }}

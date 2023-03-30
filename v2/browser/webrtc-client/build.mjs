@@ -14,6 +14,9 @@ let buildHTML = {
             fs.writeFileSync('./dist/main.minified.js', mainJS, 'utf8', (err) => {
                 if (err) throw err;
             });
+            fs.copyFileSync(
+                './node_modules/@stardazed/streams-polyfill/dist/sd-streams-polyfill.min.js', 
+                './dist/sd-streams-polyfill.min.js');
         });
     },
 }

@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 
@@ -69,17 +68,14 @@ func (s *Server) HandleRequest(ctx context.Context, id string, conf *webrtc.Conf
 			}
 
 			w := NewResponseWriter(d)
-			log.Println("handling http over webrtc request")
 			s.handler(w, e.request)
 			if w.triggersShutdown {
 				done = true
 			}
 
-			log.Println("finished handling http over webrtc request")
 			if err = w.Flush(); err != nil {
 				return fmt.Errorf("unable to flush response: %w", err)
 			}
-			log.Println("flushed response to http over wenrtc request")
 		}
 	}
 

@@ -59,6 +59,10 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to configure webrtc: %w", err)
 	}
 
+	if c.webrtcConfig == nil {
+		return fmt.Errorf("webrtc configuration is required")
+	}
+
 	s := newServer(requiredID, c.webrtcConfig)
 	if err := s.run(ctx, apiAddress, httpAddress); err != nil {
 		log.Printf("error running server: %v", err)

@@ -39,9 +39,12 @@ func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
 // a subcommand to have set r.handler.
 func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	var (
-		ctx   = cmd.Context()
-		flags = cmd.Flags()
+		ctx, cancel = context.WithCancel(cmd.Context())
+		flags       = cmd.Flags()
+
+		webRTCError error
 	)
+	defer cancel()
 
 	defer func() {
 		log.Println("stopping events")
@@ -66,19 +69,23 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		if err := r.listenWebRTC(ctx, baMessage); err != nil {
+			webRTCError = err
 			log.Printf("failed to listen for WebRTC connections: %v", err)
+			cancel()
 		}
 	}()
 
-	cancel, err := r.handlePortMap(ctx, flags)
+	cancelPortMapping, err := r.handlePortMap(ctx, flags)
 	if err != nil {
 		return fmt.Errorf("failed to handle port mapping: %w", err)
 	}
-	defer cancel()
+	defer cancelPortMapping()
 
 	err = r.listenAndServe(ctx, flags)
 	if err != nil {
 		log.Printf("failed to listen for http connections: %v", err)
+	} else {
+		err = webRTCError
 	}
 	return err
 }

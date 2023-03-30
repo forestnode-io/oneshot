@@ -137,7 +137,7 @@ func (g *GotAnswerRequest) Type() string {
 // sent from the oneshot server to the signalling server when it has accepted the answer and started the session
 type GotAnswerResponse struct {
 	SessionID string
-	Error     error
+	Error     string
 }
 
 func (g *GotAnswerResponse) Type() string {
@@ -147,7 +147,7 @@ func (g *GotAnswerResponse) Type() string {
 // sent from the oneshot server to the signalling server when a session has ended
 type FinishedSessionRequest struct {
 	SessionID string
-	Error     error
+	Error     string
 }
 
 func (f *FinishedSessionRequest) Type() string {
@@ -157,7 +157,7 @@ func (f *FinishedSessionRequest) Type() string {
 // sent from the signalling server to the oneshot server when it has received the FinishedSessionRequest
 type FinishedSessionResponse struct {
 	SessionID string
-	Error     error
+	Error     string
 }
 
 func (f *FinishedSessionResponse) Type() string {

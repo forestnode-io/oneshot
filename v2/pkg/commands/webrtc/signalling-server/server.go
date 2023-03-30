@@ -184,10 +184,15 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 	}
 
 	var (
-		ctx = stream.Context()
+		ctx          = stream.Context()
+		resetPending = func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.pendingSessionID = ""
+		}
 		err error
 	)
-	s.os, err = newOneshotServer(ctx, s.requiredID, stream, s.handleURLRequest)
+	s.os, err = newOneshotServer(ctx, s.requiredID, stream, resetPending, s.handleURLRequest)
 	if err != nil {
 		log.Printf("error creating oneshot server: %v", err)
 		return err
@@ -198,8 +203,12 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 	// from this point on, the http server will be the only thing
 	// using the stream, we just need to hold it open here.
 	log.Printf("waiting for oneshot server to finish")
-	<-s.os.done
-	log.Printf("oneshot server finished")
+	select {
+	case <-ctx.Done():
+		log.Printf("context done")
+	case <-s.os.done:
+		log.Printf("oneshot server finished")
+	}
 	s.os = nil
 	s.pendingSessionID = ""
 

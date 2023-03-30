@@ -46,7 +46,7 @@ type Certificate struct {
 }
 
 type Configuration struct {
-	ICEServer    []*ICEServer   `yaml:"iceServers" mapstructure:"iceServers"`
+	ICEServers   []*ICEServer   `yaml:"iceServers" mapstructure:"iceServers"`
 	RelayOnly    bool           `yaml:"relayOnly" mapstructure:"relayOnly"`
 	Certificates []*Certificate `yaml:"certificates" mapstructure:"certificates"`
 }
@@ -60,10 +60,10 @@ func (c *Configuration) WebRTCConfiguration() (*webrtc.Configuration, error) {
 		config.ICETransportPolicy = webrtc.ICETransportPolicyAll
 	}
 
-	if len(c.ICEServer) == 0 {
+	if len(c.ICEServers) == 0 {
 		return nil, fmt.Errorf("no ICE servers configured")
 	}
-	for _, s := range c.ICEServer {
+	for _, s := range c.ICEServers {
 		if len(s.URLs) == 0 {
 			return nil, fmt.Errorf("no URLs configured for ICE server")
 		}

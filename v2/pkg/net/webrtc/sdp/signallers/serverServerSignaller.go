@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
@@ -51,8 +52,17 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	if s.conf.GRPCOpts != nil {
 		grpcOpts = append(grpcOpts, s.conf.GRPCOpts...)
 	}
-	conn, err := grpc.DialContext(ctx, s.conf.SignallingServerURL, grpcOpts...)
+
+	dialCtx, dialCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer dialCancel()
+	conn, err := grpc.DialContext(dialCtx, s.conf.SignallingServerURL, grpcOpts...)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("timeout dialing signalling server")
+		}
+		if errors.Is(err, context.Canceled) {
+			return fmt.Errorf("dialing signalling server canceled")
+		}
 		return fmt.Errorf("error dialing signalling server: %w", err)
 	}
 	ssClient := proto.NewSignallingServerClient(conn)
@@ -185,7 +195,18 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			// get the offer
 			log.Println("sending offer request to handler ...")
 			if err := handler.HandleRequest(ctx, m.SessionID, m.Configuration, s.answerOffer); err != nil {
-				return fmt.Errorf("error handling request: %w", err)
+				env, err := messages.ToRPCEnvelope(&messages.FinishedSessionRequest{
+					SessionID: m.SessionID,
+					Error:     err.Error(),
+				})
+				if err != nil {
+					return fmt.Errorf("error marshalling session failed request: %w", err)
+				}
+				if err = s.stream.Send(env); err != nil {
+					return fmt.Errorf("error sending session failed request: %w", err)
+				}
+				log.Printf("error handling offer request: %v", err)
+				continue
 			}
 			log.Println("... handler finished processing offer request")
 		default:

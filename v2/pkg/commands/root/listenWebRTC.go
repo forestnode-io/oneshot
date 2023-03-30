@@ -11,7 +11,6 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -38,14 +37,12 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, ba *messages.BasicAuth) 
 		return nil
 	}
 
-	config := webrtc.Configuration{}
-
 	err := r.configureWebRTC(flags)
 	if err != nil {
 		return fmt.Errorf("failed to configure WebRTC: %w", err)
 	}
 
-	signaller, err := getSignaller(ctx, flags, &config, ba)
+	signaller, err := getSignaller(ctx, flags, r.webrtcConfig, ba)
 	if err != nil {
 		return fmt.Errorf("failed to get WebRTC signaller: %w", err)
 	}
@@ -70,26 +67,21 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, config *webrtc.Conf
 		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
 
 		kacp = keepalive.ClientParameters{
-			Time:    6 * time.Second, // send pings every 10 seconds if there is no activity
+			Time:    6 * time.Second, // send pings every 6 seconds if there is no activity
 			Timeout: time.Second,     // wait 1 second for ping ack before considering the connection dead
 		}
 	)
 
-	if output.IsTTYForContentOnly(ctx) {
-		if webRTCSignallingDir == "" && webRTCSignallingURL == "" {
-			return nil, fmt.Errorf("signalling directory (--webrtc-signalling-dir) or signalling server url (--webrtc-signalling-server-url) must be set when serving from stdin or to stdout")
+	if webRTCSignallingDir != "" {
+		if config == nil {
+			return nil, fmt.Errorf("nil WebRTC configuration")
 		}
-		if webRTCSignallingURL != "" {
-			return newServerServerSignaller(flags, ba, kacp), nil
-		}
-		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
-	} else if webRTCSignallingDir != "" {
 		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
 	} else if webRTCSignallingURL != "" {
 		return newServerServerSignaller(flags, ba, kacp), nil
 	}
 
-	return signallers.NewTTYServerSignaller(config), nil
+	return nil, fmt.Errorf("no WebRTC signalling mechanism specified")
 }
 
 func newServerServerSignaller(flags *pflag.FlagSet, ba *messages.BasicAuth, kacp keepalive.ClientParameters) signallers.ServerSignaller {

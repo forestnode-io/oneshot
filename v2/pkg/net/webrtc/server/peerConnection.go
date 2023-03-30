@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
@@ -58,8 +59,19 @@ func newPeerConnection(ctx context.Context, id string, sao signallers.AnswerOffe
 
 func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState) {
 	log.Printf("connection state has changed: %s\n", cs.String())
+
+	var cancelTimer func() bool
+
 	switch cs {
+	case webrtc.ICEConnectionStateChecking:
+		t := time.AfterFunc(3*time.Second, func() {
+			p.error(false, fmt.Errorf("webRTC connection timed out"))
+		})
+		cancelTimer = t.Stop
 	case webrtc.ICEConnectionStateConnected:
+		if cancelTimer != nil {
+			cancelTimer()
+		}
 		log.Println("webRTC connection established")
 	case webrtc.ICEConnectionStateDisconnected:
 		p.error(false, fmt.Errorf("webRTC connection disconnected"))

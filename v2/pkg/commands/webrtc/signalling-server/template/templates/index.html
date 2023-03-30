@@ -1,7 +1,8 @@
 {{/*
 {
     AutoConnect bool
-    ClientJS string
+    ClientJS template.HTML
+    PolyfillJS template.HTML
 
     RTCConfigJSON string
     OfferJSON string
@@ -9,20 +10,29 @@
     BasicAuthToken string // optional
     SessionToken string // optional
 
-    Head string
+    Head template.HTML
 }
 */}}
-{{ define "index" }}
+{{- define "index" -}}
 <!DOCTYPE html>
 <html>
 <head>
-{{ .Head }}
-{{ .ClientJS }}
+{{ indent 4 .Head -}}
+    <script>
+        {{ .PolyfillJS }}
+    </script>
+    <script>
+        {{ .ClientJS }}
+    </script>
 </head>
 <body>
-{{ if .AutoConnect }}{{ template "auto-connect" . }}{{ else }}{{ template "manual-connect" . }}{{ end }}
+{{- if .AutoConnect -}}
+    {{- template "auto-answer" . -}}
+{{- else -}}
+    {{- template "manual-answer" . -}}
+{{- end -}}
 </body>
 </html>
-{{ end }}
+{{- end -}}
 
-{{ template "index" . }}
+{{- template "index" . -}}

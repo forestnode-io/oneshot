@@ -27,7 +27,16 @@ func NewFileServerSignaller(dir string, config *webrtc.Configuration) ServerSign
 }
 
 func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
-	err := os.RemoveAll(s.dirPath)
+	stat, err := os.Stat(s.dirPath)
+	if err == nil {
+		if !stat.IsDir() {
+			return fmt.Errorf("path is not a directory")
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("unable to stat directory: %w", err)
+	}
+
+	err = os.RemoveAll(s.dirPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
@@ -69,6 +78,11 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler)
 					if err := os.WriteFile(offerPath, offer, 0755); err != nil {
 						return "", fmt.Errorf("unable to write offer: %w", err)
 					}
+					file, err := os.Create(filepath.Join(event.Name, "answer"))
+					if err != nil {
+						return "", fmt.Errorf("unable to create answer file: %w", err)
+					}
+					file.Close()
 
 					watcher, err := fsnotify.NewWatcher()
 					if err != nil {

@@ -4,17 +4,34 @@ import (
 	"embed"
 	"html/template"
 	"io"
+	"strings"
 )
 
+//go:generate make webrtc-client
 var (
-	//go:generate make webrtc-client
 	//go:embed webrtc-client.js
-	ClientJS template.HTML
+	ClientJS template.JS
+
+	//go:embed sd-streams-polyfill.min.js
+	PolyfillJS template.JS
+
+	indentFunc = func(spaces int, v template.HTML) template.HTML {
+		if v == "" {
+			return v
+		}
+		vs := string(v)
+		pad := strings.Repeat(" ", spaces)
+		return template.HTML(pad + strings.Replace(vs, "\n", "\n"+pad, -1) + "\n")
+	}
 
 	//go:embed templates/*.html
 	tmpltFS embed.FS
 	tmplt   = template.Must(
-		template.New("root").ParseFS(tmpltFS, "templates/*.html"),
+		template.New("root").
+			Funcs(template.FuncMap{
+				"indent": indentFunc,
+			}).
+			ParseFS(tmpltFS, "templates/*.html"),
 	)
 )
 
@@ -22,7 +39,6 @@ func init() {
 	if len(ClientJS) == 0 {
 		panic("browserClientJS is empty")
 	}
-	ClientJS = "<script>\n" + ClientJS + "\n</script>"
 
 	if tmplt == nil {
 		panic("tmplt is nil")
@@ -38,8 +54,9 @@ type Context struct {
 	BasicAuthToken string
 	SessionToken   string
 
-	Head     template.HTML
-	ClientJS template.HTML
+	Head       template.HTML
+	ClientJS   template.JS
+	PolyfillJS template.JS
 }
 
 func WriteTo(w io.Writer, ctx Context) error {

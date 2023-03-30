@@ -2,7 +2,9 @@ package signallingserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 
 	pionwebrtc "github.com/pion/webrtc/v3"
@@ -20,15 +22,18 @@ type oneshotServer struct {
 	msgChan chan messages.Message
 	errChan chan error
 
+	resetPending func()
+
 	stream proto.SignallingServer_ConnectServer
 }
 
-func newOneshotServer(ctx context.Context, requiredID string, stream proto.SignallingServer_ConnectServer, requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
+func newOneshotServer(ctx context.Context, requiredID string, stream proto.SignallingServer_ConnectServer, resetPending func(), requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
 	o := oneshotServer{
-		done:    make(chan struct{}),
-		stream:  stream,
-		msgChan: make(chan messages.Message, 1),
-		errChan: make(chan error, 1),
+		done:         make(chan struct{}),
+		stream:       stream,
+		msgChan:      make(chan messages.Message, 1),
+		errChan:      make(chan error, 1),
+		resetPending: resetPending,
 	}
 
 	// exchange version info
@@ -156,10 +161,6 @@ func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID string, conf
 }
 
 func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer sdp.Answer) error {
-	defer func() {
-		o.done <- struct{}{}
-	}()
-
 	req := messages.GotAnswerRequest{
 		SessionID: sessionID,
 		Answer:    string(answer),
@@ -186,7 +187,35 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer
 		return fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", m.Type())
 	}
 
-	return gar.Error
+	go func() {
+		env, err := o.stream.Recv()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				log.Printf("error receiving message: %v", err)
+			}
+			return
+		}
+		m, err := messages.FromRPCEnvelope(env)
+		if err != nil {
+			log.Printf("error parsing message: %v", err)
+			return
+		}
+		fsr, ok := m.(*messages.FinishedSessionRequest)
+		if !ok {
+			log.Printf("unexpected message type: %T", m)
+			return
+		}
+		if fsr.Error != "" {
+			log.Printf("session failed: %s", fsr.Error)
+		}
+		o.resetPending()
+	}()
+
+	if gar.Error == "" {
+		return nil
+	}
+
+	return fmt.Errorf("session failed: %s", gar.Error)
 }
 
 func (o *oneshotServer) Close() {

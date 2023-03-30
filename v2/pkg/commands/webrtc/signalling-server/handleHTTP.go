@@ -46,7 +46,7 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 		Path: r.URL.Path,
 	}
 	requestURL := u.String()
-	if s.sessionURL != "" {
+	if s.sessionURL != "" || s.os == nil {
 		if s.sessionURL != requestURL {
 			http.NotFound(w, r)
 			return
@@ -70,7 +70,9 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	tmpltCtx := template.Context{
 		AutoConnect:  true,
 		ClientJS:     template.ClientJS,
+		PolyfillJS:   template.PolyfillJS,
 		SessionToken: token,
+		Endpoint:     requestURL,
 	}
 	if s.os.Arrival.BasicAuth != nil {
 		tmpltCtx.BasicAuthToken = s.os.Arrival.BasicAuth.Token

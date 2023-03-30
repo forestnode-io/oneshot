@@ -62,6 +62,10 @@ func Unmarshal(typeName string, data []byte) (Message, error) {
 		var u UpdatePingRateRequest
 		err := json.Unmarshal(data, &u)
 		return &u, err
+	case "FinishedSessionRequest":
+		var s FinishedSessionRequest
+		err := json.Unmarshal(data, &s)
+		return &s, err
 	}
 
 	return nil, fmt.Errorf("unknown message type: %s", typeName)

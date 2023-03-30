@@ -65,6 +65,7 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	tmpltCtx := template.Context{
 		AutoConnect:   false,
 		ClientJS:      template.ClientJS,
+		PolyfillJS:    template.PolyfillJS,
 		RTCConfigJSON: string(rtcConfigJSON),
 	}
 	buf := bytes.NewBuffer(nil)

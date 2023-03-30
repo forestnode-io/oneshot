@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
@@ -68,7 +69,11 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 	})
 
 	// wait for the data channel to be established and detached (or an error)
+	timedCtx, cancelTimedCtx := context.WithTimeout(ctx, 3*time.Second)
+	defer cancelTimedCtx()
 	select {
+	case <-timedCtx.Done():
+		return nil, timedCtx.Err()
 	case e := <-d.eventsChan:
 		if e.err != nil {
 			close(d.eventsChan)

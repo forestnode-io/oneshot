@@ -2,56 +2,77 @@
     Auto answer component that will automatically answer the offer and send the answer to the server.
 
     {
-        RTCConfigJSON string
-        OfferJSON string
         Endpoint string
         BasicAuthToken string // optional
         SessionToken string // optional
     }
-/*}}
-{{ define "auto-sdp-component" }}
-<script>
-    if (!window.WebRTClient) {
-        throw new Error("WebRTCClient not found");
-    }
-
-    const rtcConfigJSON = "{{ .RTCConfigJSON }}";
-    const offerJSON = "{{ .OfferJSON }}";
-    const basicAuthToken = "{{ .BasicAuthToken }}";
-    const sessionToken = "{{ .SessionToken }}";
-    const endpoint = "{{ .Endpoint }}";
-
-    const config = JSON.parse(rtcConfigJSON);
-    if (!config) {
-        throw new Error("RTC Configuration is required");
-    }
-
-    const offer = JSON.parse(offerJSON);
-    if (!offer) {
-        throw new Error("Offer SDP is required");
-    }
-
-    const client = new WebRTCClient(config, basicAuthToken ? basicAuthToken : null);
-    client.answerOffer(offer).then((answer) => {
-        fetch(endpoint, {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Session-Token': sessionToken,
-            },
-            body: JSON.stringify({
-                "SessionID": sessionID,
-                "Answer": answer.sdp,
-            }),
-        }).then((response) => {
-            if (response.status !== 200) {
-                throw new Error("Failed to send answer");
+*/}}
+{{ define "auto-answer" }}
+    <script>
+        var tries = 0;
+        function checkWebRTCClient() {
+            if (!window.WebRTCClient) {
+                tries++;
+                if (tries < 5) {
+                // Retry in 100ms
+                setTimeout(checkWebRTCClient, 100);
+                } else {
+                // Tried 5 times, throw an error
+                throw new Error("window.WebRTCClient does not exist");
+                }
             }
+        }
+        checkWebRTCClient();
+
+
+        const endpoint = "{{ .Endpoint }}";
+        const basicAuthToken = "{{ .BasicAuthToken }}";
+        const sessionToken = "{{ .SessionToken }}";
+
+        fetch(endpoint, {
+            method: "GET",
+            headers: {
+                "Accept": "application/json",
+                "X-Session-Token": sessionToken,
+            }
+        }).then(response => {
+            if (response.status !== 200) {
+                throw new Error("Failed to get offer");
+            }
+            return response.json();
+        }).then(data => {
+            console.log("response data: ", data);
+            const client = new WebRTCClient(data.RTCConfiguration, basicAuthToken ? basicAuthToken : null);
+            const { Answer, ConnectionEstablished } = client.answerOffer(data.RTCSessionDescription);
+            ConnectionEstablished.then(() => {
+                console.log("Connection established");
+                client.visit('/');
+            }).catch((err) => {
+                console.error(err);
+            });
+            Answer.then((answer) => {
+                fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        "SessionID": data.SessionID,
+                        "Answer": answer.sdp,
+                    }),
+                }).then((response) => {
+                    if (response.status !== 200) {
+                        throw new Error("Failed to send answer");
+                    }
+                }).catch((err) => {
+                    console.error(err);
+                    alert(err);
+                });
+            });
         }).catch((err) => {
             console.error(err);
             alert(err);
         });
-    });
-</script>
+    </script>
 {{ end }}
