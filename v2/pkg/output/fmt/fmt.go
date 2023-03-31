@@ -89,10 +89,10 @@ func PrettyPercent[T Number](x, total T) string {
 	return fmt.Sprintf("%.2f%%", float64(100*x/total))
 }
 
-func Address(host, port string) string {
-	if port != "" {
-		port = ":" + port
+func Address(host string, port int) string {
+	if port != 0 {
+		return fmt.Sprintf("%s:%d", host, port)
 	}
 
-	return host + port
+	return host
 }

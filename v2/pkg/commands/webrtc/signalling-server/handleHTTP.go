@@ -46,18 +46,16 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 		Path: r.URL.Path,
 	}
 	requestURL := u.String()
-	if s.sessionURL != "" || s.os == nil {
-		if s.sessionURL != requestURL {
-			http.NotFound(w, r)
-			return
-		}
+	if s.pendingSessionID != "" || s.os == nil {
+		http.NotFound(w, r)
+		return
 	}
 
 	sessionID := uuid.NewString()
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"session_id": sessionID,
 		"expires":    time.Now().Add(10 * time.Second).Unix(),
-	}).SignedString(s.jwtSecret)
+	}).SignedString([]byte(s.config.JWTSecretConfig.Value))
 	if err != nil {
 		log.Printf("error signing jwt: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -102,7 +100,7 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 
 	// parse the token string into a token
 	token, err := jwt.Parse(sessionTokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(s.jwtSecret), nil
+		return []byte(s.config.JWTSecretConfig.Value), nil
 	})
 	if err != nil {
 		log.Printf("error parsing session token: %v", err)

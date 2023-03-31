@@ -44,7 +44,7 @@ func NewServerServerSignaller(c *ServerServerSignallerConfig) ServerSignaller {
 	}
 }
 
-func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
+func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandler, addressChan chan<- string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 
@@ -161,9 +161,12 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	}
 	log.Println("... received arrival response from signalling server.")
 
-	if resp.AssignedURL != "" {
-		log.Printf("signalling server assigned url: %s", resp.AssignedURL)
+	if resp.AssignedURL == "" {
+		return fmt.Errorf("signalling server did not assign a url")
 	}
+	log.Printf("signalling server assigned url: %s", resp.AssignedURL)
+	addressChan <- resp.AssignedURL
+	close(addressChan)
 
 	for {
 		select {

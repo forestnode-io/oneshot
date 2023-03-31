@@ -2,12 +2,14 @@ package signallingserver
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 
 	_ "embed"
@@ -26,19 +28,13 @@ type requestBundle struct {
 }
 
 type server struct {
-	os         *oneshotServer
-	requiredID string
-	sessionURL string
-
-	domain string
-	scheme string
+	os *oneshotServer
 
 	pendingSessionID string
 	assignedURL      string
 
 	rtcConfig *webrtc.Configuration
-
-	jwtSecret []byte
+	config    Config
 
 	queue chan requestBundle
 	mu    sync.Mutex
@@ -46,29 +42,72 @@ type server struct {
 	proto.UnimplementedSignallingServerServer
 }
 
-func newServer(requiredID string, config *webrtc.Configuration) *server {
-	return &server{
-		requiredID: requiredID,
-		queue:      make(chan requestBundle, 10),
-		rtcConfig:  config,
+func newServer(c *Config) (*server, error) {
+	if err := c.SetDefaults(); err != nil {
+		return nil, fmt.Errorf("unable to set defaults: %w", err)
 	}
+
+	if c.JWTSecretConfig.Value == "" {
+		data, err := os.ReadFile(c.JWTSecretConfig.Path)
+		if err != nil {
+			return nil, fmt.Errorf("unable to readt JWT secret from file")
+		}
+		c.JWTSecretConfig.Value = string(data)
+	}
+	if c.JWTSecretConfig.Value == "" {
+		return nil, fmt.Errorf("JWT secret is empty")
+	}
+
+	rc, err := c.WebRTCConfiguration.WebRTCConfiguration()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create webrtc configuration: %w", err)
+	}
+
+	s := server{
+		queue:     make(chan requestBundle, c.MaxClientQueueSize),
+		rtcConfig: rc,
+		config:    *c,
+	}
+
+	return &s, nil
 }
 
-func (s *server) run(ctx context.Context, signallingAddr, httpAddr string) error {
+func (s *server) run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	l, err := net.Listen("tcp", signallingAddr)
-	if err != nil {
-		return err
+	var (
+		l   net.Listener
+		err error
+
+		dc = s.config.Servers.Discovery
+		hc = s.config.Servers.HTTP
+	)
+
+	if tc := s.config.Servers.Discovery.TLS; tc != nil {
+		cert, err := tls.LoadX509KeyPair(tc.Cert, tc.Key)
+		if err != nil {
+			return fmt.Errorf("unable to load tls key pair: %w", err)
+		}
+		l, err = tls.Listen("tcp", dc.Addr, &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		})
+		if err != nil {
+			return fmt.Errorf("unable to listen for tls traffic on %s: %w", dc.Addr, err)
+		}
+	} else {
+		l, err = net.Listen("tcp", dc.Addr)
+		if err != nil {
+			return fmt.Errorf("unable to listen for traffic on %s: %w", dc.Addr, err)
+		}
 	}
 
-	log.Printf("listening for signalling traffic on %s", signallingAddr)
+	log.Printf("listening for api traffic on %s", dc.Addr)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleHTTP)
 	hs := http.Server{
-		Addr:    httpAddr,
+		Addr:    dc.Addr,
 		Handler: mux,
 	}
 
@@ -101,23 +140,33 @@ func (s *server) run(ctx context.Context, signallingAddr, httpAddr string) error
 			log.Printf("error closing listener: %v", err)
 		}
 
-		log.Println("api service shutdown")
+		log.Println("dsicovery service shutdown")
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := hs.ListenAndServe(); err != nil {
-			cancel()
-			if err != http.ErrServerClosed {
-				log.Printf("error serving http: %v", err)
+		if hc.TLS != nil {
+			if err := http.ListenAndServeTLS(hc.Addr, hc.TLS.Cert, hc.TLS.Key, nil); err != nil {
+				cancel()
+				if err != http.ErrServerClosed {
+					log.Printf("error serving http: %v", err)
+				}
+			}
+			return
+		} else {
+			if err := hs.ListenAndServe(); err != nil {
+				cancel()
+				if err != http.ErrServerClosed {
+					log.Printf("error serving http: %v", err)
+				}
 			}
 		}
 	}()
 
 	go s.worker()
 
-	log.Printf("listening for http traffic on %s", httpAddr)
+	log.Printf("listening for http traffic on %s", hc.Addr)
 	server := grpc.NewServer()
 	proto.RegisterSignallingServerServer(server, s)
 	if err := server.Serve(l); err != nil {
@@ -153,11 +202,20 @@ func (s *server) queueRequest(sessionID string, w http.ResponseWriter, r *http.R
 }
 
 func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
+	var (
+		scheme = s.config.URLAssignment.Scheme
+		domain = s.config.URLAssignment.Domain
+	)
+
 	if rurl == "" {
 		if required {
 			return "", errors.New("no url provided")
 		}
-		s.assignedURL = "http://localhost:8080/"
+		u := url.URL{
+			Scheme: scheme,
+			Host:   domain,
+		}
+		s.assignedURL = u.String()
 		return s.assignedURL, nil
 	}
 
@@ -165,8 +223,8 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid url: %w", err)
 	}
-	u.Scheme = s.scheme
-	u.Host = s.domain
+	u.Scheme = scheme
+	u.Host = domain
 	if u.String() != rurl && required {
 		return "", nil
 	}
@@ -192,7 +250,7 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 		}
 		err error
 	)
-	s.os, err = newOneshotServer(ctx, s.requiredID, stream, resetPending, s.handleURLRequest)
+	s.os, err = newOneshotServer(ctx, s.config.RequiredID.Value, stream, resetPending, s.handleURLRequest)
 	if err != nil {
 		log.Printf("error creating oneshot server: %v", err)
 		return err

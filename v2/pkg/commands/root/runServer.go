@@ -7,10 +7,8 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strconv"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/spf13/cobra"
@@ -67,21 +65,36 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to configure server: %w", err)
 	}
 
+	externalAddrChan := make(chan string, 1)
 	go func() {
-		if err := r.listenWebRTC(ctx, baMessage); err != nil {
+		if err := r.listenWebRTC(ctx, externalAddrChan, baMessage); err != nil {
 			webRTCError = err
 			log.Printf("failed to listen for WebRTC connections: %v", err)
 			cancel()
 		}
 	}()
 
-	cancelPortMapping, err := r.handlePortMap(ctx, flags)
+	externalAddr_UPnP, cancelPortMapping, err := r.handlePortMap(ctx, flags)
 	if err != nil {
 		return fmt.Errorf("failed to handle port mapping: %w", err)
 	}
 	defer cancelPortMapping()
 
-	err = r.listenAndServe(ctx, flags)
+	// wait for external address to be set by webrtc listener
+	externalAddr_p2p, ok := <-externalAddrChan
+	if ok && externalAddr_p2p != "" {
+		r.externalAddrs = append(r.externalAddrs, externalAddr_p2p)
+	}
+
+	listeningAddr := externalAddr_p2p
+	if listeningAddr == "" {
+		listeningAddr = externalAddr_UPnP
+	}
+	if listeningAddr == "" {
+		listeningAddr = "http://localhost:" + flags.Lookup("port").Value.String()
+	}
+
+	err = r.listenAndServe(ctx, listeningAddr, flags)
 	if err != nil {
 		log.Printf("failed to listen for http connections: %v", err)
 	} else {
@@ -90,10 +103,10 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) error {
+func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr string, flags *pflag.FlagSet) error {
 	var (
 		host, _       = flags.GetString("host")
-		port, _       = flags.GetString("port")
+		port, _       = flags.GetInt("port")
 		webrtcOnly, _ = flags.GetBool("webrtc-only")
 
 		l   net.Listener
@@ -108,20 +121,11 @@ func (r *rootCommand) listenAndServe(ctx context.Context, flags *pflag.FlagSet) 
 		defer l.Close()
 	}
 
+	// if we are using nat traversal show the user the external address
 	if qr, _ := flags.GetBool("qr-code"); qr {
-		if r.externalIP != nil {
-			externalPort, _ := flags.GetInt("external-port")
-			ep := strconv.Itoa(externalPort)
-			output.WriteListeningOnQR(ctx, "http", r.externalIP.String(), ep)
-		} else {
-			if host == "" {
-				hostIP, err := oneshotnet.GetSourceIP("", "")
-				if err == nil {
-					host = hostIP
-				}
-			}
-			output.WriteListeningOnQR(ctx, "http", host, port)
-		}
+		output.WriteListeningOnQR(ctx, listeningAddr)
+	} else {
+		output.WriteListeningOn(ctx, listeningAddr)
 	}
 
 	return r.server.Serve(ctx, l)

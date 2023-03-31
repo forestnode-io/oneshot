@@ -10,24 +10,24 @@ import (
 )
 
 func (r *rootCommand) configureWebRTC(flags *pflag.FlagSet) error {
-	path, _ := flags.GetString("webrtc-config-file")
+	path, _ := flags.GetString("p2p-config-file")
 	if path == "" {
 		return nil
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("unable to read webrtc config file: %w", err)
+		return fmt.Errorf("unable to read p2p config file: %w", err)
 	}
 
 	config := webrtc.Configuration{}
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("unable to parse webrtc config file: %w", err)
+		return fmt.Errorf("unable to parse p2p config file: %w", err)
 	}
 
 	r.webrtcConfig, err = config.WebRTCConfiguration()
 	if err != nil {
-		return fmt.Errorf("unable to configure webrtc: %w", err)
+		return fmt.Errorf("unable to configure p2p: %w", err)
 	}
 
 	return nil

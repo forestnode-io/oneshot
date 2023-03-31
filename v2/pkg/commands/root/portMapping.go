@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (func(), error) {
+func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (string, func(), error) {
 	var (
 		externalPort, _        = flags.GetInt("external-port")
 		portMappingDuration, _ = flags.GetDuration("port-mapping-duration")
@@ -28,14 +28,14 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 	userSetUPnPFlag := flags.Lookup("external-port").Changed || flags.Lookup("port-mapping-duration").Changed
 
 	if !mapPort && !userSetUPnPFlag {
-		return cancel, nil
+		return "", cancel, nil
 	}
 
 	portString, _ := flags.GetString("port")
 	portString = strings.TrimPrefix(portString, ":")
 	port, err := strconv.Atoi(portString)
 	if err != nil {
-		return cancel, fmt.Errorf("failed to parse port: %w", err)
+		return "", cancel, fmt.Errorf("failed to parse port: %w", err)
 	}
 
 	finishSpinning := output.DisplaySpinner(ctx,
@@ -48,7 +48,7 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 	discoveryTimeout, _ := flags.GetDuration("upnp-discovery-timeout")
 	devChan, err := upnpigd.Discover("oneshot", discoveryTimeout, http.DefaultClient)
 	if err != nil {
-		return cancel, fmt.Errorf("failed to discover UPnP IGD: %w", err)
+		return "", cancel, fmt.Errorf("failed to discover UPnP IGD: %w", err)
 	}
 
 	devs := make([]*upnpigd.Device, 0)
@@ -57,31 +57,38 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 	}
 
 	if len(devs) == 0 {
-		return cancel, errors.New("no UPnP IGD devices found")
+		return "", cancel, errors.New("no UPnP IGD devices found")
 	}
 
 	dev := devs[0]
 	if err := dev.AddPortMapping(ctx, "TCP", externalPort, port, "oneshot", portMappingDuration); err != nil {
 		finishSpinning()
-		return cancel, fmt.Errorf("failed to add port mapping: %w", err)
+		return "", cancel, fmt.Errorf("failed to add port mapping: %w", err)
 	}
 	log.Printf("added port mapping for %d -> %d", port, externalPort)
 
-	log.Println("getting external IP ...")
-	r.externalIP, err = dev.GetExternalIP(ctx)
+	log.Println("getting external address ...")
+	externalIP, err := dev.GetExternalIP(ctx)
 	if err != nil {
 		finishSpinning()
-		return cancel, fmt.Errorf("failed to get external IP: %w", err)
+		return "", cancel, fmt.Errorf("failed to get external address: %w", err)
 	}
-	log.Printf("... external IP: %s", r.externalIP)
+	externalAddr := fmt.Sprintf("%s:%d", externalIP, externalPort)
+	log.Printf("... external address: %s", externalAddr)
 
 	finishSpinning()
 
+	// exit after the port mapping expires
+	// TODO(raphaelreyna): this can be handled better.
+	// Not sure about what happens when the port mapping expires while the server has
+	// active connections.
+	// Look into maybe refreshing the port mapping every so often while there are active
+	// connections.
 	t := time.AfterFunc(portMappingDuration, func() {
 		events.Stop(ctx)
 	})
 
-	return func() {
+	return externalAddr, func() {
 		t.Stop()
 		if err := dev.DeletePortMapping(ctx, "TCP", externalPort); err != nil {
 			log.Printf("failed to delete port mapping: %v", err)

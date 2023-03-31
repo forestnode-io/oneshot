@@ -27,8 +27,8 @@ Global Flags:
 {{corsFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
 
 {{ "NAT Traversal Flags:" | indent 4 }}
-{{ "WebRTC Flags:" | indent 8 }}
-{{webrtcFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 12}}{{if eq .Name "oneshot" }}
+{{ "P2P Flags:" | indent 8 }}
+{{p2pFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 12}}{{if eq .Name "oneshot" }}
 
 Use "oneshot [command] --help" for more information about a command.{{end}}
 `

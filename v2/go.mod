@@ -25,6 +25,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/jf-tech/go-corelib v0.0.7 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/pion/dtls/v2 v2.1.5 // indirect
 	github.com/pion/ice/v2 v2.2.16 // indirect
@@ -62,6 +63,7 @@ require (
 	github.com/pion/webrtc/v3 v3.1.53
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/rs/cors v1.8.3
+	github.com/rs/zerolog v1.29.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/term v0.6.0
 )

@@ -11,8 +11,6 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
-	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 )
 
 var NewHTTPRequest = events.NewHTTPRequest
@@ -92,7 +90,11 @@ func (o *output) run(ctx context.Context) error {
 	return nil
 }
 
-func (o *output) writeListeningOnQRCode(scheme, host, port string) {
+func (o *output) writeListeningOnQRCode(addr string) {
+	if o.Format == "json" || o.skipSummary || o.quiet || addr == "" {
+		return
+	}
+
 	qrConf := qrterminal.Config{
 		Level:      qrterminal.L,
 		Writer:     os.Stderr,
@@ -101,31 +103,17 @@ func (o *output) writeListeningOnQRCode(scheme, host, port string) {
 		QuietZone:  1,
 		HalfBlocks: false,
 	}
-	if o.Format == "json" || o.skipSummary {
-		return
-	}
 
-	if host == "" {
-		addrs, err := oneshotnet.HostAddresses()
-		if err != nil {
-			addr := fmt.Sprintf("%s://localhost%s", scheme, port)
-			fmt.Fprintf(os.Stderr, "%s:\n", addr)
-			qrterminal.GenerateWithConfig(addr, qrConf)
-			return
-		}
-
-		fmt.Fprintln(os.Stderr, "listening on: ")
-		for _, addr := range addrs {
-			addr = fmt.Sprintf("%s://%s", scheme, oneshotfmt.Address(addr, port))
-			fmt.Fprintf(os.Stderr, "%s:\n", addr)
-			qrterminal.GenerateWithConfig(addr, qrConf)
-		}
-		return
-	}
-
-	addr := fmt.Sprintf("%s://%s", scheme, oneshotfmt.Address(host, port))
-	fmt.Fprintf(os.Stderr, "%s:\n", addr)
+	fmt.Fprintln(os.Stderr, addr)
 	qrterminal.GenerateWithConfig(addr, qrConf)
+}
+
+func (o *output) writeListeningOn(addr string) {
+	if o.Format == "json" || o.skipSummary || o.quiet || addr == "" {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "listening on %s\n", addr)
 }
 
 // ttyCheck checks if stdin, stdout, and stderr are ttys

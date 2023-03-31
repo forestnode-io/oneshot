@@ -18,53 +18,54 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-func (r *rootCommand) listenWebRTC(ctx context.Context, ba *messages.BasicAuth) error {
+func (r *rootCommand) listenWebRTC(ctx context.Context, addrChan chan<- string, ba *messages.BasicAuth) error {
 	r.wg.Add(1)
 	defer r.wg.Done()
 
 	var (
 		flags                  = r.Flags()
-		useWebRTC, _           = flags.GetBool("webrtc")
-		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
-		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
-		webrtcOnly, _          = flags.GetBool("webrtc-only")
+		useWebRTC, _           = flags.GetBool("p2p")
+		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
+		webRTCSignallingURL, _ = flags.GetString("p2p-discovery-server-url")
+		webrtcOnly, _          = flags.GetBool("p2p-only")
 	)
 
 	if !useWebRTC &&
 		!webrtcOnly &&
 		webRTCSignallingDir == "" &&
 		webRTCSignallingURL == "" {
+		close(addrChan)
 		return nil
 	}
 
 	err := r.configureWebRTC(flags)
 	if err != nil {
-		return fmt.Errorf("failed to configure WebRTC: %w", err)
+		return fmt.Errorf("failed to configure p2p: %w", err)
 	}
 
 	signaller, err := getSignaller(ctx, flags, r.webrtcConfig, ba)
 	if err != nil {
-		return fmt.Errorf("failed to get WebRTC signaller: %w", err)
+		return fmt.Errorf("failed to get p2p signaller: %w", err)
 	}
 	defer signaller.Shutdown()
 
 	a := server.NewServer(r.webrtcConfig, http.HandlerFunc(r.server.ServeHTTP))
 	defer a.Wait()
 
-	log.Println("starting WebRTC signalling mechanism")
-	if err := signaller.Start(ctx, a); err != nil {
+	log.Println("starting p2p discovery mechanism")
+	if err := signaller.Start(ctx, a, addrChan); err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("WebRTC signalling mechanism started")
+	log.Println("p2p discovery mechanism started")
 
 	return nil
 }
 
 func getSignaller(ctx context.Context, flags *pflag.FlagSet, config *webrtc.Configuration, ba *messages.BasicAuth) (signallers.ServerSignaller, error) {
 	var (
-		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
-		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
+		webRTCSignallingURL, _ = flags.GetString("p2p-discovery-server-url")
+		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
 
 		kacp = keepalive.ClientParameters{
 			Time:    6 * time.Second, // send pings every 6 seconds if there is no activity
@@ -74,22 +75,22 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, config *webrtc.Conf
 
 	if webRTCSignallingDir != "" {
 		if config == nil {
-			return nil, fmt.Errorf("nil WebRTC configuration")
+			return nil, fmt.Errorf("nil p2p configuration")
 		}
 		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
 	} else if webRTCSignallingURL != "" {
 		return newServerServerSignaller(flags, ba, kacp), nil
 	}
 
-	return nil, fmt.Errorf("no WebRTC signalling mechanism specified")
+	return nil, fmt.Errorf("no p2p discovery mechanism specified")
 }
 
 func newServerServerSignaller(flags *pflag.FlagSet, ba *messages.BasicAuth, kacp keepalive.ClientParameters) signallers.ServerSignaller {
 	var (
-		url, _               = flags.GetString("webrtc-signalling-server-url")
-		id, _                = flags.GetString("webrtc-signalling-server-id")
-		assignURL, _         = flags.GetString("webrtc-signalling-server-request-url")
-		assignRequiredURL, _ = flags.GetString("webrtc-signalling-server-required-url")
+		url, _               = flags.GetString("p2p-discovery-server-url")
+		id, _                = flags.GetString("p2p-discovery-server-id")
+		assignURL, _         = flags.GetString("p2p-discovery-server-request-url")
+		assignRequiredURL, _ = flags.GetString("p2p-discovery-server-required-url")
 	)
 
 	urlRequired := false
@@ -111,7 +112,7 @@ func newServerServerSignaller(flags *pflag.FlagSet, ba *messages.BasicAuth, kacp
 
 		BasicAuth: ba,
 	}
-	if useInsecure, _ := flags.GetBool("webrtc-signalling-server-insecure"); useInsecure {
+	if useInsecure, _ := flags.GetBool("p2p-discovery-server-insecure"); useInsecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))

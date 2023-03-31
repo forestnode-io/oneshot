@@ -66,7 +66,7 @@ func (r *rootCommand) setFlags() {
 	pflags := r.PersistentFlags()
 
 	flags := pflag.NewFlagSet("Output Flags", pflag.ContinueOnError)
-	flags.BoolP("quiet", "q", false, "Silence all messages.")
+	flags.BoolP("quiet", "q", false, "Disable all output messages.")
 
 	flags.VarP(&r.outFlag, "output", "o", `Set output format. Valid formats are: json[=opts].
 Valid json opts are:
@@ -79,8 +79,8 @@ Valid json opts are:
 		Excludes the contents of files in the json output.
 		This is on by default when sending or receiving to or from disk.`)
 
-	flags.BoolP("qr-code", "Q", false, "Generate QR codes for connection URLs.")
-	flags.Bool("no-color", false, "Don't use color.")
+	flags.BoolP("qr-code", "Q", false, "Generate QR codes for easy connection sharing.")
+	flags.Bool("no-color", false, "Disable colored output.")
 
 	pflags.AddFlagSet(flags)
 	cobra.AddTemplateFunc("flags", func(cmd *cobra.Command) *pflag.FlagSet {
@@ -101,7 +101,7 @@ Cert file must also be provided using the --tls-cert flag.`)
 
 	sfs.StringP("port", "p", "8080", `Port to bind to.`)
 
-	sfs.Bool("allow-bots", false, "Don't block bots.")
+	sfs.Bool("allow-bots", false, "Allow bot access.")
 
 	sfa := commands.SizeFlagArg(0)
 	sfs.Var(&sfa, "max-read-size", `Maximum read size for incoming request bodies. A value of zero will cause oneshot to read until EOF.
@@ -114,7 +114,7 @@ Valid units are: b, B,
 Example: 12MB. 
 	`)
 
-	sfs.Bool("exit-on-fail", false, "Exit after a failed connection / transfer, instead of waiting until one is successful.")
+	sfs.Bool("exit-on-fail", false, "Exit after a failed transfer, without waiting for a succesful one.")
 
 	pflags.AddFlagSet(sfs)
 	cobra.AddTemplateFunc("serverFlags", func(cmd *cobra.Command) *pflag.FlagSet {
@@ -129,7 +129,7 @@ If a password is not also provided then the client may enter any password.`)
 If a username is not also provided using the --username flag then the client may enter any username.
 If either the --prompt-password or --password-file flags are set, this flag will be ignored.`)
 
-	bafs.BoolP("prompt-password", "W", false, `Prompt for password for basic authentication.
+	bafs.BoolP("prompt-password", "W", false, `Prompt for password when using basic authentication.
 If a username is not also provided then the client may enter any username.`)
 
 	bafs.String("password-file", "", `Path to file containing password for basic authentication.
@@ -142,7 +142,7 @@ If a username or password is not provided, this flag will be ignored.`)
 	bafs.Int("unauthorized-status", http.StatusUnauthorized, `Status code that will be sent to unauthenticated users.
 If a username or password is not provided, this flag will be ignored.`)
 
-	bafs.Bool("dont-trigger-login", false, `Don't trigger login dialog for unauthenticated users.
+	bafs.Bool("dont-trigger-login", false, `Do not display a login dialog for unauthenticated users.
 If a username or password is not provided, this flag will be ignored.`)
 
 	pflags.AddFlagSet(bafs)
@@ -151,7 +151,7 @@ If a username or password is not provided, this flag will be ignored.`)
 	})
 
 	cfs := pflag.NewFlagSet("CORS", pflag.ContinueOnError)
-	cfs.Bool("cors", false, `Enable CORS support with default values.`)
+	cfs.Bool("cors", false, `Enable default CORS support.`)
 
 	cfs.StringArray("cors-allowed-origins", nil, `Comma separated list of allowed origins.
 An allowed origin may be a domain name, or a wildcard (*).
@@ -172,18 +172,18 @@ If a wildcard (*) is used, all headers will be allowed.`)
 		return cfs
 	})
 
-	wfs := pflag.NewFlagSet("WebRTC Flags", pflag.ContinueOnError)
-	wfs.Bool("webrtc", false, `Enable WebRTC support with default values.`)
-	wfs.Bool("webrtc-only", false, `Only allow WebRTC connections.`)
-	wfs.String("webrtc-config-file", "", `Path to file containing WebRTC configuration.`)
-	wfs.String("webrtc-signalling-dir", "", `Directory to use for WebRTC signalling.`)
-	wfs.String("webrtc-signalling-server-url", "", `URL to use for WebRTC signalling.`)
-	wfs.String("webrtc-signalling-server-id", "", `ID to use for WebRTC signalling.`)
-	wfs.String("webrtc-signalling-server-request-url", "", `URL that the signalling server will try to reserve for connecting clients.`)
-	wfs.String("webrtc-signalling-server-required-url", "", `URL that the signalling server needs to reserve for connecting clients.`)
-	wfs.Bool("webrtc-signalling-server-insecure", false, `Disable TLS for WebRTC signalling server.`)
+	wfs := pflag.NewFlagSet("p2p Flags", pflag.ContinueOnError)
+	wfs.Bool("p2p", false, `Enable p2p support with default values.`)
+	wfs.Bool("p2p-only", false, `Only allow p2p connections.`)
+	wfs.String("p2p-config-file", "", `Path to file containing p2p configuration.`)
+	wfs.String("p2p-discovery-dir", "", `Directory to use for p2p discovery.`)
+	wfs.String("p2p-discovery-server-url", "", `URL to use for p2p discovery.`)
+	wfs.String("p2p-discovery-server-id", "", `ID to use for p2p discovery.`)
+	wfs.String("p2p-discovery-server-request-url", "", `URL that the discovery server will try to reserve for connecting clients.`)
+	wfs.String("p2p-discovery-server-required-url", "", `URL that the discovery server needs to reserve for connecting clients.`)
+	wfs.Bool("p2p-discovery-server-insecure", false, `Disable TLS when connecting to the p2p discovery server.`)
 	pflags.AddFlagSet(wfs)
-	cobra.AddTemplateFunc("webrtcFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+	cobra.AddTemplateFunc("p2pFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return wfs
 	})
 

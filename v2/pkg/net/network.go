@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -42,8 +43,8 @@ func HostAddresses() ([]string, error) {
 
 // GetSourceIP returns the ip address used to access target:port
 // If target is the empty string then the default gateway ip is used.
-// If the port is the empty string, then "80" is used by default.
-func GetSourceIP(target, port string) (string, error) {
+// If the port is 0, then 80 is used by default.
+func GetSourceIP(target string, port int) (string, error) {
 	if target == "" {
 		ip, err := gateway.DiscoverGateway()
 		if err != nil {
@@ -52,11 +53,11 @@ func GetSourceIP(target, port string) (string, error) {
 		target = ip.String()
 	}
 
-	if port == "" {
-		port = "80"
+	if port == 0 {
+		port = 80
 	}
 
-	conn, err := net.Dial("udp", target+":"+port)
+	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", target, port))
 	if err != nil {
 		return "", err
 	}
@@ -107,4 +108,13 @@ func PreferNonPrivateIP(ips []string) (string, string) {
 	}
 
 	return preferredAddress.String(), port
+}
+
+func AddressParts(add string) (string, string) {
+	parts := strings.Split(add, ":")
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+
+	return parts[0], ""
 }

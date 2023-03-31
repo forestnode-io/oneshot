@@ -46,8 +46,12 @@ func SetEventsChan(ctx context.Context, ec chan events.Event) {
 	getOutput(ctx).events = ec
 }
 
-func WriteListeningOnQR(ctx context.Context, scheme, host, port string) {
-	getOutput(ctx).writeListeningOnQRCode(scheme, host, port)
+func WriteListeningOnQR(ctx context.Context, addr string) {
+	getOutput(ctx).writeListeningOnQRCode(addr)
+}
+
+func WriteListeningOn(ctx context.Context, addr string) {
+	getOutput(ctx).writeListeningOn(addr)
 }
 
 func Quiet(ctx context.Context) {
