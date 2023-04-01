@@ -47,6 +47,7 @@ func newServer(c *Config) (*server, error) {
 		return nil, fmt.Errorf("unable to set defaults: %w", err)
 	}
 
+	// read jwt secret from file if necessary
 	if c.JWTSecretConfig.Value == "" {
 		data, err := os.ReadFile(c.JWTSecretConfig.Path)
 		if err != nil {

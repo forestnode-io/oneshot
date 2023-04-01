@@ -86,7 +86,7 @@ func newServerServerSignaller(flags *pflag.FlagSet, portMapAddr string, ba *mess
 	conf := signallers.ServerServerSignallerConfig{
 		URL:         assignURL,
 		URLRequired: urlRequired,
-		PortMapAddr: "http://" + portMapAddr,
+		PortMapAddr: portMapAddr,
 		BasicAuth:   ba,
 	}
 

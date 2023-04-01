@@ -81,6 +81,12 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 		events.Stop(ctx)
 	})
 
+	scheme := "http"
+	if _, err := flags.GetString("tls-cert"); err != nil {
+		scheme = "https"
+	}
+	externalAddr = fmt.Sprintf("%s://%s", scheme, externalAddr)
+
 	return externalAddr, func() {
 		t.Stop()
 		if err := dev.DeletePortMapping(ctx, "TCP", externalPort); err != nil {
