@@ -107,7 +107,7 @@ func (s *server) run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleHTTP)
 	hs := http.Server{
-		Addr:    dc.Addr,
+		Addr:    hc.Addr,
 		Handler: mux,
 	}
 
@@ -147,7 +147,7 @@ func (s *server) run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		if hc.TLS != nil {
-			if err := http.ListenAndServeTLS(hc.Addr, hc.TLS.Cert, hc.TLS.Key, nil); err != nil {
+			if err := hs.ListenAndServeTLS(hc.TLS.Cert, hc.TLS.Key); err != nil {
 				cancel()
 				if err != http.ErrServerClosed {
 					log.Printf("error serving http: %v", err)
@@ -204,7 +204,7 @@ func (s *server) queueRequest(sessionID string, w http.ResponseWriter, r *http.R
 func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 	var (
 		scheme = s.config.URLAssignment.Scheme
-		domain = s.config.URLAssignment.Domain
+		domain = s.config.URLAssignment.Domain + fmt.Sprintf(":%d", s.config.URLAssignment.Port)
 	)
 
 	if rurl == "" {

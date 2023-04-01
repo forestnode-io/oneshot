@@ -64,6 +64,10 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	if err = yaml.Unmarshal(configData, &config); err != nil {
 		return fmt.Errorf("unable to parse p2p config file: %w", err)
 	}
+	c.webrtcConfig, err = config.WebRTCConfiguration.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("unable to configure p2p: %w", err)
+	}
 
 	if c.webrtcConfig == nil {
 		return fmt.Errorf("webrtc configuration is required")

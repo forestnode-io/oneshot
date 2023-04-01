@@ -18,11 +18,11 @@ type RequiredID struct {
 }
 
 type URLAssignment struct {
-	Scheme     string `json:"scheme"`
-	Domain     string `json:"domain"`
-	Port       int    `json:"port"`
-	Path       string `json:"path"`
-	PathPrefix string `json:"pathPrefix"`
+	Scheme     string `yaml:"scheme" mapstructure:"scheme"`
+	Domain     string `yaml:"domain" mapstructure:"domain"`
+	Port       int    `yaml:"port" mapstructure:"port"`
+	Path       string `yaml:"path" mapstructure:"path"`
+	PathPrefix string `yaml:"pathPrefix" mapstructure:"pathPrefix"`
 }
 
 type TLS struct {
@@ -42,11 +42,11 @@ type Servers struct {
 
 type Config struct {
 	Servers             Servers              `yaml:"servers" mapstructure:"servers"`
-	URLAssignment       URLAssignment        `yaml:"urlassignment" mapstructure:"urlAssignment"`
-	RequiredID          RequiredID           `yaml:"requiredid" mapstructure:"requiredID"`
-	MaxClientQueueSize  int                  `yaml:"maxclientqueuesize" mapstructure:"maxClientQueueSize"`
+	URLAssignment       URLAssignment        `yaml:"urlAssignment" mapstructure:"urlAssignment"`
+	RequiredID          RequiredID           `yaml:"requiredID" mapstructure:"requiredID"`
+	MaxClientQueueSize  int                  `yaml:"maxClientQueueSize" mapstructure:"maxClientQueueSize"`
 	JWTSecretConfig     JWTSecretConfig      `yaml:"jwt" mapstructure:"jwt"`
-	WebRTCConfiguration webrtc.Configuration `yaml:"p2pConfiguration" mapstructure:"p2pConfiguration"`
+	WebRTCConfiguration webrtc.Configuration `yaml:"p2p" mapstructure:"p2p"`
 }
 
 func (c *Config) SetDefaults() error {
@@ -64,7 +64,7 @@ func (c *Config) SetDefaults() error {
 		c.URLAssignment.Port = 8080
 	}
 
-	if c.JWTSecretConfig.Path == "" || c.JWTSecretConfig.Value == "" {
+	if c.JWTSecretConfig.Path == "" && c.JWTSecretConfig.Value == "" {
 		return fmt.Errorf("jwt secret config must have a path or a value")
 	}
 

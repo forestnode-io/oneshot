@@ -21,11 +21,31 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("host: %s", r.Host)
 	r.URL.Scheme = "http"
 	r.URL.Host = r.Host
-	log.Printf("url: %s", r.URL.String())
+
+	addrURL := url.URL{
+		Scheme: "http",
+		Host:   r.Host,
+		Path:   r.URL.Path,
+	}
+	addrString := strings.TrimSuffix(addrURL.String(), "/")
+	log.Printf("url: %s", addrString)
+
 	log.Printf("assigned url: %s", s.assignedURL)
-	if s.assignedURL == "" || s.assignedURL != r.URL.String() {
+	if s.assignedURL == "" || s.assignedURL != addrString {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
+	}
+
+	if s.os.Arrival.Redirect != "" {
+		if s.os.Arrival.RedirectOnly {
+			http.Redirect(w, r, s.os.Arrival.Redirect, http.StatusSeeOther)
+			return
+		}
+
+		if r.URL.Query().Get("x-oneshot-discovery-redirect") != "" {
+			http.Redirect(w, r, s.os.Arrival.Redirect, http.StatusSeeOther)
+			return
+		}
 	}
 
 	accept := r.Header.Get("Accept")

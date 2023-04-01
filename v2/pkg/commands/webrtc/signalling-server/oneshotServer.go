@@ -50,7 +50,7 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 	if !ok {
 		return nil, messages.ErrInvalidRequestType
 	}
-	if rh.Error != nil {
+	if rh.Error != "" {
 		return nil, fmt.Errorf("error from remote: %s", rh.Error)
 	}
 	log.Printf("oneshot client version: %s", rh.VersionInfo.Version)
@@ -63,7 +63,7 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 	}
 
 	if rh.ID != requiredID && requiredID != "" {
-		h.Error = fmt.Errorf("unautharized")
+		h.Error = "unautharized"
 		env, err = messages.ToRPCEnvelope(&h)
 		if err != nil {
 			return nil, err

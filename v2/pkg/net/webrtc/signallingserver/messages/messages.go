@@ -18,7 +18,7 @@ type VersionInfo struct {
 type Handshake struct {
 	ID          string
 	VersionInfo VersionInfo
-	Error       error
+	Error       string
 }
 
 func (h *Handshake) Type() string {
@@ -47,9 +47,10 @@ type SessionURLRequest struct {
 
 // sent from the oneshot server to the signalling server after VersionInfo has been exchanged
 type ServerArrivalRequest struct {
-	ID        string
-	BasicAuth *BasicAuth
-	URL       *SessionURLRequest
+	BasicAuth    *BasicAuth
+	URL          *SessionURLRequest
+	Redirect     string
+	RedirectOnly bool
 }
 
 func (a *ServerArrivalRequest) Type() string {
@@ -64,26 +65,6 @@ type ServerArrivalResponse struct {
 
 func (a *ServerArrivalResponse) Type() string {
 	return "ServerArrivalResponse"
-}
-
-type ClientArrivalRequest struct {
-	ID        string
-	BasicAuth *BasicAuth
-	URL       string
-}
-
-func (a *ClientArrivalRequest) Type() string {
-	return "ClientArrivalRequest"
-}
-
-type ClientArrivalResponse struct {
-	SessionID string
-	Offer     string
-	Error     string
-}
-
-func (a *ClientArrivalResponse) Type() string {
-	return "ClientArrivalResponse"
 }
 
 type AnswerOfferRequest struct {

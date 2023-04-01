@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/spf13/cobra"
@@ -39,6 +41,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	var (
 		ctx, cancel = context.WithCancel(cmd.Context())
 		flags       = cmd.Flags()
+		err         error
 
 		webRTCError error
 	)
@@ -60,33 +63,99 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	baMessage, err := r.configureServer(flags)
-	if err != nil {
-		return fmt.Errorf("failed to configure server: %w", err)
-	}
-
-	externalAddrChan := make(chan string, 1)
-	go func() {
-		if err := r.listenWebRTC(ctx, externalAddrChan, baMessage); err != nil {
-			webRTCError = err
-			log.Printf("failed to listen for WebRTC connections: %v", err)
-			cancel()
-		}
-	}()
-
+	// handle port mapping ( this can take a while )
 	externalAddr_UPnP, cancelPortMapping, err := r.handlePortMap(ctx, flags)
 	if err != nil {
 		return fmt.Errorf("failed to handle port mapping: %w", err)
 	}
 	defer cancelPortMapping()
 
-	// wait for external address to be set by webrtc listener
-	externalAddr_p2p, ok := <-externalAddrChan
-	if ok && externalAddr_p2p != "" {
-		r.externalAddrs = append(r.externalAddrs, externalAddr_p2p)
+	// connect to discovery server if one is provided
+	var (
+		discoveryServerURL, _ = flags.GetString("discovery-server-url")
+		usingDiscoveryServer  = discoveryServerURL != ""
+
+		discoveryServerKey, _      = flags.GetString("discovery-server-key")
+		discoveryServerInsecure, _ = flags.GetBool("discovery-server-insecure")
+	)
+	if discoveryServerURL != "" {
+		dsConf := signallingserver.DiscoveryServerConfig{
+			URL:      discoveryServerURL,
+			Key:      discoveryServerKey,
+			Insecure: discoveryServerInsecure,
+			VersionInfo: messages.VersionInfo{
+				Version:    "0.1.0",
+				APIVersion: "0.1.0",
+			},
+		}
+
+		ctx, err = signallingserver.WithDiscoveryServer(ctx, dsConf)
+		if err != nil {
+			return fmt.Errorf("failed to create discovery server: %w", err)
+		}
 	}
 
-	listeningAddr := externalAddr_p2p
+	baMessage, err := r.configureServer(flags)
+	if err != nil {
+		return fmt.Errorf("failed to configure server: %w", err)
+	}
+
+	var (
+		useWebRTC, _           = flags.GetBool("p2p")
+		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
+		webRTCSignallingURL, _ = flags.GetString("p2p-discovery-server-url")
+		webRTCOnly, _          = flags.GetBool("p2p-only")
+
+		usingWebRTCWithDiscoveryServer = useWebRTC || webRTCOnly || webRTCSignallingURL != "" || usingDiscoveryServer
+		usingWebRTC                    = usingWebRTCWithDiscoveryServer || webRTCSignallingDir != ""
+		redirect                       = externalAddr_UPnP != ""
+
+		discoveryServerAssignedAddress string
+	)
+
+	if usingDiscoveryServer && redirect && !usingWebRTCWithDiscoveryServer {
+		// if we're using a discovery server but not webrtc and we're redirecting
+		// then we need to still connect to the discovery server and send it the
+		// redirect address
+		ds := signallingserver.GetDiscoveryServer(ctx)
+		if ds == nil {
+			return errors.New("discovery server is nil")
+		}
+
+		err = signallingserver.Send(ds, &messages.ServerArrivalRequest{
+			Redirect:     externalAddr_UPnP,
+			RedirectOnly: true,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to send server arrival request: %w", err)
+		}
+		resp, err := signallingserver.Receive[*messages.ServerArrivalResponse](ds)
+		if err != nil {
+			return fmt.Errorf("failed to receive server arrival response: %w", err)
+		}
+		if resp.Error != "" {
+			return fmt.Errorf("server arrival response error: %s", resp.Error)
+		}
+		discoveryServerAssignedAddress = resp.AssignedURL
+	} else if usingWebRTC {
+		// if we're using webrtc then we need to listen for incoming connections
+		// and send the discovery server our listening address
+		externalAddrChan := make(chan string, 1)
+		go func() {
+			if err := r.listenWebRTC(ctx, externalAddr_UPnP, externalAddrChan, baMessage); err != nil {
+				webRTCError = err
+				log.Printf("failed to listen for WebRTC connections: %v", err)
+				cancel()
+			}
+		}()
+
+		discoveryServerAssignedAddress = <-externalAddrChan
+		if discoveryServerAssignedAddress == "" {
+			return errors.New("listening address is empty")
+		}
+	}
+
+	listeningAddr := discoveryServerAssignedAddress
 	if listeningAddr == "" {
 		listeningAddr = externalAddr_UPnP
 	}

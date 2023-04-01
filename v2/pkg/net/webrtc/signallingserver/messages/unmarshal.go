@@ -39,14 +39,6 @@ func Unmarshal(typeName string, data []byte) (Message, error) {
 		var g GotAnswerResponse
 		err := json.Unmarshal(data, &g)
 		return &g, err
-	case "ClientArrivalRequest":
-		var a ClientArrivalRequest
-		err := json.Unmarshal(data, &a)
-		return &a, err
-	case "ClientArrivalResponse":
-		var a ClientArrivalResponse
-		err := json.Unmarshal(data, &a)
-		return &a, err
 	case "AnswerOfferRequest":
 		var a AnswerOfferRequest
 		err := json.Unmarshal(data, &a)

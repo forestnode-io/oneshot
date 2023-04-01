@@ -99,7 +99,7 @@ Cert file must also be provided using the --tls-cert flag.`)
 
 	sfs.String("host", "", `Host specifies the TCP address for the server to listen on.`)
 
-	sfs.StringP("port", "p", "8080", `Port to bind to.`)
+	sfs.IntP("port", "p", 8080, `Port to bind to.`)
 
 	sfs.Bool("allow-bots", false, "Allow bot access.")
 
@@ -172,19 +172,25 @@ If a wildcard (*) is used, all headers will be allowed.`)
 		return cfs
 	})
 
-	wfs := pflag.NewFlagSet("p2p Flags", pflag.ContinueOnError)
-	wfs.Bool("p2p", false, `Enable p2p support with default values.`)
-	wfs.Bool("p2p-only", false, `Only allow p2p connections.`)
-	wfs.String("p2p-config-file", "", `Path to file containing p2p configuration.`)
-	wfs.String("p2p-discovery-dir", "", `Directory to use for p2p discovery.`)
-	wfs.String("p2p-discovery-server-url", "", `URL to use for p2p discovery.`)
-	wfs.String("p2p-discovery-server-id", "", `ID to use for p2p discovery.`)
-	wfs.String("p2p-discovery-server-request-url", "", `URL that the discovery server will try to reserve for connecting clients.`)
-	wfs.String("p2p-discovery-server-required-url", "", `URL that the discovery server needs to reserve for connecting clients.`)
-	wfs.Bool("p2p-discovery-server-insecure", false, `Disable TLS when connecting to the p2p discovery server.`)
-	pflags.AddFlagSet(wfs)
+	dsfs := pflag.NewFlagSet("Discovery Server Flags", pflag.ContinueOnError)
+	dsfs.String("discovery-server-url", "", `URL to use for discovery server.`)
+	dsfs.String("discovery-server-key", "", `Key to use for discovery server.`)
+	dsfs.Bool("discovery-server-insecure", false, `Disable TLS when connecting to the discovery server.`)
+	pflags.AddFlagSet(dsfs)
+	cobra.AddTemplateFunc("discoveryServerFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+		return dsfs
+	})
+
+	p2pFS := pflag.NewFlagSet("p2p Flags", pflag.ContinueOnError)
+	p2pFS.Bool("p2p", false, `Enable p2p support with default values.`)
+	p2pFS.Bool("p2p-only", false, `Only allow p2p connections.`)
+	p2pFS.String("p2p-config-file", "", `Path to file containing p2p configuration.`)
+	p2pFS.String("p2p-discovery-dir", "", `Directory to use for p2p discovery.`)
+	p2pFS.String("p2p-discovery-server-request-url", "", `URL that the discovery server will try to reserve for connecting clients.`)
+	p2pFS.String("p2p-discovery-server-required-url", "", `URL that the discovery server needs to reserve for connecting clients.`)
+	pflags.AddFlagSet(p2pFS)
 	cobra.AddTemplateFunc("p2pFlags", func(cmd *cobra.Command) *pflag.FlagSet {
-		return wfs
+		return p2pFS
 	})
 
 	ufs := pflag.NewFlagSet("UPnP IGD Flags", pflag.ContinueOnError)

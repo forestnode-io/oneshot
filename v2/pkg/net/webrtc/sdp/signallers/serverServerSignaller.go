@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
-	"google.golang.org/grpc"
 )
 
 type serverServerSignaller struct {
 	cancel func()
-	stream proto.SignallingServer_ConnectClient
+
+	ds *signallingserver.DiscoveryServer
 
 	offerChan chan string
 
@@ -27,12 +26,10 @@ type serverServerSignaller struct {
 }
 
 type ServerServerSignallerConfig struct {
-	ID                  string
-	URL                 string
-	URLRequired         bool
-	BasicAuth           *messages.BasicAuth
-	SignallingServerURL string
-	GRPCOpts            []grpc.DialOption
+	URL         string
+	URLRequired bool
+	BasicAuth   *messages.BasicAuth
+	PortMapAddr string
 }
 
 func NewServerServerSignaller(c *ServerServerSignallerConfig) ServerSignaller {
@@ -48,85 +45,25 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 
-	grpcOpts := []grpc.DialOption{}
-	if s.conf.GRPCOpts != nil {
-		grpcOpts = append(grpcOpts, s.conf.GRPCOpts...)
+	ds := signallingserver.GetDiscoveryServer(ctx)
+	if ds == nil {
+		return errors.New("discovery server not found")
 	}
+	s.ds = ds
 
-	dialCtx, dialCancel := context.WithTimeout(ctx, 3*time.Second)
-	defer dialCancel()
-	conn, err := grpc.DialContext(dialCtx, s.conf.SignallingServerURL, grpcOpts...)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("timeout dialing signalling server")
-		}
-		if errors.Is(err, context.Canceled) {
-			return fmt.Errorf("dialing signalling server canceled")
-		}
-		return fmt.Errorf("error dialing signalling server: %w", err)
-	}
-	ssClient := proto.NewSignallingServerClient(conn)
-
-	stream, err := ssClient.Connect(ctx)
-	if err != nil {
-		return fmt.Errorf("error connecting to signalling server: %w", err)
-	}
-	s.stream = stream
 	go func() {
 		<-ctx.Done()
 		log.Println("closing connection to signalling server ...")
-		if err := stream.CloseSend(); err != nil {
-			log.Printf("error closing signalling server stream: %v", err)
-		}
-		if err := conn.Close(); err != nil {
-			log.Printf("error closing signalling server connection: %v", err)
+		if err := ds.Close(); err != nil {
+			log.Printf("error closing connection to signalling server: %v", err)
 		}
 	}()
-
-	// exchange handshake
-	log.Println("exchanging handshake with signalling server ...")
-	h := messages.Handshake{
-		ID: s.conf.ID,
-		VersionInfo: messages.VersionInfo{
-			Version: "0.0.1",
-		},
-	}
-	env, err := messages.ToRPCEnvelope(&h)
-	if err != nil {
-		return fmt.Errorf("error marshalling handshake: %w", err)
-	}
-	if err = stream.Send(env); err != nil {
-		return fmt.Errorf("error sending handshake: %w", err)
-	}
-	log.Println("... sent handshake to the signalling server...")
-
-	log.Println("... waiting for handshake from the signalling server...")
-	env, err = stream.Recv()
-	if err != nil {
-		return fmt.Errorf("error receiving handshake: %w", err)
-	}
-	m, err := messages.FromRPCEnvelope(env)
-	if err != nil {
-		log.Printf("error reading handshake: %v", err)
-		return err
-	}
-	rh, ok := m.(*messages.Handshake)
-	if !ok {
-		return messages.ErrInvalidRequestType
-	}
-	log.Println("... received handshake from the signalling server...")
-	log.Printf("... finished handshake with signalling server")
-	log.Printf("signalling server version: %s", rh.VersionInfo.Version)
-	log.Printf("signalling server api version: %s", rh.VersionInfo.APIVersion)
-	if rh.ID != "" {
-		log.Printf("signalling server id: %s", rh.ID)
-	}
 
 	// send the arrival request
 	log.Println("sending arrival request to signalling server ...")
 	ar := messages.ServerArrivalRequest{
-		ID:        s.conf.ID,
 		BasicAuth: s.conf.BasicAuth,
+		Redirect:  s.conf.PortMapAddr,
 	}
 	if s.conf.URL != "" {
 		ar.URL = &messages.SessionURLRequest{
@@ -134,38 +71,27 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			Required: s.conf.URLRequired,
 		}
 	}
-	env, err = messages.ToRPCEnvelope(&ar)
+	err := signallingserver.Send(ds, &ar)
 	if err != nil {
 		return fmt.Errorf("error marshalling arrival request: %w", err)
-	}
-	if err = stream.Send(env); err != nil {
-		return fmt.Errorf("error sending arrival request: %w", err)
 	}
 	log.Println("... sent arrival request to signalling server...")
 
 	// wait for the arrival response
-	env, err = stream.Recv()
+	sap, err := signallingserver.Receive[*messages.ServerArrivalResponse](ds)
 	if err != nil {
 		return fmt.Errorf("error receiving arrival response: %w", err)
 	}
-	m, err = messages.FromRPCEnvelope(env)
-	if err != nil {
-		return err
-	}
-	resp, ok := m.(*messages.ServerArrivalResponse)
-	if !ok {
-		return messages.ErrInvalidRequestType
-	}
-	if resp.Error != "" {
-		return fmt.Errorf("signalling server responded with error: %s", resp.Error)
+	if sap.Error != "" {
+		return fmt.Errorf("signalling server responded with error: %s", sap.Error)
 	}
 	log.Println("... received arrival response from signalling server.")
 
-	if resp.AssignedURL == "" {
+	if sap.AssignedURL == "" {
 		return fmt.Errorf("signalling server did not assign a url")
 	}
-	log.Printf("signalling server assigned url: %s", resp.AssignedURL)
-	addressChan <- resp.AssignedURL
+	log.Printf("signalling server assigned url: %s", sap.AssignedURL)
+	addressChan <- sap.AssignedURL
 	close(addressChan)
 
 	for {
@@ -178,7 +104,7 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 
 		// wait for the offer request
 		log.Println("waiting for offer request from signalling server ...")
-		env, err = stream.Recv()
+		gor, err := signallingserver.Receive[*messages.GetOfferRequest](ds)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				log.Println("signalling server closed connection")
@@ -186,35 +112,22 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			}
 			return fmt.Errorf("error receiving offer request: %w", err)
 		}
-		m, err = messages.FromRPCEnvelope(env)
-		if err != nil {
-			return fmt.Errorf("error reading offer request: %w", err)
-		}
 
-		switch m := m.(type) {
-		case *messages.GetOfferRequest:
-			log.Println("... got offer request from signalling server")
+		log.Println("... got offer request from signalling server")
 
-			// get the offer
-			log.Println("sending offer request to handler ...")
-			if err := handler.HandleRequest(ctx, m.SessionID, m.Configuration, s.answerOffer); err != nil {
-				env, err := messages.ToRPCEnvelope(&messages.FinishedSessionRequest{
-					SessionID: m.SessionID,
-					Error:     err.Error(),
-				})
-				if err != nil {
-					return fmt.Errorf("error marshalling session failed request: %w", err)
-				}
-				if err = s.stream.Send(env); err != nil {
-					return fmt.Errorf("error sending session failed request: %w", err)
-				}
-				log.Printf("error handling offer request: %v", err)
-				continue
+		// get the offer
+		if err := handler.HandleRequest(ctx, gor.SessionID, gor.Configuration, s.answerOffer); err != nil {
+			err = signallingserver.Send(ds, &messages.FinishedSessionRequest{
+				SessionID: gor.SessionID,
+				Error:     err.Error(),
+			})
+			if err != nil {
+				return fmt.Errorf("error sending session failed request: %w", err)
 			}
-			log.Println("... handler finished processing offer request")
-		default:
-			return fmt.Errorf("unexpected message type: %T", m)
+			log.Printf("error handling offer request: %v", err)
+			continue
 		}
+		log.Println("... handler finished processing offer request")
 	}
 }
 
@@ -226,49 +139,30 @@ func (s *serverServerSignaller) Shutdown() error {
 func (s *serverServerSignaller) answerOffer(ctx context.Context, sessionID string, offer sdp.Offer) (sdp.Answer, error) {
 	// send the offer to the signalling server
 	log.Println("sending offer to signalling server ...")
-	gor := messages.GetOfferResponse{
+	err := signallingserver.Send(s.ds, &messages.GetOfferResponse{
 		Offer: string(offer),
-	}
-	env, err := messages.ToRPCEnvelope(&gor)
+	})
 	if err != nil {
-		return "", fmt.Errorf("error marshalling offer: %w", err)
-	}
-	if err = s.stream.Send(env); err != nil {
 		return "", fmt.Errorf("error sending offer: %w", err)
 	}
 	log.Println("... sent offer to signalling server")
 
 	// wait for the answer to come back
-	log.Println("waiting for answer from signalling server ...")
-	env, err = s.stream.Recv()
+	gar, err := signallingserver.Receive[*messages.GotAnswerRequest](s.ds)
 	if err != nil {
 		return "", fmt.Errorf("error receiving answer: %w", err)
-	}
-	m, err := messages.FromRPCEnvelope(env)
-	if err != nil {
-		log.Printf("error reading answer: %v", err)
-		return "", err
-	}
-
-	a, ok := m.(*messages.GotAnswerRequest)
-	if !ok {
-		return "", messages.ErrInvalidRequestType
 	}
 
 	log.Println("got answer from signalling server")
 	log.Println("verifying with signalling server that answer was received ...")
 
 	// let the signalling server know we got the answer
-	gar := messages.GotAnswerResponse{}
-	env, err = messages.ToRPCEnvelope(&gar)
+	err = signallingserver.Send(s.ds, &messages.GotAnswerResponse{})
 	if err != nil {
-		return "", fmt.Errorf("error marshalling answer received: %w", err)
-	}
-	if err = s.stream.Send(env); err != nil {
 		return "", fmt.Errorf("error sending answer received: %w", err)
 	}
 
 	log.Println("... verified to signalling server that answer was received")
 
-	return sdp.Answer(a.Answer), nil
+	return sdp.Answer(gar.Answer), nil
 }

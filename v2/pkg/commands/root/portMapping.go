@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
@@ -31,12 +29,7 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 		return "", cancel, nil
 	}
 
-	portString, _ := flags.GetString("port")
-	portString = strings.TrimPrefix(portString, ":")
-	port, err := strconv.Atoi(portString)
-	if err != nil {
-		return "", cancel, fmt.Errorf("failed to parse port: %w", err)
-	}
+	port, _ := flags.GetInt("port")
 
 	finishSpinning := output.DisplaySpinner(ctx,
 		333*time.Millisecond,
