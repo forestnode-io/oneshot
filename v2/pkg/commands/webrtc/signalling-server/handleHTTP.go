@@ -31,7 +31,7 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("url: %s", addrString)
 
 	log.Printf("assigned url: %s", s.assignedURL)
-	if s.assignedURL == "" || s.assignedURL != addrString {
+	if s.assignedURL == "" || s.assignedURL != addrString || s.os == nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -62,8 +62,9 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	u := url.URL{
-		Host: r.Host,
-		Path: r.URL.Path,
+		Scheme: s.config.URLAssignment.Scheme,
+		Host:   r.Host,
+		Path:   r.URL.Path,
 	}
 	requestURL := u.String()
 	if s.pendingSessionID != "" || s.os == nil {
@@ -79,6 +80,14 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("error signing jwt: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("User-Agent") == "oneshot" {
+		w.WriteHeader(http.StatusOK)
+		if _, err = w.Write([]byte(requestURL + "\n" + token)); err != nil {
+			log.Printf("error writing response: %v", err)
+		}
 		return
 	}
 

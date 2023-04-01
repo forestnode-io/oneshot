@@ -14,11 +14,13 @@ import (
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/client/discovery"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
@@ -86,16 +88,11 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	if err := c.configureWebRTC(flags); err != nil {
+	err := c.configureWebRTC(flags)
+	if err != nil {
 		return err
 	}
 
-	transport, err := client.NewTransport(c.webrtcConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create transport: %w", err)
-	}
-
-	var signaller signallers.ClientSignaller
 	if webRTCSignallingDir != "" && webRTCSignallingURL != "" {
 		return fmt.Errorf("cannot use both --webrtc-signalling-dir and --webrtc-signalling-server-url")
 	}
@@ -103,10 +100,26 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("must specify either --webrtc-signalling-dir or --webrtc-signalling-server-url")
 	}
 
+	var (
+		signaller signallers.ClientSignaller
+		transport *client.Transport
+	)
 	if webRTCSignallingDir != "" {
+		transport, err = client.NewTransport(c.webrtcConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create transport: %w", err)
+		}
 		signaller = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
-		signaller = signallers.NewServerClientSignaller(webRTCSignallingURL, nil)
+		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, http.DefaultClient)
+		if err != nil {
+			return fmt.Errorf("failed to negotiate offer request: %w", err)
+		}
+		transport, err = client.NewTransport(corr.RTCConfiguration)
+		if err != nil {
+			return fmt.Errorf("failed to create transport: %w", err)
+		}
+		signaller = signallers.NewServerClientSignaller(webRTCSignallingURL, corr.SessionID, sdp.Offer(corr.RTCSessionDescription.SDP), nil)
 	}
 
 	go func() {
