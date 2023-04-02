@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 
 	_ "embed"
 
@@ -18,7 +19,19 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
+
+var kaep = keepalive.EnforcementPolicy{
+	MinTime: 3 * time.Second, // If a client pings more than once every 3 seconds, terminate the connection
+}
+
+var kasp = keepalive.ServerParameters{
+	MaxConnectionIdle:     9 * time.Second, // If a client is idle for 6 seconds, send a GOAWAY
+	MaxConnectionAgeGrace: 1 * time.Second, // Allow 1 seconds for pending RPCs to complete before forcibly closing connections
+	Time:                  3 * time.Second, // Ping the client if it is idle for 5 seconds to ensure the connection is still active
+	Timeout:               1 * time.Second, // Wait 1 second for the ping ack before assuming the connection is dead
+}
 
 type requestBundle struct {
 	w         http.ResponseWriter
@@ -168,7 +181,10 @@ func (s *server) run(ctx context.Context) error {
 	go s.worker()
 
 	log.Printf("listening for http traffic on %s", hc.Addr)
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(kaep),
+		grpc.KeepaliveParams(kasp),
+	)
 	proto.RegisterSignallingServerServer(server, s)
 	if err := server.Serve(l); err != nil {
 		if !errors.Is(err, net.ErrClosed) {
