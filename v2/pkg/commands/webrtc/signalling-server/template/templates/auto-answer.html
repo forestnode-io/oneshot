@@ -1,14 +1,10 @@
-{{/*
-    Auto answer component that will automatically answer the offer and send the answer to the server.
-
-    {
-        Endpoint string
-        BasicAuthToken string // optional
-        SessionToken string // optional
-    }
-*/}}
 {{ define "auto-answer" }}
     <script>
+        // dont waste your one shot to broken prefetching bs
+        if (document.visibilityState !== "visible") {
+            throw new Error("Page is not visible");
+        }
+
         var tries = 0;
         function checkWebRTCClient() {
             if (!window.WebRTCClient) {
@@ -24,10 +20,13 @@
         }
         checkWebRTCClient();
 
+        function getCookieValue(name) {
+            return document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || '';
+        }
 
-        const endpoint = "{{ .Endpoint }}";
-        const basicAuthToken = "{{ .BasicAuthToken }}";
-        const sessionToken = "{{ .SessionToken }}";
+        const sessionToken = getCookieValue("session_token");
+        document.cookie = "";
+        const endpoint = window.location.href;
 
         fetch(endpoint, {
             method: "GET",
@@ -42,7 +41,7 @@
             return response.json();
         }).then(data => {
             console.log("response data: ", data);
-            const client = new WebRTCClient(data.RTCConfiguration, basicAuthToken ? basicAuthToken : null);
+            const client = new WebRTCClient(data.RTCConfiguration);
             const { Answer, ConnectionEstablished } = client.answerOffer(data.RTCSessionDescription);
             ConnectionEstablished.then(() => {
                 console.log("Connection established");

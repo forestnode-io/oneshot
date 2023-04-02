@@ -9,7 +9,6 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
         if (!headers.has('User-Agent')) {
             headers.append('User-Agent', navigator.userAgent);
         }
-        console.log("writing HTTPOverWebRTC header: ", headers)
         headers.forEach((value, key) => {
             headerString += `${key}: ${value}\n`;
         });
@@ -35,6 +34,8 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
         }
     }
     headerString += '\n';
+
+    console.log("writing header: ", headerString);
 
     const pump = sendPump(channel, headerString);
     try {

@@ -63,7 +63,7 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, portMapAddr string,
 		if config == nil {
 			return nil, fmt.Errorf("nil p2p configuration")
 		}
-		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir, config, ba), nil
 	} else if webRTCSignallingURL != "" {
 		return newServerServerSignaller(flags, portMapAddr, ba, kacp), nil
 	}

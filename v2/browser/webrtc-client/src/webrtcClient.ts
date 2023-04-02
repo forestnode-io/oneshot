@@ -10,6 +10,14 @@ type AnswerOfferResponse = {
 // Once the connection is established, the global fetch function is replaced with
 // a function that uses the WebRTC data channel to send HTTP requests to the remote
 // server.
+//
+// Basic Auth is handled via a Basic Auth token that is set in the offer passed to 
+// the answerOffer method.
+// The token is used by the fetch function in all subsequent HTTPOverWebRTC requests to the server.
+// The server will accept this token in place of a username and password basic auth header.
+// This prevents the discovery server from needing the credentials in order to pass them on the the clients.
+// This also allows for the user to still interact with native browser dialogs by having the 
+// auth dialog presented by the discovery server when this client code is being requested.
 export class HTTPOverWebRTCClient {
     private peerConnection: RTCPeerConnection | undefined;
     private answered: boolean = false;
@@ -29,11 +37,8 @@ export class HTTPOverWebRTCClient {
 
     private baToken: string | undefined;
 
-    constructor(rtcConfig: RTCConfiguration, basicAuthToken?: string) {
+    constructor(rtcConfig: RTCConfiguration) {
         this.peerConnection = new RTCPeerConnection(rtcConfig);
-        if (basicAuthToken) {
-            this.baToken = basicAuthToken;
-        }
 
         this.connectionPromise = new Promise<void>((resolve, reject) => {
             this.connectionPromiseResolve = resolve;
@@ -99,6 +104,12 @@ export class HTTPOverWebRTCClient {
                 Answer: Promise.reject("already answered"),
                 ConnectionEstablished: Promise.reject("already answered")
             };
+        }
+
+        // Extract the BasicAuthToken from the SDP offer
+        let sdpParts = offer.sdp.match(/a=BasicAuthToken:(.*)/)
+        if (sdpParts && sdpParts.length > 1) {
+            this.baToken = sdpParts[1];
         }
 
         const pc = this.peerConnection!;

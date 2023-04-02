@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 	"net/http"
-	"strings"
 
 	signallingserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server"
 )
 
-func NegotiateOfferRequest(ctx context.Context, url string, client *http.Client) (*signallingserver.ClientOfferRequestResponse, error) {
+func NegotiateOfferRequest(ctx context.Context, url, username, password string, client *http.Client) (*signallingserver.ClientOfferRequestResponse, error) {
 	// perform the first request which saves our spot in the queue.
 	// we're going to use the same pathways as browser clients to we
 	// set the accept header to text/http and the user agent to oneshot.
@@ -22,29 +21,37 @@ func NegotiateOfferRequest(ctx context.Context, url string, client *http.Client)
 	}
 	req.Header.Set("Accept", "text/html")
 	req.Header.Set("User-Agent", "oneshot")
+	if username != "" || password != "" {
+		req.SetBasicAuth(username, password)
+		log.Printf("set basic auth for discovery server request: %s:%s", username, password)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token request response: %w", err)
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read token request response: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get token request response: %s", resp.Status)
 	}
 
-	bodyParts := strings.Split(string(body), "\n")
-	if len(bodyParts) != 2 {
-		return nil, fmt.Errorf("invalid token request response: %s", string(body))
+	cookies := resp.Cookies()
+	sessionToken := ""
+	for _, cookie := range cookies {
+		if cookie.Name == "session_token" {
+			sessionToken = cookie.Value
+			break
+		}
 	}
-	reqURL := bodyParts[0]
-	token := bodyParts[1]
+	if sessionToken == "" {
+		return nil, fmt.Errorf("failed to get session token")
+	}
 
-	req, err = http.NewRequest(http.MethodGet, reqURL, nil)
+	req, err = http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create offer request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("X-Session-Token", token)
+	req.Header.Set("X-Session-Token", sessionToken)
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request offer response: %w", err)

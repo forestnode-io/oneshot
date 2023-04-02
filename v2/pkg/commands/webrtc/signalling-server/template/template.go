@@ -48,11 +48,8 @@ func init() {
 type Context struct {
 	AutoConnect bool
 
-	RTCConfigJSON  string
-	OfferJSON      string
-	Endpoint       string
-	BasicAuthToken string
-	SessionToken   string
+	RTCConfigJSON string
+	OfferJSON     string
 
 	Head       template.HTML
 	ClientJS   template.JS

@@ -20,7 +20,6 @@ import (
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
@@ -76,6 +75,9 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		answerFilePath, _      = flags.GetString("answer-file")
 		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
 		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
+
+		username, _ = flags.GetString("username")
+		password, _ = flags.GetString("password")
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
@@ -103,15 +105,16 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	var (
 		signaller signallers.ClientSignaller
 		transport *client.Transport
+		bat       string
 	)
 	if webRTCSignallingDir != "" {
 		transport, err = client.NewTransport(c.webrtcConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
-		signaller = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
+		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
-		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, http.DefaultClient)
+		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, username, password, http.DefaultClient)
 		if err != nil {
 			return fmt.Errorf("failed to negotiate offer request: %w", err)
 		}
@@ -119,7 +122,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
-		signaller = signallers.NewServerClientSignaller(webRTCSignallingURL, corr.SessionID, sdp.Offer(corr.RTCSessionDescription.SDP), nil)
+		signaller, bat, err = signallers.NewServerClientSignaller(webRTCSignallingURL, corr.SessionID, corr.RTCSessionDescription, nil)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create signaller: %w", err)
 	}
 
 	go func() {
@@ -144,6 +150,9 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}
 
 	header := http.Header{}
+	if bat != "" {
+		header.Set("X-HTTPOverWebRTC-Authorization", bat)
+	}
 	rts, err := rtc.NewReaderTransferSession(ctx)
 	if err != nil {
 		return err

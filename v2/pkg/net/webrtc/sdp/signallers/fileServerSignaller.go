@@ -11,18 +11,21 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 )
 
 type fileServerSignaller struct {
 	dirPath string
 	watcher *fsnotify.Watcher
 	config  *webrtc.Configuration
+	ba      *messages.BasicAuth
 }
 
-func NewFileServerSignaller(dir string, config *webrtc.Configuration) ServerSignaller {
+func NewFileServerSignaller(dir string, config *webrtc.Configuration, ba *messages.BasicAuth) ServerSignaller {
 	return &fileServerSignaller{
 		dirPath: dir,
 		config:  config,
+		ba:      ba,
 	}
 }
 
@@ -70,6 +73,28 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler,
 				}
 
 				handler.HandleRequest(ctx, strconv.Itoa(id), s.config, func(ctx context.Context, id string, o sdp.Offer) (sdp.Answer, error) {
+					sd, err := o.WebRTCSessionDescription()
+					if err != nil {
+						return "", fmt.Errorf("unable to get WebRTC session description from offer: %w", err)
+					}
+
+					if s.ba != nil {
+						ssd, err := sd.Unmarshal()
+						if err != nil {
+							ssd = ssd.WithValueAttribute("BasicAuthToken", s.ba.Token)
+						}
+
+						ssdBytes, err := ssd.Marshal()
+						if err != nil {
+							return "", fmt.Errorf("unable to marshal session description: %w", err)
+						}
+						sd = webrtc.SessionDescription{
+							Type: sd.Type,
+							SDP:  string(ssdBytes),
+						}
+						o = sdp.Offer(sd.SDP)
+					}
+
 					offerPath := filepath.Join(event.Name, "offer")
 					offer, err := o.MarshalJSON()
 					if err != nil {

@@ -1,6 +1,8 @@
 package signallingserver
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"log"
@@ -14,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/template"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,21 +64,37 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
-	u := url.URL{
-		Scheme: s.config.URLAssignment.Scheme,
-		Host:   r.Host,
-		Path:   r.URL.Path,
-	}
-	requestURL := u.String()
 	if s.pendingSessionID != "" || s.os == nil {
 		http.NotFound(w, r)
 		return
 	}
 
+	if ba := s.os.Arrival.BasicAuth; ba != nil {
+		user, pass, ok := r.BasicAuth()
+		if !ok {
+			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		uHash := sha256.Sum256([]byte(user))
+		if !bytes.Equal(uHash[:], ba.UsernameHash) {
+			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if bcrypt.CompareHashAndPassword(ba.PasswordHash, []byte(pass)) != nil {
+			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	sessionID := uuid.NewString()
+	expirationTime := time.Now().Add(10 * time.Second)
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"session_id": sessionID,
-		"expires":    time.Now().Add(10 * time.Second).Unix(),
+		"expires":    expirationTime.Unix(),
 	}).SignedString([]byte(s.config.JWTSecretConfig.Value))
 	if err != nil {
 		log.Printf("error signing jwt: %v", err)
@@ -83,11 +102,13 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:    "session_token",
+		Value:   token,
+		Expires: expirationTime,
+	})
 	if r.Header.Get("User-Agent") == "oneshot" {
 		w.WriteHeader(http.StatusOK)
-		if _, err = w.Write([]byte(requestURL + "\n" + token)); err != nil {
-			log.Printf("error writing response: %v", err)
-		}
 		return
 	}
 
@@ -95,15 +116,11 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK)
 	tmpltCtx := template.Context{
-		AutoConnect:  true,
-		ClientJS:     template.ClientJS,
-		PolyfillJS:   template.PolyfillJS,
-		SessionToken: token,
-		Endpoint:     requestURL,
+		AutoConnect: true,
+		ClientJS:    template.ClientJS,
+		PolyfillJS:  template.PolyfillJS,
 	}
-	if s.os.Arrival.BasicAuth != nil {
-		tmpltCtx.BasicAuthToken = s.os.Arrival.BasicAuth.Token
-	}
+
 	err = template.WriteTo(w, tmpltCtx)
 	if err != nil {
 		log.Printf("error writing response: %v", err)
@@ -278,6 +295,25 @@ func (s *server) worker() {
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
+			}
+
+			// if we have basic auth, include the token in the session description
+			if ba := s.os.Arrival.BasicAuth; ba != nil {
+				if ba.Token != "" {
+					ssd, err := sd.Unmarshal()
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					ssd = ssd.WithValueAttribute("BasicAuthToken", ba.Token)
+					ssdBytes, err := ssd.Marshal()
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					sd.SDP = string(ssdBytes)
+				}
+
 			}
 
 			resp := ClientOfferRequestResponse{

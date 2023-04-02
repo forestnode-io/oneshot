@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
@@ -17,11 +18,23 @@ type serverClientSignaller struct {
 	sessionID  string
 }
 
-func NewServerClientSignaller(url, sessionID string, offer sdp.Offer, client *http.Client) ClientSignaller {
+func NewServerClientSignaller(url, sessionID string, offer *webrtc.SessionDescription, client *http.Client) (ClientSignaller, string, error) {
+	wssdp, err := offer.Unmarshal()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to unmarshal offer: %w", err)
+	}
+	var bat string
+	for _, attribute := range wssdp.Attributes {
+		if attribute.Key == "BasicAuthToken" {
+			bat = attribute.Value
+			break
+		}
+	}
+
 	s := serverClientSignaller{
 		url:       url,
 		sessionID: sessionID,
-		offer:     offer,
+		offer:     sdp.Offer(offer.SDP),
 	}
 	if client == nil {
 		s.httpClient = http.DefaultClient
@@ -29,7 +42,7 @@ func NewServerClientSignaller(url, sessionID string, offer sdp.Offer, client *ht
 		s.httpClient = client
 	}
 
-	return &s
+	return &s, bat, nil
 }
 
 func (s *serverClientSignaller) Start(ctx context.Context, handler OfferHandler) error {

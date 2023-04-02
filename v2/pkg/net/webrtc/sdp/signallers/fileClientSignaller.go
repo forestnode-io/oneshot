@@ -2,36 +2,49 @@ package signallers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type fileClientSignaller struct {
-	offerFilePath  string
+	offer          sdp.Offer
 	answerFilePath string
 }
 
-func NewFileClientSignaller(offerFilePath, answerFilePath string) ClientSignaller {
-	return &fileClientSignaller{
-		offerFilePath:  offerFilePath,
-		answerFilePath: answerFilePath,
+func NewFileClientSignaller(offerFilePath, answerFilePath string) (ClientSignaller, string, error) {
+	offerFileBytes, err := os.ReadFile(offerFilePath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read offer file: %w", err)
 	}
+
+	wsdp := webrtc.SessionDescription{}
+	if err := json.Unmarshal(offerFileBytes, &wsdp); err != nil {
+		return nil, "", fmt.Errorf("failed to unmarshal offer: %w", err)
+	}
+	wssdp, err := wsdp.Unmarshal()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to unmarshal offer: %w", err)
+	}
+	var bat string
+	for _, attribute := range wssdp.Attributes {
+		if attribute.Key == "BasicAuthToken" {
+			bat = attribute.Value
+			break
+		}
+	}
+
+	return &fileClientSignaller{
+		offer:          sdp.Offer(wsdp.SDP),
+		answerFilePath: answerFilePath,
+	}, bat, nil
 }
 
 func (s *fileClientSignaller) Start(ctx context.Context, offerHandler OfferHandler) error {
-	offerFileBytes, err := os.ReadFile(s.offerFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read offer file: %w", err)
-	}
-
-	offer, err := sdp.OfferFromJSON(offerFileBytes)
-	if err != nil {
-		return fmt.Errorf("failed to parse offer: %w", err)
-	}
-
-	answer, err := offerHandler.HandleOffer(ctx, "", offer)
+	answer, err := offerHandler.HandleOffer(ctx, "", s.offer)
 	if err != nil {
 		return err
 	}
@@ -41,12 +54,7 @@ func (s *fileClientSignaller) Start(ctx context.Context, offerHandler OfferHandl
 		return fmt.Errorf("failed to marshal answer: %w", err)
 	}
 
-	answerFilePath := s.answerFilePath
-	if answerFilePath == "" {
-		answerFilePath = fmt.Sprintf("%s.answer", s.offerFilePath)
-	}
-
-	if err := os.WriteFile(answerFilePath, answerJSON, 0644); err != nil {
+	if err := os.WriteFile(s.answerFilePath, answerJSON, 0644); err != nil {
 		return fmt.Errorf("failed to write answer file: %w", err)
 	}
 

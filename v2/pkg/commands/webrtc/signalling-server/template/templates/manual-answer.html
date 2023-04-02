@@ -7,7 +7,6 @@
     {
         RTCConfigJSON string
         OfferJSON string
-        BasicAuthToken string // optional
     }
 */}}
 {{ define "manual-answer" }}
@@ -16,14 +15,17 @@
         <textarea id="rtc-config">{{ .RTCConfigJSON }}</textarea><br>
         <label for="offer-sdp">Oneshot Session Offer</label><br>
         <textarea id="offer-sdp" rows="10" cols="50">{{ .OfferJSON }}</textarea><br>
-        <label for="basic-auth-token">Basic Auth Token</label><br>
-        <input type="text" id="basic-auth-token" value="{{ .BasicAuthToken }}"><br>
         <button type="button" id="connect-button">Generate Answer & Copy to Clipboard</button><br>
         <div id="answer-container">
             <span id="answer-span"></span>
         </div>
     </div>
     <script>
+        // dont waste your one shot to broken prefetching bs
+        if (document.visibilityState !== "visible") {
+            throw new Error("Page is not visible");
+        }
+
         const WebRTClient = window.WebRTCClient;
         if (!WebRTClient) {
             throw new Error("WebRTCClient not found");
@@ -53,9 +55,7 @@
                 throw new Error("Offer SDP is required");
             }
 
-            const basicAuthToken = document.getElementById("basic-auth-token").value;
-
-            const client = new WebRTCClient(config, basicAuthToken ? basicAuthToken : null);
+            const client = new WebRTCClient(config);
             const { Answer, ConnectionEstablished } = client.answerOffer(offer);
             const spinnerNode = document.createElement("span");
             spinnerNode.innerText = "Tunneling ";
