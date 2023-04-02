@@ -13,10 +13,11 @@ import (
 )
 
 type peerConnection struct {
-	ctx         context.Context
-	errChan     chan<- error
-	answerOffer signallers.AnswerOffer
-	sessionID   string
+	ctx            context.Context
+	errChan        chan<- error
+	answerOffer    signallers.AnswerOffer
+	sessionID      string
+	basicAuthToken string
 
 	peerAddresses []string
 	paMu          sync.Mutex
@@ -24,17 +25,18 @@ type peerConnection struct {
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, id string, sao signallers.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
+func newPeerConnection(ctx context.Context, id, bat string, sao signallers.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
 	var (
 		err  error
 		errs = make(chan error, 1)
 	)
 
 	pc := peerConnection{
-		ctx:         ctx,
-		errChan:     errs,
-		answerOffer: sao,
-		sessionID:   id,
+		ctx:            ctx,
+		errChan:        errs,
+		answerOffer:    sao,
+		sessionID:      id,
+		basicAuthToken: bat,
 	}
 
 	se := webrtc.SettingEngine{}
@@ -95,7 +97,24 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 	// candidate is nil when gathering is done
 	if doneGathering := candidate == nil; doneGathering {
 		pc := p.PeerConnection
-		answer, err := p.answerOffer(p.ctx, p.sessionID, sdp.Offer(pc.LocalDescription().SDP))
+		offer := pc.LocalDescription()
+
+		// if we have a basic auth token, add it to the session description
+		if p.basicAuthToken != "" {
+			sdp, err := offer.Unmarshal()
+			if err != nil {
+				err = fmt.Errorf("unable to unmarshal session description: %w", err)
+				p.error(true, err)
+			}
+			sdp = sdp.WithValueAttribute("BasicAuthToken", p.basicAuthToken)
+			sdpBytes, err := sdp.Marshal()
+			if err != nil {
+				err = fmt.Errorf("unable to marshal session description: %w", err)
+				p.error(true, err)
+			}
+			offer.SDP = string(sdpBytes)
+		}
+		answer, err := p.answerOffer(p.ctx, p.sessionID, sdp.Offer(offer.SDP))
 		if err != nil {
 			err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)
 			p.error(true, err)

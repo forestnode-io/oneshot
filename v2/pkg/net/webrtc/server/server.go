@@ -16,13 +16,15 @@ type Server struct {
 	handler http.HandlerFunc
 	config  *webrtc.Configuration
 	wg      sync.WaitGroup
+	bat     string
 }
 
-func NewServer(config *webrtc.Configuration, handler http.HandlerFunc) *Server {
+func NewServer(config *webrtc.Configuration, bat string, handler http.HandlerFunc) *Server {
 	return &Server{
 		handler: handler,
 		config:  config,
 		wg:      sync.WaitGroup{},
+		bat:     bat,
 	}
 }
 
@@ -39,7 +41,7 @@ func (s *Server) HandleRequest(ctx context.Context, id string, conf *webrtc.Conf
 	}
 	// create a new peer connection.
 	// newPeerConnection does not wait for the peer connection to be established.
-	pc, pcErrs := newPeerConnection(ctx, id, answerOfferFunc, conf)
+	pc, pcErrs := newPeerConnection(ctx, id, s.bat, answerOfferFunc, conf)
 	if pc == nil {
 		err := <-pcErrs
 		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)

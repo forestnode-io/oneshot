@@ -28,16 +28,6 @@ func (h *Handshake) Type() string {
 type BasicAuth struct {
 	UsernameHash []byte
 	PasswordHash []byte
-	// Token is a token that can be used instead of basic auth.
-	// This is used to prevent the basic auth credentials from leaking.
-	// If we were to expect the credentials from the WebRTC client, then
-	// the credentials would have to be sent from the signalling server to the client
-	// or the client would trigger the basic auth modal to get them, but this is not currently possible
-	// on all browsers.
-	// Instead, we generate a token that can be used instead of the basic auth credentials.
-	// This token will be sent to the signalling server which then sends it to the client
-	// after passing authentication and the client will then passs it back to us.
-	Token string
 }
 
 type SessionURLRequest struct {

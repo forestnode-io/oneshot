@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
@@ -95,7 +97,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	baMessage, err := r.configureServer(flags)
+	baToken, err := r.configureServer(flags)
 	if err != nil {
 		return fmt.Errorf("failed to configure server: %w", err)
 	}
@@ -140,9 +142,31 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	} else if usingWebRTC {
 		// if we're using webrtc then we need to listen for incoming connections
 		// and send the discovery server our listening address
-		externalAddrChan := make(chan string, 1)
+		var (
+			externalAddrChan = make(chan string, 1)
+
+			username, _ = flags.GetString("username")
+			password, _ = flags.GetString("password")
+			bam         *messages.BasicAuth
+		)
+
+		if username == "" || password == "" {
+			bam = &messages.BasicAuth{}
+			if username == "" {
+				uHash := sha256.Sum256([]byte(username))
+				bam.UsernameHash = uHash[:]
+			}
+			if password == "" {
+				pHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+				if err != nil {
+					return fmt.Errorf("failed to hash password: %w", err)
+				}
+				bam.PasswordHash = pHash
+			}
+		}
 		go func() {
-			if err := r.listenWebRTC(ctx, externalAddr_UPnP, externalAddrChan, baMessage); err != nil {
+
+			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, externalAddrChan, bam); err != nil {
 				webRTCError = err
 				log.Printf("failed to listen for WebRTC connections: %v", err)
 				cancel()

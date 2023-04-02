@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr string, addrChan chan<- string, ba *messages.BasicAuth) error {
+func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr, bat string, addrChan chan<- string, ba *messages.BasicAuth) error {
 	r.wg.Add(1)
 	defer r.wg.Done()
 
@@ -35,7 +35,7 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr string, addr
 	defer signaller.Shutdown()
 
 	// create a webrtc server with the same handler as the http server
-	a := server.NewServer(r.webrtcConfig, http.HandlerFunc(r.server.ServeHTTP))
+	a := server.NewServer(r.webrtcConfig, bat, http.HandlerFunc(r.server.ServeHTTP))
 	defer a.Wait()
 
 	log.Println("starting p2p discovery mechanism")
@@ -63,7 +63,7 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, portMapAddr string,
 		if config == nil {
 			return nil, fmt.Errorf("nil p2p configuration")
 		}
-		return signallers.NewFileServerSignaller(webRTCSignallingDir, config, ba), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
 	} else if webRTCSignallingURL != "" {
 		return newServerServerSignaller(flags, portMapAddr, ba, kacp), nil
 	}

@@ -297,25 +297,6 @@ func (s *server) worker() {
 				return
 			}
 
-			// if we have basic auth, include the token in the session description
-			if ba := s.os.Arrival.BasicAuth; ba != nil {
-				if ba.Token != "" {
-					ssd, err := sd.Unmarshal()
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-					ssd = ssd.WithValueAttribute("BasicAuthToken", ba.Token)
-					ssdBytes, err := ssd.Marshal()
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-					sd.SDP = string(ssdBytes)
-				}
-
-			}
-
 			resp := ClientOfferRequestResponse{
 				RTCSessionDescription: &sd,
 				SessionID:             sessionID,

@@ -1,17 +1,17 @@
 package root
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/rs/cors"
 	"github.com/spf13/pflag"
 )
 
-func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth, error) {
+func (r *rootCommand) configureServer(flags *pflag.FlagSet) (string, error) {
 	var (
 		timeout, _    = flags.GetDuration("timeout")
 		allowBots, _  = flags.GetBool("allow-bots")
@@ -20,7 +20,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth
 
 	uname, passwd, err := usernamePassword(flags)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	var (
@@ -32,7 +32,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth
 		if viewPath != "" {
 			unauthenticatedViewBytes, err = os.ReadFile(viewPath)
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 
@@ -41,7 +41,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth
 
 	tlsCert, tlsKey, err := tlsCertAndKey(flags)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	goneHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,9 +55,12 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth
 
 	sfa := flags.Lookup("max-read-size").Value.(*commands.SizeFlagArg)
 	noLoginTrigger, _ := flags.GetBool("dont-trigger-login")
-	baMiddleware, basicAuthMessage, err := oneshothttp.BasicAuthMiddleware(
+	baMiddleware, baToken, err := oneshothttp.BasicAuthMiddleware(
 		unauthenticatedHandler(!noLoginTrigger, unauthenticatedStatus, unauthenticatedViewBytes),
 		uname, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to create basic auth middleware: %w", err)
+	}
 
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
@@ -71,5 +74,5 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (*messages.BasicAuth
 	r.server.Timeout = timeout
 	r.server.ExitOnFail = exitOnFail
 
-	return basicAuthMessage, nil
+	return baToken, nil
 }
