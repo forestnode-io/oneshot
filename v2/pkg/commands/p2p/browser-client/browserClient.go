@@ -9,7 +9,7 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/browser"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/template"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/template"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
@@ -34,9 +34,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 
 	c.cobraCommand = &cobra.Command{
 		Use:   "browser-client",
-		Short: "Get the webrtc browser client",
-		Long:  "Get the webrtc browser client",
-		RunE:  c.run,
+		Short: "Get the p2p browser client as a single HTML file.",
+		Long: `Get the p2p browser client as a single HTML file.
+This client can be used to establish a p2p connection with oneshot when not using a discovery server.`,
+		RunE: c.run,
 	}
 
 	flags := c.cobraCommand.Flags()

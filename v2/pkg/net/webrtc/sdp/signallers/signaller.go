@@ -12,6 +12,7 @@ import (
 // The session signaller handles the exchange of SDP offers and answers via the AnswerOffer func it
 // provides to the RequestHandler.
 type ServerSignaller interface {
+	// Start starts the Signaller and blocks until it is shutdown.
 	Start(context.Context, RequestHandler, chan<- string) error
 	// Shutdown stops the Signaller from accepting new requests.
 	Shutdown() error

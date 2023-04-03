@@ -1,4 +1,4 @@
-package signallingserver
+package discoveryserver
 
 import (
 	"fmt"
@@ -26,14 +26,20 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:     "signalling-server",
-		Aliases: []string{"signaling-server"},
-		Short:   "WebRTC signalling server",
-		Long:    "WebRTC signalling server",
+		Use:     "discovery-server",
+		Aliases: []string{"discovery-server"},
+		Short:   "A NAT traversal discovery server",
+		Long: `A NAT traversal discovery server.
+If using UPnP-IGD NAT traversal, the discovery server will redirect traffic to the public ip + newly opened external port.
+This allows for a dynamic DNS type service.
+If using P2P NAT traversal, the discovery server will act as the signalling server for the peers to establish a connection.
+The discovery server will accept both other oneshot instances and web browsers as clients.
+Web browsers will be served a JS WebRTC client that will connect back to the discovery server and perform the P2P NAT traversal.
+`,
 		SuggestFor: []string{
-			"browser-client",
-			"client send",
-			"client receive",
+			"p2p browser-client",
+			"p2p client send",
+			"p2p client receive",
 		},
 		RunE: c.run,
 	}

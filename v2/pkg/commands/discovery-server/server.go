@@ -1,4 +1,4 @@
-package signallingserver
+package discoveryserver
 
 import (
 	"context"
@@ -274,7 +274,7 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 		log.Printf("error creating oneshot server: %v", err)
 		return err
 	}
-	log.Printf("oneshot server created")
+	log.Println("new oneshot server arrival established")
 
 	// hold the stream open until the oneshot server is done.
 	// from this point on, the http server will be the only thing
@@ -282,10 +282,9 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 	log.Printf("waiting for oneshot server to finish")
 	select {
 	case <-ctx.Done():
-		log.Printf("context done")
 	case <-s.os.done:
-		log.Printf("oneshot server finished")
 	}
+	log.Printf("oneshot server disconnected")
 	s.os = nil
 	s.pendingSessionID = ""
 

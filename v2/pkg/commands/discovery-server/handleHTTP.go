@@ -1,4 +1,4 @@
-package signallingserver
+package discoveryserver
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server/template"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/template"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"golang.org/x/crypto/bcrypt"
 )

@@ -8,8 +8,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
@@ -173,21 +175,37 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			}
 		}()
 
+		log.Println("waiting for WebRTC listening address")
 		discoveryServerAssignedAddress = <-externalAddrChan
+		panic(fmt.Sprintf("got WebRTC listening address: %s", discoveryServerAssignedAddress))
 		if discoveryServerAssignedAddress == "" {
 			return errors.New("listening address is empty")
 		}
 	}
 
-	listeningAddr := discoveryServerAssignedAddress
-	if listeningAddr == "" {
-		listeningAddr = externalAddr_UPnP
-	}
-	if listeningAddr == "" {
-		listeningAddr = "http://localhost:" + flags.Lookup("port").Value.String()
+	portString := flags.Lookup("port").Value.String()
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		return fmt.Errorf("failed to parse port: %w", err)
 	}
 
-	err = r.listenAndServe(ctx, listeningAddr, flags)
+	userFacingAddr := discoveryServerAssignedAddress
+	if userFacingAddr == "" {
+		userFacingAddr = externalAddr_UPnP
+	}
+	if userFacingAddr == "" {
+		// if we weren't given a listening addr,
+		// try giving the ip address that can reach the
+		// default gateway in the print out
+		sourceIP, err := oneshotnet.GetSourceIP("", 80)
+		if err == nil {
+			userFacingAddr = fmt.Sprintf("%s://%s:%s", "http", sourceIP, portString)
+		} else {
+			userFacingAddr = fmt.Sprintf("%s://%s:%s", "http", "localhost", portString)
+		}
+	}
+	listeningAddr := oneshotfmt.Address(flags.Lookup("host").Value.String(), port)
+	err = r.listenAndServe(ctx, listeningAddr, userFacingAddr, flags)
 	if err != nil {
 		log.Printf("failed to listen for http connections: %v", err)
 	} else {
@@ -196,10 +214,8 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr string, flags *pflag.FlagSet) error {
+func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr, userFacingAddr string, flags *pflag.FlagSet) error {
 	var (
-		host, _       = flags.GetString("host")
-		port, _       = flags.GetInt("port")
 		webrtcOnly, _ = flags.GetBool("webrtc-only")
 
 		l   net.Listener
@@ -207,7 +223,7 @@ func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr string, 
 	)
 
 	if !webrtcOnly {
-		l, err = net.Listen("tcp", oneshotfmt.Address(host, port))
+		l, err = net.Listen("tcp", listeningAddr)
 		if err != nil {
 			return err
 		}
@@ -216,9 +232,9 @@ func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr string, 
 
 	// if we are using nat traversal show the user the external address
 	if qr, _ := flags.GetBool("qr-code"); qr {
-		output.WriteListeningOnQR(ctx, listeningAddr)
+		output.WriteListeningOnQR(ctx, userFacingAddr)
 	} else {
-		output.WriteListeningOn(ctx, listeningAddr)
+		output.WriteListeningOn(ctx, userFacingAddr)
 	}
 
 	return r.server.Serve(ctx, l)

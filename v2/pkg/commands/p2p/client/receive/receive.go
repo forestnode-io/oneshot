@@ -1,20 +1,19 @@
-package send
+package receive
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
+	"strconv"
 	"time"
 
-	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/client/discovery"
+	"github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/client/discovery"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
@@ -32,9 +31,9 @@ func New() *Cmd {
 }
 
 type Cmd struct {
-	cobraCommand  *cobra.Command
-	archiveMethod archiveFlag
-	webrtcConfig  *webrtc.Configuration
+	cobraCommand       *cobra.Command
+	fileTransferConfig *file.WriteTransferConfig
+	webrtcConfig       *webrtc.Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -43,38 +42,27 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:   "send [file|dir]",
-		Short: "Send a message to a WebRTC client",
-		Long:  "Send a message to a WebRTC client",
-		RunE:  c.send,
+		Use:   "receive [file]",
+		Short: "Receive from a sending oneshot instance over p2p",
+		RunE:  c.receive,
 	}
 
 	flags := c.cobraCommand.Flags()
-	flags.StringP("name", "n", "", "Name of file presented to the server.")
 	flags.StringP("offer-file", "O", "", "Path to file containing the SDP offer.")
 	flags.StringP("answer-file", "A", "", "Path to file which the SDP answer should be written to.")
-	flags.VarP(&c.archiveMethod, "archive-method", "a", `Which archive method to use when sending directories.
-Recognized values are "zip", "tar" and "tar.gz".`)
-	if runtime.GOOS == "windows" {
-		flags.Lookup("archive-method").DefValue = "zip"
-	} else {
-		flags.Lookup("archive-method").DefValue = "tar.gz"
-	}
 
 	return c.cobraCommand
 }
 
-func (c *Cmd) send(cmd *cobra.Command, args []string) error {
+func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 	var (
-		ctx   = cmd.Context()
-		paths = args
+		ctx = cmd.Context()
 
 		flags                  = cmd.Flags()
-		fileName, _            = flags.GetString("name")
 		offerFilePath, _       = flags.GetString("offer-file")
 		answerFilePath, _      = flags.GetString("answer-file")
-		webRTCSignallingDir, _ = flags.GetString("webrtc-signalling-dir")
-		webRTCSignallingURL, _ = flags.GetString("webrtc-signalling-server-url")
+		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
+		webRTCSignallingURL, _ = flags.GetString("discovery-server-url")
 
 		username, _ = flags.GetString("username")
 		password, _ = flags.GetString("password")
@@ -82,24 +70,9 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 	output.InvocationInfo(ctx, cmd, args)
 
-	if len(paths) == 1 && fileName == "" {
-		fileName = filepath.Base(paths[0])
-	}
-
-	if fileName == "" {
-		fileName = namesgenerator.GetRandomName(0)
-	}
-
 	err := c.configureWebRTC(flags)
 	if err != nil {
 		return err
-	}
-
-	if webRTCSignallingDir != "" && webRTCSignallingURL != "" {
-		return fmt.Errorf("cannot use both --webrtc-signalling-dir and --webrtc-signalling-server-url")
-	}
-	if webRTCSignallingDir == "" && webRTCSignallingURL == "" {
-		return fmt.Errorf("must specify either --webrtc-signalling-dir or --webrtc-signalling-server-url")
 	}
 
 	var (
@@ -135,41 +108,6 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}()
 	defer signaller.Shutdown()
 
-	archiveMethod := string(c.archiveMethod)
-	if archiveMethod == "" {
-		archiveMethod = flags.Lookup("archive-method").DefValue
-	}
-
-	rtc, err := file.NewReadTransferConfig(archiveMethod, args...)
-	if err != nil {
-		return err
-	}
-
-	if file.IsArchive(rtc) {
-		fileName += "." + archiveMethod
-	}
-
-	header := http.Header{}
-	if bat != "" {
-		header.Set("X-HTTPOverWebRTC-Authorization", bat)
-	}
-	rts, err := rtc.NewReaderTransferSession(ctx)
-	if err != nil {
-		return err
-	}
-	defer rts.Close()
-	size, err := rts.Size()
-	if err == nil {
-		cl := fmt.Sprintf("%d", size)
-		header["Content-Length"] = []string{cl}
-	}
-
-	body, buf := output.NewBufferedReader(ctx, rts)
-	fileReport := events.File{
-		Size:              int64(size),
-		TransferStartTime: time.Now(),
-	}
-
 	log.Println("waiting for connection to oneshot server to be established...")
 	if err = transport.WaitForConnectionEstablished(ctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -180,44 +118,79 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	log.Println("... connection established")
 
 	preferredAddress, preferredPort := oneshotnet.PreferNonPrivateIP(transport.PeerAddresses())
-
 	host := "http://localhost:8080"
 	if preferredAddress != "" {
 		host = net.JoinHostPort(preferredAddress, preferredPort)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, "http://"+host, body)
+	req, err := http.NewRequest(http.MethodGet, "http://"+host, nil)
 	if err != nil {
 		return err
 	}
-	req.Header = header
 	req.Close = true
+	if bat != "" {
+		req.Header.Set("X-HTTPOverWebRTC-Authorization", bat)
+	}
 	if preferredAddress != "" {
 		req.RemoteAddr = host
 	}
 
+	events.Raise(ctx, output.NewHTTPRequest(req))
+
 	httpClient := http.Client{
 		Transport: transport,
 	}
-
-	events.Raise(ctx, output.NewHTTPRequest(req))
-	cancelProgDisp := output.DisplayProgress(
-		cmd.Context(),
-		&rts.Progress,
-		125*time.Millisecond,
-		req.RemoteAddr,
-		size,
-	)
-	defer cancelProgDisp()
-
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to send file: %s", resp.Status)
+		return fmt.Errorf("failed to receive file: %s", resp.Status)
 	}
 
+	cl := int64(0)
+	clString := resp.Header.Get("Content-Length")
+	if clString == "" {
+		cl, err = strconv.ParseInt(clString, 10, 64)
+		if err == nil {
+			cl = 0
+		}
+	}
+
+	var location string
+	if 0 < len(args) {
+		location = args[0]
+	}
+	c.fileTransferConfig, err = file.NewWriteTransferConfig(ctx, location)
+	if err != nil {
+		return err
+	}
+
+	wts, err := c.fileTransferConfig.NewWriteTransferSession(ctx, "", "")
+	if err != nil {
+		return err
+	}
+	defer wts.Close()
+
+	cancelProgDisp := output.DisplayProgress(
+		ctx,
+		&wts.Progress,
+		125*time.Millisecond,
+		req.RemoteAddr,
+		cl,
+	)
+	defer cancelProgDisp()
+
+	body, buf := output.NewBufferedReader(ctx, resp.Body)
+	fileReport := events.File{
+		Size:              cl,
+		TransferStartTime: time.Now(),
+	}
+
+	n, err := io.Copy(wts, body)
+	if err != nil {
+		return fmt.Errorf("failed to copy response body to file after %d bytes: %w", n, err)
+	}
 	fileReport.TransferEndTime = time.Now()
 	if buf != nil {
 		fileReport.TransferSize = int64(buf.Len())
@@ -229,26 +202,6 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	events.Stop(ctx)
 
 	return err
-}
-
-type archiveFlag string
-
-func (a *archiveFlag) String() string {
-	return string(*a)
-}
-
-func (a *archiveFlag) Set(value string) error {
-	switch value {
-	case "zip", "tar", "tar.gz":
-		*a = archiveFlag(value)
-		return nil
-	default:
-		return fmt.Errorf(`invalid archive method %q, must be "zip", "tar" or "tar.gz`, value)
-	}
-}
-
-func (a archiveFlag) Type() string {
-	return "string"
 }
 
 func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {

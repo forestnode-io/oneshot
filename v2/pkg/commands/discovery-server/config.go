@@ -1,4 +1,4 @@
-package signallingserver
+package discoveryserver
 
 import (
 	"fmt"

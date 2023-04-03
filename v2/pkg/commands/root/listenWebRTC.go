@@ -43,8 +43,6 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr, bat string,
 		return fmt.Errorf("failed to start p2p discovery mechanism: %w", err)
 	}
 
-	log.Println("p2p discovery mechanism started")
-
 	return nil
 }
 

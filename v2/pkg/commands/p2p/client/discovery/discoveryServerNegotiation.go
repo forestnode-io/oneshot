@@ -7,10 +7,10 @@ import (
 	"log"
 	"net/http"
 
-	signallingserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/webrtc/signalling-server"
+	discoveryserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server"
 )
 
-func NegotiateOfferRequest(ctx context.Context, url, username, password string, client *http.Client) (*signallingserver.ClientOfferRequestResponse, error) {
+func NegotiateOfferRequest(ctx context.Context, url, username, password string, client *http.Client) (*discoveryserver.ClientOfferRequestResponse, error) {
 	// perform the first request which saves our spot in the queue.
 	// we're going to use the same pathways as browser clients to we
 	// set the accept header to text/http and the user agent to oneshot.
@@ -58,7 +58,7 @@ func NegotiateOfferRequest(ctx context.Context, url, username, password string, 
 	}
 	defer resp.Body.Close()
 
-	var corr signallingserver.ClientOfferRequestResponse
+	var corr discoveryserver.ClientOfferRequestResponse
 	if err := json.NewDecoder(resp.Body).Decode(&corr); err != nil {
 		return nil, fmt.Errorf("failed to decode offer request response: %w", err)
 	}

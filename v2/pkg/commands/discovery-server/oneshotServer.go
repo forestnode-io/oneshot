@@ -1,10 +1,8 @@
-package signallingserver
+package discoveryserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 
 	pionwebrtc "github.com/pion/webrtc/v3"
@@ -12,6 +10,8 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"github.com/raphaelreyna/oneshot/v2/pkg/version"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var id = "oneshot-signalling-server"
@@ -192,21 +192,25 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer
 	go func() {
 		env, err := o.stream.Recv()
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
+			statErr, ok := status.FromError(err)
+			if !ok || (ok && statErr.Code() != codes.Canceled) {
 				log.Printf("error receiving message: %v", err)
 			}
 			return
 		}
+
 		m, err := messages.FromRPCEnvelope(env)
 		if err != nil {
 			log.Printf("error parsing message: %v", err)
 			return
 		}
+
 		fsr, ok := m.(*messages.FinishedSessionRequest)
 		if !ok {
 			log.Printf("unexpected message type: %T", m)
 			return
 		}
+
 		if fsr.Error != "" {
 			log.Printf("session failed: %s", fsr.Error)
 		}
