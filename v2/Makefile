@@ -3,7 +3,9 @@ IMAGE_REGISTRY ?= docker.io/raphaelreyna
 GIT_REPO ?= github.com/raphaelreyna/oneshot/v2
 
 VERSION=`git describe --tags --abbrev=0`
-VERSION_FLAG=$(GIT_REPO)/pkg/linkerSetValues.Version=$(VERSION)
+VERSION_FLAG=$(GIT_REPO)/pkg/version.Version=$(VERSION)
+API_VERSION=v1.0.0
+API_VERSION_FLAG=$(GIT_REPO)/pkg/version.APIVersion=$(API_VERSION)
 STATIC_FLAG=-extldflags=-static
 GOBIN=$(shell go env GOPATH)/bin
 
@@ -15,7 +17,7 @@ UPLOAD_CLIENT_DIR=./browser/upload-client
 $(APP_NAME): webrtc-client upload-client
 	mkdir -p ./build-output
 	go build -o $(APP_LOCATION) \
-		-ldflags "${STATIC_FLAG} -X ${VERSION_FLAG} -s -w" \
+		-ldflags "${STATIC_FLAG} -X ${VERSION_FLAG} -X ${API_VERSION_FLAG} -s -w" \
 		./cmd/...
 
 compressed: $(APP_NAME)

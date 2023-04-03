@@ -86,7 +86,7 @@ func (o *output) run(ctx context.Context) error {
 		}
 	}
 
-	o.doneChan <- struct{}{}
+	close(o.doneChan)
 	return nil
 }
 

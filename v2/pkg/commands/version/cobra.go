@@ -7,7 +7,8 @@ import (
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
-	linkersetvalues "github.com/raphaelreyna/oneshot/v2/pkg/linkerSetValues"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/raphaelreyna/oneshot/v2/pkg/version"
 	"github.com/spf13/cobra"
 )
 
@@ -27,16 +28,20 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
+			output.InvocationInfo(cmd.Context(), cmd, args)
 			ofa := cmd.Flags().Lookup("output").Value.(*commands.OutputFlagArg)
 			if ofa.Format == "json" {
 				payload := map[string]string{}
-				if version := linkersetvalues.Version; version != "" {
-					payload["version"] = version
+				if ver := version.Version; ver != "" {
+					payload["version"] = ver
 				}
-				if license := linkersetvalues.License; license != "" {
+				if apiVersion := version.Version; apiVersion != "" {
+					payload["apiVersion"] = apiVersion
+				}
+				if license := version.License; license != "" {
 					payload["license"] = license
 				}
-				if credit := linkersetvalues.Credit; credit != "" {
+				if credit := version.Credit; credit != "" {
 					payload["credit"] = credit
 				}
 
@@ -57,13 +62,16 @@ func (c *Cmd) Cobra() *cobra.Command {
 					log.Printf("error encoding json: %v", err)
 				}
 			} else {
-				if version := linkersetvalues.Version; version != "" {
-					fmt.Printf("version: %s\n", version)
+				if ver := version.Version; ver != "" {
+					fmt.Printf("version: %s\n", ver)
 				}
-				if license := linkersetvalues.License; license != "" {
+				if apiVersion := version.APIVersion; apiVersion != "" {
+					fmt.Printf("api-version: %s\n", apiVersion)
+				}
+				if license := version.License; license != "" {
 					fmt.Printf("license: %s\n", license)
 				}
-				if credit := linkersetvalues.Credit; credit != "" {
+				if credit := version.Credit; credit != "" {
 					fmt.Printf("credit: %s\n", credit)
 				}
 			}

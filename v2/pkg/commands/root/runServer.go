@@ -14,6 +14,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
+	"github.com/raphaelreyna/oneshot/v2/pkg/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/bcrypt"
@@ -86,8 +87,8 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			Key:      discoveryServerKey,
 			Insecure: discoveryServerInsecure,
 			VersionInfo: messages.VersionInfo{
-				Version:    "0.1.0",
-				APIVersion: "0.1.0",
+				Version:    version.Version,
+				APIVersion: version.APIVersion,
 			},
 		}
 
