@@ -1,0 +1,19 @@
+{{/*
+    {
+        Title string
+        ErrorTitle string
+        ErrorDescription string
+    }
+*/}}
+{{- define "error" -}}
+<!DOCTYPE html>
+<html>
+<head>
+    {{ if .Title }}<title>{{ .Title }}</title>{{ end }}
+</head>
+<body>
+    <h3>{{ .ErrorTitle }}</h3>
+    <p>{{ .ErrorDescription }}</p>
+</body>
+</html>
+{{- end -}}

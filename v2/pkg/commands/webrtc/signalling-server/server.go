@@ -49,6 +49,8 @@ type server struct {
 	rtcConfig *webrtc.Configuration
 	config    Config
 
+	errorPageTitle string
+
 	queue chan requestBundle
 	mu    sync.Mutex
 

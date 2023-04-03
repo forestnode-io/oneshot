@@ -151,13 +151,13 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			bam         *messages.BasicAuth
 		)
 
-		if username == "" || password == "" {
+		if username != "" || password != "" {
 			bam = &messages.BasicAuth{}
-			if username == "" {
+			if username != "" {
 				uHash := sha256.Sum256([]byte(username))
 				bam.UsernameHash = uHash[:]
 			}
-			if password == "" {
+			if password != "" {
 				pHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 				if err != nil {
 					return fmt.Errorf("failed to hash password: %w", err)
@@ -166,7 +166,6 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			}
 		}
 		go func() {
-
 			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, externalAddrChan, bam); err != nil {
 				webRTCError = err
 				log.Printf("failed to listen for WebRTC connections: %v", err)

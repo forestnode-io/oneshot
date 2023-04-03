@@ -56,6 +56,20 @@ type Context struct {
 	PolyfillJS template.JS
 }
 
+type errCtx struct {
+	ErrorTitle       string
+	ErrorDescription string
+	Title            string
+}
+
 func WriteTo(w io.Writer, ctx Context) error {
 	return tmplt.ExecuteTemplate(w, "index", ctx)
+}
+
+func Error(w io.Writer, errTitle, errDescription, pageTitle string) error {
+	return tmplt.ExecuteTemplate(w, "error", errCtx{
+		ErrorTitle:       errTitle,
+		ErrorDescription: errDescription,
+		Title:            pageTitle,
+	})
 }

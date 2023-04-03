@@ -11,6 +11,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/raphaelreyna/oneshot/v2/pkg/version"
 )
 
 var id = "oneshot-signalling-server"
@@ -58,7 +59,8 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 	h := messages.Handshake{
 		ID: id,
 		VersionInfo: messages.VersionInfo{
-			Version: "0.0.1",
+			Version:    version.Version,
+			APIVersion: version.APIVersion,
 		},
 	}
 

@@ -35,7 +35,10 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("assigned url: %s", s.assignedURL)
 	if s.assignedURL == "" || s.assignedURL != addrString || s.os == nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		s.error(w, r, http.StatusNotFound,
+			"No pending oneshot found",
+			"Please make sure you have a pending oneshot before trying to connect to this server.",
+		)
 		return
 	}
 
@@ -52,20 +55,23 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accept := r.Header.Get("Accept")
-	if strings.Contains(accept, "text/html") {
-		log.Printf("accept: text/html")
-		s.handleGET_HTML(w, r)
-	} else if strings.Contains(accept, "application/json") {
+	if strings.Contains(accept, "application/json") {
 		log.Printf("accept: application/json")
 		s.handleAcceptJSON(w, r)
-	} else {
-		http.Error(w, "unsupported content type", http.StatusUnsupportedMediaType)
+		return
 	}
+
+	// default to text/html
+	log.Printf("accept: text/html")
+	s.handleGET_HTML(w, r)
 }
 
 func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	if s.pendingSessionID != "" || s.os == nil {
-		http.NotFound(w, r)
+		s.error(w, r, http.StatusNotFound,
+			"No pending oneshot found",
+			"Please make sure you have a pending oneshot before trying to connect to this server.",
+		)
 		return
 	}
 
@@ -98,7 +104,10 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	}).SignedString([]byte(s.config.JWTSecretConfig.Value))
 	if err != nil {
 		log.Printf("error signing jwt: %v", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		s.error(w, r, http.StatusInternalServerError,
+			"Internal Server Error",
+			"An internal server error occurred. Please try again later.",
+		)
 		return
 	}
 
@@ -150,15 +159,20 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("error parsing session token: %v", err)
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Invalid Session Token",
+			"Your session token is invalid. Please try again.",
+		)
 		return
 	}
 
 	// verify the token algorithm hasnt been changed
 	if token.Method != jwt.SigningMethodHS256 {
 		log.Printf("invalid signing method: %v", token.Header["alg"])
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Invalid Session Token",
+			"Your session token is invalid. Please try again.",
+		)
 		return
 	}
 
@@ -166,8 +180,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		log.Printf("invalid claims type: %T", token.Claims)
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Invalid Session Token",
+			"Your session token is invalid. Please try again.",
+		)
 		return
 	}
 
@@ -175,8 +191,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	expiresIface, ok := claims["expires"]
 	if !ok {
 		log.Printf("missing expires claim")
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Expired Session Token",
+			"Your session token is expired. Please try again.",
+		)
 		return
 	}
 
@@ -184,16 +202,20 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	expiresUnixFloat, ok := expiresIface.(float64)
 	if !ok {
 		log.Printf("expires claim is unexpected type: %T", expiresIface)
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Expired Session Token",
+			"Your session token is expired. Please try again.",
+		)
 		return
 	}
 
 	// check if the token has expired
 	if expires := time.Unix(int64(expiresUnixFloat), 0); time.Now().After(expires) {
 		log.Printf("session token expired")
-
-		http.Error(w, "session token expired", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Expired Session Token",
+			"Your session token is expired. Please try again.",
+		)
 		return
 	}
 
@@ -201,29 +223,38 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	sessionIDIface, ok := claims["session_id"]
 	if !ok {
 		log.Printf("missing session_id claim")
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Invalid Session Token",
+			"Your session token is invalid. Please try again.",
+		)
 		return
 	}
 
 	sessionID, ok := sessionIDIface.(string)
 	if !ok {
 		log.Printf("session_id claim is unexpected type: %T", sessionIDIface)
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Invalid Session Token",
+			"Your session token is invalid. Please try again.",
+		)
 		return
 	}
 	if sessionID == "" {
 		log.Printf("session_id claim is empty")
-
-		http.Error(w, "invalid session token", http.StatusUnauthorized)
+		s.error(w, r, http.StatusUnauthorized,
+			"Invalid Session Token",
+			"Your session token is invalid. Please try again.",
+		)
 		return
 	}
 
 	done, err := s.queueRequest(sessionID, w, r)
 	if err != nil {
 		log.Printf("error queuing request: %v", err)
-		http.Error(w, "server is busy", http.StatusServiceUnavailable)
+		s.error(w, r, http.StatusServiceUnavailable,
+			"Client queue is full",
+			"Too many clients are currently queued to connect. Please try again later.",
+		)
 		return
 	}
 	<-done
@@ -234,8 +265,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleAcceptJSON_POST(w http.ResponseWriter, r *http.Request) {
 	if s.pendingSessionID == "" {
 		log.Printf("received answer without pending session")
-
-		http.Error(w, "no pending session", http.StatusBadRequest)
+		s.error(w, r, http.StatusBadRequest,
+			"No pending oneshot found",
+			"Please make sure you have a pending oneshot before trying to connect to this server.",
+		)
 		return
 	}
 
@@ -246,19 +279,28 @@ func (s *server) handleAcceptJSON_POST(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.error(w, r, http.StatusBadRequest,
+			"Invalid JSON",
+			"Please make sure you are sending valid JSON.",
+		)
 		return
 	}
 	r.Body.Close()
 
 	if req.SessionID != s.pendingSessionID {
-		http.Error(w, "invalid sessionID", http.StatusForbidden)
+		s.error(w, r, http.StatusBadRequest,
+			"Invalid Session ID",
+			"Please make sure you are sending the correct session ID.",
+		)
 		return
 	}
 
 	ctx := r.Context()
 	if err = s.os.SendAnswer(ctx, req.SessionID, sdp.Answer(req.Answer)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.error(w, r, http.StatusInternalServerError,
+			"Error sending answer to oneshot server",
+			"Please try again later.",
+		)
 		return
 	}
 }
@@ -279,7 +321,10 @@ func (s *server) worker() {
 			)
 
 			if s.pendingSessionID != "" {
-				http.Error(w, "session already exists", http.StatusConflict)
+				s.error(w, r, http.StatusConflict,
+					"Session already exists",
+					"Please try again later.",
+				)
 				return
 			}
 			s.pendingSessionID = sessionID
@@ -287,13 +332,21 @@ func (s *server) worker() {
 			ctx := r.Context()
 			offer, err := s.os.RequestOffer(ctx, sessionID, s.rtcConfig)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Printf("error requesting offer: %v", err)
+				s.error(w, r, http.StatusInternalServerError,
+					"Error requesting offer from oneshot server",
+					"Please try again later.",
+				)
 				return
 			}
 
 			sd, err := offer.WebRTCSessionDescription()
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Printf("error getting session description: %v", err)
+				s.error(w, r, http.StatusInternalServerError,
+					"Internal Server Error",
+					"Please try again later.",
+				)
 				return
 			}
 
@@ -304,7 +357,11 @@ func (s *server) worker() {
 			}
 			payload, err := json.Marshal(resp)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Printf("error marshaling response: %v", err)
+				s.error(w, r, http.StatusInternalServerError,
+					"Internal Server Error",
+					"Please try again later.",
+				)
 				return
 			}
 
@@ -315,5 +372,33 @@ func (s *server) worker() {
 				log.Printf("error writing response: %v", err)
 			}
 		}()
+	}
+}
+
+func (s *server) error(w http.ResponseWriter, r *http.Request, status int, title, description string) {
+	accept := r.Header.Get("Accept")
+	switch {
+	case strings.Contains(accept, "application/json"):
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		payload, err := json.Marshal(map[string]any{
+			"error":       title,
+			"description": description,
+		})
+		if err != nil {
+			log.Printf("error marshaling error: %v", err)
+			return
+		}
+		if _, err = w.Write(payload); err != nil {
+			log.Printf("error writing error: %v", err)
+		}
+		return
+	default:
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(status)
+		err := template.Error(w, title, description, s.errorPageTitle)
+		if err != nil {
+			log.Printf("error writing error: %v", err)
+		}
 	}
 }

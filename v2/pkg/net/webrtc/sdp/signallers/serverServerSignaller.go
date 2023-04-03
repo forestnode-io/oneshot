@@ -124,7 +124,6 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			if err != nil {
 				return fmt.Errorf("error sending session failed request: %w", err)
 			}
-			log.Printf("error handling offer request: %v", err)
 			continue
 		}
 		log.Println("... handler finished processing offer request")

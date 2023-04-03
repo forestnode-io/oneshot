@@ -43,6 +43,7 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 	opts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithKeepaliveParams(kacp),
+		grpc.FailOnNonTempDialError(true),
 	}
 	if c.Insecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))

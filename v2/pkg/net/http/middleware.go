@@ -73,7 +73,7 @@ func BasicAuthMiddleware(unauthenticated http.HandlerFunc, username, password st
 			}
 			authenticated(w, r)
 		}
-	}, "", nil
+	}, baToken, nil
 }
 
 // botHeaders are the known User-Agent header values in use by bots / machines

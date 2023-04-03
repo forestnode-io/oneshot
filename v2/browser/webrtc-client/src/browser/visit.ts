@@ -1,8 +1,6 @@
 import { activateScriptTags } from './activateScriptTags';
 import { triggerDownload } from './triggerDownload';
 
-const text_MIMERegexp = /^text\/.*$/;
-
 export async function visit(request: RequestInfo | URL,
     options?: RequestInit | undefined,
     fetcher: ((request: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response>) = fetch,
