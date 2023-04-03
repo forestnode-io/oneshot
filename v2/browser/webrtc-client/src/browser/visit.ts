@@ -6,7 +6,7 @@ const text_MIMERegexp = /^text\/.*$/;
 export async function visit(request: RequestInfo | URL,
     options?: RequestInit | undefined,
     fetcher: ((request: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response>) = fetch,
-    ): Promise<void> {
+): Promise<void> {
     const spinnerEl = document.createElement('span');
     document.body.innerHTML = '';
     document.body.appendChild(spinnerEl);
@@ -52,31 +52,7 @@ export async function visit(request: RequestInfo | URL,
         return;
     }
 
-    // otherwise, check if the content type is text
-    // if so, display the body in the browser
-    // otherwise, display the body as a preformatted text
-    if (ct.match(text_MIMERegexp)) {
-        const body = await resp.text();
-        if (ct === 'text/html') {
-            const parser = new DOMParser();
-            const dom = parser.parseFromString(body, 'text/html');
-            document.body = dom.body;
-            activateScriptTags(document.body)
-        } else {
-            document.body.innerText = body;
-            document.body.innerHTML = `<pre>${body}</pre>`;
-        }
-    } else if (ct.startsWith('application/')) {
-        const body = await resp.blob();
-        let file = new Blob([body], { type: ct });
-        let fileURL = URL.createObjectURL(file);
-        window.open(fileURL, "_self");
-    } else {
-        console.log(`falling back to displaying body as preformatted text`);
-        const body = await resp.text();
-        document.body.innerText = body;
-        document.body.innerHTML = `<pre>${body}</pre>`;
-    }
+   mimeHandler(ct, resp); 
 }
 
 function filenameFromContentDisposition(cd: string): string {
@@ -91,4 +67,35 @@ function filenameFromContentDisposition(cd: string): string {
         return matches[1].replace(/['"]/g, '');
     }
     return "";
+}
+
+async function mimeHandler(contentType: string, resp: Response) {
+    const ct = contentType.split(';')[0];
+    const parts = ct.split('/');
+    const type = parts[0];
+    const subtype = parts[1];
+
+    switch (type) {
+        case 'text':
+            const textBody = await resp.text();
+            switch (subtype) {
+                case 'html':
+                    const parser = new DOMParser();
+                    const dom = parser.parseFromString(textBody, 'text/html');
+                    document.body = dom.body;
+                    activateScriptTags(document.body);
+                    break;
+                case 'plain':
+                default:
+                    document.body.innerText = textBody;
+                    document.body.innerHTML = `<pre>${textBody}</pre>`;
+                    break;
+            }
+            break;
+        default:
+            const blobBody = await resp.blob();
+            const file = new Blob([blobBody], { type: ct });
+            const fileURL = URL.createObjectURL(file);
+            window.open(fileURL, "_self");
+    }
 }
