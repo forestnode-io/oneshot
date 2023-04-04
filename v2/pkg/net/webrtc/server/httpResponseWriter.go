@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -105,7 +104,6 @@ func (w *ResponseWriter) Flush() error {
 	errs := make(chan error, 1)
 	// wait for the eof ack
 	go func() {
-		log.Println("waiting for EOF ACK")
 		eofBuf := make([]byte, 3)
 		_, err = w.channel.Read(eofBuf)
 		if err != nil {
@@ -120,7 +118,6 @@ func (w *ResponseWriter) Flush() error {
 
 	select {
 	case err = <-errs:
-		log.Println("EOF ACK received")
 		if err != nil {
 			if strings.Contains(err.Error(), "Closed") ||
 				errors.Is(err, io.EOF) {
@@ -129,7 +126,6 @@ func (w *ResponseWriter) Flush() error {
 		}
 		return err
 	case <-time.After(333 * time.Millisecond):
-		log.Println("EOF ACK timed out")
 		return nil
 	}
 }

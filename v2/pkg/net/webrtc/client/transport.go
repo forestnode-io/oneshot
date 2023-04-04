@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 )
@@ -31,6 +31,7 @@ type Transport struct {
 }
 
 func NewTransport(config *webrtc.Configuration) (*Transport, error) {
+	log := log.Logger()
 	t := Transport{
 		config:                config,
 		dcChan:                make(chan dcBundle, 1),
@@ -51,7 +52,8 @@ func NewTransport(config *webrtc.Configuration) (*Transport, error) {
 	pc.OnDataChannel(func(d *webrtc.DataChannel) {
 		var opened bool
 		d.OnOpen(func() {
-			log.Printf("data channel opened")
+			log.Debug().
+				Msg("data channel opened")
 			d.SetBufferedAmountLowThreshold(oneshotwebrtc.BufferedAmountLowThreshold)
 			rawDC, err := d.Detach()
 			if err != nil {
@@ -68,7 +70,8 @@ func NewTransport(config *webrtc.Configuration) (*Transport, error) {
 			t.continueChan <- struct{}{}
 		})
 		d.OnClose(func() {
-			log.Println("data channel closed")
+			log.Debug().
+				Msg("data channel closed")
 			if !opened {
 				close(t.dcChan)
 			}
@@ -79,11 +82,14 @@ func NewTransport(config *webrtc.Configuration) (*Transport, error) {
 	})
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		log.Printf("peer connection state changed: %v", state)
+		log.Debug().
+			Str("state", state.String()).
+			Msg("peer connection state changed")
 		if state == webrtc.PeerConnectionStateDisconnected ||
 			state == webrtc.PeerConnectionStateFailed {
 			if err = t.peerConn.Close(); err != nil {
-				log.Printf("unable to close peer connection: %v", err)
+				log.Error().Err(err).
+					Msg("unable to close peer connection")
 			}
 		}
 	})
@@ -97,7 +103,9 @@ func NewTransport(config *webrtc.Configuration) (*Transport, error) {
 		defer t.paMu.Unlock()
 		addr := fmt.Sprintf("%s:%d", c.Address, c.Port)
 		t.peerAddresses = append(t.peerAddresses, addr)
-		log.Println("ICE candidate:", addr)
+		log.Debug().
+			Str("addr", addr).
+			Msg("ICE candidate")
 	})
 
 	return &t, nil

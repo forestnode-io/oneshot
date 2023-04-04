@@ -3,11 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 )
@@ -60,7 +60,10 @@ func newPeerConnection(ctx context.Context, id, bat string, sao signallers.Answe
 }
 
 func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState) {
-	log.Printf("connection state has changed: %s\n", cs.String())
+	log := log.Logger()
+	log.Debug().
+		Str("connection_state", cs.String()).
+		Msg("ICE connection state changed")
 
 	var cancelTimer func() bool
 
@@ -74,7 +77,8 @@ func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState
 		if cancelTimer != nil {
 			cancelTimer()
 		}
-		log.Println("webRTC connection established")
+		log.Debug().
+			Msg("webRTC connection established")
 	case webrtc.ICEConnectionStateDisconnected:
 		p.error(false, fmt.Errorf("webRTC connection disconnected"))
 	case webrtc.ICEConnectionStateFailed:
@@ -85,13 +89,17 @@ func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState
 }
 
 func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
+	log := log.Logger()
 	if candidate != nil {
-		log.Println("ICE candidate gathered", candidate)
+		log.Debug().
+			Interface("candidate", candidate).
+			Msg("ICE candidate gathered")
 		p.paMu.Lock()
 		p.peerAddresses = append(p.peerAddresses, fmt.Sprintf("%s:%d", candidate.Address, candidate.Port))
 		p.paMu.Unlock()
 	} else {
-		log.Println("ICE candidate gathering complete")
+		log.Debug().
+			Msg("ICE candidate gathering complete")
 	}
 
 	// candidate is nil when gathering is done
@@ -135,15 +143,15 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 }
 
 func (p *peerConnection) onConnectionStateChange(state webrtc.PeerConnectionState) {
-	log.Printf("webRTC connection state changed: %s", state.String())
+	log := log.Logger()
+	log.Debug().
+		Str("connection_state", state.String()).
+		Msg("webRTC connection state changed")
 
 	switch state {
 	case webrtc.PeerConnectionStateNew:
-		log.Println("webRTC connection new")
 	case webrtc.PeerConnectionStateConnecting:
-		log.Println("webRTC connection connecting")
 	case webrtc.PeerConnectionStateConnected:
-		log.Println("webRTC connection established")
 	case webrtc.PeerConnectionStateDisconnected:
 		p.error(false, fmt.Errorf("webRTC connection disconnected"))
 	case webrtc.PeerConnectionStateFailed:
@@ -154,27 +162,27 @@ func (p *peerConnection) onConnectionStateChange(state webrtc.PeerConnectionStat
 }
 
 func (p *peerConnection) onSignalingStateChange(state webrtc.SignalingState) {
-	log.Printf("webRTC signaling state changed: %s", state.String())
+	log := log.Logger()
+	log.Debug().
+		Str("signaling_state", state.String()).
+		Msg("webRTC signaling state changed")
 
 	switch state {
 	case webrtc.SignalingStateStable:
-		log.Println("webRTC signaling stable")
 	case webrtc.SignalingStateHaveLocalOffer:
-		log.Println("webRTC signaling have local offer")
 	case webrtc.SignalingStateHaveRemoteOffer:
-		log.Println("webRTC signaling have remote offer")
 	case webrtc.SignalingStateHaveLocalPranswer:
-		log.Println("webRTC signaling have local pranswer")
 	case webrtc.SignalingStateHaveRemotePranswer:
-		log.Println("webRTC signaling have remote pranswer")
 	case webrtc.SignalingStateClosed:
-		log.Println("webRTC signaling closed")
 	}
 }
 
 func (p *peerConnection) onNegotiationNeeded() {
-	log.Println("webrtc peer connection negotiation needed ...")
-	defer log.Println("... peer connection negotiated")
+	log := log.Logger()
+	log.Debug().
+		Msg("webRTC peer connection negotiation needed")
+	defer log.Debug().
+		Msg("webRTC peer connection negotiation complete")
 
 	pc := p.PeerConnection
 	// ready to negotiate a new offer session description

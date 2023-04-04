@@ -2,11 +2,11 @@ package network
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strings"
 
 	"github.com/jackpal/gateway"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 )
 
 // HostAddresses returns all available ip addresses from all interfaces
@@ -69,6 +69,8 @@ func GetSourceIP(target string, port int) (string, error) {
 }
 
 func PreferNonPrivateIP(ips []string) (string, string) {
+	log := log.Logger()
+
 	if len(ips) == 0 {
 		return "", ""
 	}
@@ -81,12 +83,14 @@ func PreferNonPrivateIP(ips []string) (string, string) {
 	for _, addr := range ips {
 		host, p, err := net.SplitHostPort(addr)
 		if err != nil {
-			log.Printf("Failed to parse peer address: %s", err.Error())
+			log.Error().Err(err).
+				Msg("failed to parse peer address")
 			continue
 		}
 		ip := net.ParseIP(host)
 		if ip == nil {
-			log.Printf("Failed to parse peer address: %s", host)
+			log.Error().Err(err).
+				Msg("failed to parse peer address")
 			continue
 		}
 
@@ -100,7 +104,8 @@ func PreferNonPrivateIP(ips []string) (string, string) {
 	if preferredAddress == nil {
 		host, p, err := net.SplitHostPort(ips[0])
 		if err != nil {
-			log.Printf("Failed to parse peer address: %s", err)
+			log.Error().Err(err).
+				Msg("failed to parse peer address")
 		} else {
 			preferredAddress = net.ParseIP(host)
 			port = p

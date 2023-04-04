@@ -3,13 +3,13 @@ package discoveryserver
 import (
 	"context"
 	"fmt"
-	"log"
 
 	pionwebrtc "github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"github.com/raphaelreyna/oneshot/v2/pkg/version"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -29,34 +29,33 @@ type oneshotServer struct {
 }
 
 func newOneshotServer(ctx context.Context, requiredID string, stream proto.SignallingServer_ConnectServer, resetPending func(), requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
-	o := oneshotServer{
-		done:         make(chan struct{}),
-		stream:       stream,
-		msgChan:      make(chan messages.Message, 1),
-		errChan:      make(chan error, 1),
-		resetPending: resetPending,
-	}
+	var (
+		log = zerolog.Ctx(ctx)
+		o   = oneshotServer{
+			done:         make(chan struct{}),
+			stream:       stream,
+			msgChan:      make(chan messages.Message, 1),
+			errChan:      make(chan error, 1),
+			resetPending: resetPending,
+		}
+	)
 
 	// exchange version info
-	env, err := stream.Recv()
+	handshake, err := receive[*messages.Handshake](stream)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read handshake: %w", err)
 	}
-	m, err := messages.FromRPCEnvelope(env)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read handshake: %w", err)
+	if handshake.Error != "" {
+		return nil, fmt.Errorf("error from remote: %s", handshake.Error)
 	}
 
-	rh, ok := m.(*messages.Handshake)
-	if !ok {
-		return nil, messages.ErrInvalidRequestType
-	}
-	if rh.Error != "" {
-		return nil, fmt.Errorf("error from remote: %s", rh.Error)
-	}
-	log.Printf("oneshot client version: %s", rh.VersionInfo.Version)
+	log.Info().
+		Str("version", handshake.VersionInfo.Version).
+		Str("api-version", handshake.VersionInfo.APIVersion).
+		Str("id", handshake.ID).
+		Msg("received handshake")
 
-	h := messages.Handshake{
+	responseHandshake := messages.Handshake{
 		ID: id,
 		VersionInfo: messages.VersionInfo{
 			Version:    version.Version,
@@ -64,69 +63,58 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 		},
 	}
 
-	if rh.ID != requiredID && requiredID != "" {
-		h.Error = "unautharized"
-		env, err = messages.ToRPCEnvelope(&h)
-		if err != nil {
-			return nil, err
-		}
-		if err = stream.Send(env); err != nil {
-			return nil, err
+	if responseHandshake.ID != requiredID && requiredID != "" {
+		responseHandshake.Error = "unauthorized"
+		if err := send(stream, &responseHandshake); err != nil {
+			log.Error().Err(err).
+				Msg("unable to write handshake")
 		}
 
 		return nil, fmt.Errorf("invalid id")
 	}
 
-	env, err = messages.ToRPCEnvelope(&h)
-	if err != nil {
-		return nil, err
-	}
-	if err = stream.Send(env); err != nil {
-		return nil, err
-	}
-	if err != nil {
+	if err = send(stream, &responseHandshake); err != nil {
 		return nil, fmt.Errorf("unable to write handshake: %w", err)
 	}
 
-	log.Printf("oneshot server version: %s", rh.VersionInfo.Version)
+	log.Debug().
+		Str("version", responseHandshake.VersionInfo.Version).
+		Str("api-version", responseHandshake.VersionInfo.APIVersion).
+		Str("id", responseHandshake.ID).
+		Msg("sent handshake")
 
 	// grab the arrival request and store it
-	env, err = stream.Recv()
+	arrivalRequest, err := receive[*messages.ServerArrivalRequest](stream)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read arrival request: %w", err)
 	}
-	m, err = messages.FromRPCEnvelope(env)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read arrival request: %w", err)
-	}
+	o.Arrival = *arrivalRequest
 
-	ar, ok := m.(*messages.ServerArrivalRequest)
-	if !ok {
-		return nil, fmt.Errorf("invalid request type, expected ArrivalRequest, got: %s", m.Type())
-	}
-	o.Arrival = *ar
+	log.Debug().
+		Str("url", arrivalRequest.URL.URL).
+		Bool("url-required", arrivalRequest.URL.Required).
+		Msg("received arrival request")
 
 	resp := messages.ServerArrivalResponse{}
 	rurl := ""
 	rurlRequired := false
-	if ar.URL != nil {
-		rurl = ar.URL.URL
-		rurlRequired = ar.URL.Required
+	if arrivalRequest.URL != nil {
+		rurl = arrivalRequest.URL.URL
+		rurlRequired = arrivalRequest.URL.Required
 	}
 	assignedURL, err := requestURL(rurl, rurlRequired)
 	if err != nil {
 		return nil, fmt.Errorf("unable to assign requested url: %w", err)
 	}
 	resp.AssignedURL = assignedURL
-	log.Printf("assigned url: %s", assignedURL)
 
-	env, err = messages.ToRPCEnvelope(&resp)
-	if err != nil {
-		return nil, err
+	if err = send(stream, &resp); err != nil {
+		return nil, fmt.Errorf("unable to write arrival response: %w", err)
 	}
-	if err = stream.Send(env); err != nil {
-		return nil, err
-	}
+
+	log.Info().
+		Str("assigned-url", assignedURL).
+		Msg("assigned URL")
 
 	return &o, nil
 }
@@ -137,26 +125,13 @@ func (o *oneshotServer) RequestOffer(ctx context.Context, sessionID string, conf
 		Configuration: conf,
 	}
 
-	env, err := messages.ToRPCEnvelope(&req)
-	if err != nil {
-		return "", err
-	}
-	if err = o.stream.Send(env); err != nil {
-		return "", err
+	if err := send(o.stream, &req); err != nil {
+		return "", fmt.Errorf("unable to write offer request: %w", err)
 	}
 
-	env, err = o.stream.Recv()
+	gor, err := receive[*messages.GetOfferResponse](o.stream)
 	if err != nil {
-		return "", fmt.Errorf("unable to read offer: %w", err)
-	}
-	m, err := messages.FromRPCEnvelope(env)
-	if err != nil {
-		return "", fmt.Errorf("unable to read offer: %w", err)
-	}
-
-	gor, ok := m.(*messages.GetOfferResponse)
-	if !ok {
-		return "", fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", m.Type())
+		return "", fmt.Errorf("unable to read offer response: %w", err)
 	}
 
 	return sdp.Offer(gor.Offer), nil
@@ -167,53 +142,33 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer
 		SessionID: sessionID,
 		Answer:    string(answer),
 	}
-	env, err := messages.ToRPCEnvelope(&req)
-	if err != nil {
-		return err
-	}
-	if err = o.stream.Send(env); err != nil {
-		return err
+
+	if err := send(o.stream, &req); err != nil {
+		return fmt.Errorf("unable to write answer: %w", err)
 	}
 
-	env, err = o.stream.Recv()
+	gar, err := receive[*messages.GotAnswerResponse](o.stream)
 	if err != nil {
-		return fmt.Errorf("unable to read offer: %w", err)
-	}
-	m, err := messages.FromRPCEnvelope(env)
-	if err != nil {
-		return fmt.Errorf("unable to read offer: %w", err)
-	}
-
-	gar, ok := m.(*messages.GotAnswerResponse)
-	if !ok {
-		return fmt.Errorf("invalid request type, expected GetOfferResponse, got: %s", m.Type())
+		return fmt.Errorf("unable to read answer response: %w", err)
 	}
 
 	go func() {
-		env, err := o.stream.Recv()
+		log := zerolog.Ctx(ctx)
+		fsr, err := receive[*messages.FinishedSessionRequest](o.stream)
 		if err != nil {
 			statErr, ok := status.FromError(err)
 			if !ok || (ok && statErr.Code() != codes.Canceled) {
-				log.Printf("error receiving message: %v", err)
+				log.Error().Err(err).
+					Msg("error receiving message")
 			}
 			return
 		}
 
-		m, err := messages.FromRPCEnvelope(env)
-		if err != nil {
-			log.Printf("error parsing message: %v", err)
-			return
-		}
-
-		fsr, ok := m.(*messages.FinishedSessionRequest)
-		if !ok {
-			log.Printf("unexpected message type: %T", m)
-			return
-		}
-
 		if fsr.Error != "" {
-			log.Printf("session failed: %s", fsr.Error)
+			log.Warn().Err(err).
+				Msg("session failed")
 		}
+
 		o.resetPending()
 	}()
 
@@ -230,4 +185,36 @@ func (o *oneshotServer) Close() {
 
 func (o *oneshotServer) Done() <-chan struct{} {
 	return o.done
+}
+
+func send(stream proto.SignallingServer_ConnectServer, m messages.Message) error {
+	env, err := messages.ToRPCEnvelope(m)
+	if err != nil {
+		return fmt.Errorf("unable to marshal message: %w", err)
+	}
+	return stream.Send(env)
+}
+
+func receive[M messages.Message](stream proto.SignallingServer_ConnectServer) (M, error) {
+	var (
+		m  M
+		ok bool
+	)
+
+	env, err := stream.Recv()
+	if err != nil {
+		return m, fmt.Errorf("unable to read message: %w", err)
+	}
+
+	msg, err := messages.FromRPCEnvelope(env)
+	if err != nil {
+		return m, fmt.Errorf("unable to read message: %w", err)
+	}
+
+	m, ok = msg.(M)
+	if !ok {
+		return m, fmt.Errorf("invalid message type, expected %T, got %T", m, msg)
+	}
+
+	return m, nil
 }

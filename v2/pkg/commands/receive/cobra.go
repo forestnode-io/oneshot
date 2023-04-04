@@ -3,9 +3,9 @@ package receive
 import (
 	_ "embed"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +15,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -116,6 +117,7 @@ Format: <HEADER NAME>=<HEADER VALUE>`)
 func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
 		ctx            = cmd.Context()
+		log            = zerolog.Ctx(ctx)
 		flags          = cmd.Flags()
 		headerSlice, _ = flags.GetStringSlice("header")
 		eol, _         = flags.GetString("eol")
@@ -134,7 +136,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	c.unixEOLNormalization = eol == "unix"
 	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing header: %w", err)
 	}
 
 	var location string
@@ -143,7 +145,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	}
 	c.fileTransferConfig, err = file.NewWriteTransferConfig(ctx, location)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating file transfer config: %w", err)
 	}
 
 	var (
@@ -165,20 +167,23 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	if ui != "" {
 		tmpl, err = tmpl.ParseGlob(ui)
 		if err != nil {
-			return err
+			return fmt.Errorf("error parsing ui glob: %w", err)
 		}
 	} else {
 		// create the writeTemplate func to execute the template into the RequestWriter.
 		tmpl, err = template.New("root").Parse(htmlTemplate)
 		if err != nil {
-			return err
+			return fmt.Errorf("error parsing template: %w", err)
 		}
 	}
 
 	// execute template to run config funcs it may have set
 	if ui != "" {
 		if err := tmpl.ExecuteTemplate(io.Discard, "oneshot", nil); err != nil {
-			log.Printf("error during initial template execution (running config funcs): %s", err.Error())
+			log.Error().Err(err).
+				Msg("error during initial template execution (running config funcs)")
+
+			return fmt.Errorf("error during initial template execution (running config funcs): %w", err)
 		}
 	}
 

@@ -3,7 +3,6 @@ package signallers
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/rs/zerolog"
 )
 
 type fileServerSignaller struct {
@@ -27,6 +27,7 @@ func NewFileServerSignaller(dir string, config *webrtc.Configuration) ServerSign
 }
 
 func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler, addressChan chan<- string) error {
+	log := zerolog.Ctx(ctx)
 	stat, err := os.Stat(s.dirPath)
 	if err == nil {
 		if !stat.IsDir() {
@@ -61,7 +62,8 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler,
 				if event.Has(fsnotify.Create) {
 					stat, err := os.Stat(event.Name)
 					if err != nil {
-						log.Println("unable to stat file:", err)
+						log.Error().Err(err).
+							Msg("unable to stat file")
 						return
 					}
 					if !stat.IsDir() {
@@ -102,14 +104,16 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler,
 									}
 									answerBytes, err := os.ReadFile(answerPath)
 									if err != nil {
-										log.Printf("unable to read answer: %v", err)
+										log.Error().Err(err).
+											Msg("unable to read answer file")
 										return
 									}
 
 									if len(answerBytes) != 0 {
 										answer, err := sdp.AnswerFromJSON(answerBytes)
 										if err != nil {
-											log.Printf("unable to unmarshal answer: %v", err)
+											log.Error().Err(err).
+												Msg("unable to unmarshal answer")
 											return
 										}
 										answerChan <- answer
@@ -118,7 +122,8 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler,
 								}
 							case err := <-watcher.Errors:
 								if err != nil {
-									log.Printf("error from answer watcher: %v", err)
+									log.Error().Err(err).
+										Msg("error from answer watcher")
 									return
 								}
 							}
@@ -133,7 +138,8 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler,
 				id++
 			case err := <-s.watcher.Errors:
 				if err != nil {
-					log.Printf("error from sdp dir watcher: %v", err)
+					log.Error().Err(err).
+						Msg("error from sdp dir watcher")
 				}
 				return
 			}

@@ -6,15 +6,16 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
+	"github.com/rs/zerolog"
 )
 
 type dataChannelEvent struct {
@@ -32,6 +33,7 @@ type dataChannel struct {
 }
 
 func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, error) {
+	log := zerolog.Ctx(ctx)
 	dcChan := make(chan datachannel.ReadWriteCloser, 1)
 
 	dc, err := pc.CreateDataChannel(oneshotwebrtc.DataChannelName, nil)
@@ -48,10 +50,10 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 	}
 
 	dc.OnClose(d.onClose)
-	dc.OnMessage(d.onMessage)
 	dc.OnError(d.onError)
 	dc.OnOpen(func() {
-		log.Println("data channel opened")
+		log.Debug().
+			Msg("data channel opened")
 
 		rawDC, err := dc.Detach()
 		if err != nil {
@@ -64,7 +66,8 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 		close(dcChan)
 	})
 	dc.OnBufferedAmountLow(func() {
-		log.Println("data channel buffered amount low")
+		log.Debug().
+			Msg("data channel buffered amount low")
 		d.continueChan <- struct{}{}
 	})
 
@@ -118,7 +121,9 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 					return
 				}
 				if !isString {
-					log.Printf("received binary data during header parsing")
+					log.Error().
+						Str("remote_addr", remoteAddr).
+						Msg("received binary data during header parsing")
 					d.ReadWriteCloser.Close()
 					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("received binary data during header parsing")}
 					return
@@ -138,7 +143,8 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 			// create the HTTP request from the header.
 			req, err := http.ReadRequest(bufio.NewReader(headerBuf))
 			if err != nil {
-				log.Printf("unable to read request: %v", err)
+				log.Error().Err(err).
+					Msg("unable to read request")
 				d.ReadWriteCloser.Close()
 				d.eventsChan <- dataChannelEvent{err: err}
 				return
@@ -169,7 +175,10 @@ func (d *dataChannel) Close() error {
 }
 
 func (d *dataChannel) onClose() {
-	log.Println("data channel closed")
+	log := log.Logger()
+	log.Debug().
+		Msg("data channel closed")
+
 	d.error(fmt.Errorf("data channel closed"))
 	d.cancel()
 	close(d.eventsChan)
@@ -177,12 +186,10 @@ func (d *dataChannel) onClose() {
 }
 
 func (d *dataChannel) onError(err error) {
-	log.Println("data channel error:", err)
+	log := log.Logger()
+	log.Error().Err(err).
+		Msg("data channel error")
 	d.error(err)
-}
-
-func (d *dataChannel) onMessage(msg webrtc.DataChannelMessage) {
-	log.Println("OnMessage")
 }
 
 func (d *dataChannel) error(err error) {

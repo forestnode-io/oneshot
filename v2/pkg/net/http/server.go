@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"runtime"
@@ -13,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
+	"github.com/rs/zerolog"
 )
 
 const shutdownTimeout = 500 * time.Millisecond
@@ -83,6 +83,7 @@ func NewServer(ctx context.Context, preSucc, postSucc http.HandlerFunc, mw ...Mi
 // Serve waits for all workers to finish before returning.
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	var (
+		log             = zerolog.Ctx(ctx)
 		wg              = sync.WaitGroup{}
 		shutdownErrChan = make(chan error)
 		shuttingDown    bool
@@ -97,9 +98,9 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 		}
 		shuttingDown = true
 
-		log.Println("shutting down HTTP server")
+		log.Debug().Msg("shutting down HTTP server")
 		shutdownErrChan <- s.server.Shutdown(ctx)
-		log.Println("finished shutting down HTTP server")
+		log.Debug().Msg("finished shutting down HTTP server")
 	}
 	if l == nil {
 		shutdown = func(_ context.Context) {
@@ -110,9 +111,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 			}
 			shuttingDown = true
 
-			log.Println("shutting down HTTP server")
 			shutdownErrChan <- nil
-			log.Println("finished shutting down HTTP server")
 		}
 	}
 
@@ -182,32 +181,35 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	var err error
 	if l != nil {
 		if s.TLSCert != "" && s.TLSKey != "" {
-			log.Println("serving HTTPS")
+			log.Info().
+				Str("cert", s.TLSCert).
+				Str("key", s.TLSKey).
+				Msg("serving HTTPS")
 			err = s.server.ServeTLS(l, s.TLSCert, s.TLSKey)
-			log.Println("HTTPS server exited")
 		} else {
-			log.Println("serving HTTP")
+			log.Info().
+				Msg("serving HTTP")
 			err = s.server.Serve(l)
-			log.Println("HTTP server exited")
 		}
 		if err = cleanServerShutdownErr(err); err != nil {
-			log.Printf("HTTP(S) server error: %v", err)
+			log.Error().Err(err).
+				Msg("HTTP(S) server error")
 		}
 	} else {
-		log.Println("only listenening for HTTP traffic over webRTC")
+		log.Info().Msg("only listenening for HTTP traffic over webRTC")
 	}
 
 	// wait for the server to shutdown
-	log.Println("waiting for HTTP(S) handler to shutdown")
+	log.Debug().Msg("waiting for HTTP(S) server to shutdown")
 	err = <-shutdownErrChan
-	log.Println("done waiting for HTTP(S) server to shutdown")
+	log.Debug().Msg("done waiting for HTTP(S) server to shutdown")
 
 	close(s.queue)
 
 	// wait for the workers to finish
-	log.Println("waiting for workers to finish")
+	log.Debug().Msg("waiting for workers to finish")
 	wg.Wait()
-	log.Println("done waiting for workers to finish")
+	log.Debug().Msg("done waiting for workers to finish")
 
 	return cleanServerShutdownErr(err)
 }

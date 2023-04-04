@@ -1,8 +1,6 @@
 package output
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +25,6 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 		}
 		o.cmdName = c.Name() + " " + o.cmdName
 	})
-	log.SetPrefix("oneshot " + o.cmdName + ": ")
 
 	switch o.cmdName {
 	case "exec":

@@ -5,15 +5,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/pion/datachannel"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"golang.org/x/net/http/httpguts"
 )
 
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	log := log.Logger()
 	bundle := <-t.dcChan
 	if bundle.err != nil {
 		return nil, fmt.Errorf("unable to get data channel: %w", bundle.err)
@@ -22,7 +23,8 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	closeBody := func() {
 		if req.Body != nil {
 			if err := req.Body.Close(); err != nil {
-				log.Printf("unable to close request body: %v", err)
+				log.Error().Err(err).
+					Msg("unable to close request body")
 			}
 		}
 	}
@@ -94,13 +96,15 @@ type dcReader struct {
 }
 
 func (r *dcReader) Read(p []byte) (int, error) {
+	log := log.Logger()
 	n, isString, err := r.raw.ReadDataChannel(p)
 	if isString {
 		if r.hitBody {
 			// got a string after the body, this is an EOF
 			// tell the server we got the EOF
 			if _, err := r.raw.WriteDataChannel([]byte(""), true); err != nil {
-				log.Printf("unable to send request body EOF: %v", err)
+				log.Error().Err(err).
+					Msg("unable to send request body EOF")
 			}
 			return n, io.EOF
 		}

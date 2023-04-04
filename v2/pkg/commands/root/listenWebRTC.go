@@ -3,7 +3,6 @@ package root
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc/keepalive"
 )
@@ -21,6 +21,7 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr, bat string,
 
 	var (
 		flags = r.Flags()
+		log   = zerolog.Ctx(ctx)
 	)
 
 	err := r.configureWebRTC(flags)
@@ -38,7 +39,7 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr, bat string,
 	a := server.NewServer(r.webrtcConfig, bat, http.HandlerFunc(r.server.ServeHTTP))
 	defer a.Wait()
 
-	log.Println("starting p2p discovery mechanism")
+	log.Info().Msg("starting p2p discovery mechanism")
 	if err := signaller.Start(ctx, a, addrChan); err != nil {
 		return fmt.Errorf("failed to start p2p discovery mechanism: %w", err)
 	}

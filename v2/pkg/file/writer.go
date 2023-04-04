@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"mime"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
@@ -121,12 +121,15 @@ func (ts *WriteTransferSession) Write(p []byte) (int, error) {
 }
 
 func (ts *WriteTransferSession) Close() error {
+	log := log.Logger()
 	err := ts.w.Close()
 	if !events.Succeeded(ts.ctx) {
 		if file, ok := ts.w.(*os.File); ok && file != nil {
 			if file != os.Stdout {
 				if err = os.Remove(file.Name()); err != nil {
-					log.Printf("error removing file %s: %s", file.Name(), err.Error())
+					log.Error().Err(err).
+						Str("file", file.Name()).
+						Msg("error removing file")
 				}
 			}
 		}

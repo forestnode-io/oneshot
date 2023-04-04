@@ -3,10 +3,10 @@ package output
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/rs/zerolog"
 )
 
 func runJSON(ctx context.Context, o *output) {
@@ -81,8 +81,11 @@ func _json_handleEvent(o *output, e events.Event) {
 }
 
 func _json_handleContextDone(ctx context.Context, o *output) {
+	log := zerolog.Ctx(ctx)
+
 	if err := events.GetCancellationError(ctx); err != nil {
-		log.Printf("connection cancellation error: %s", err.Error())
+		log.Error().
+			Msg("connection cancelled event")
 	}
 
 	// if serving to stdout
@@ -91,7 +94,8 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 			if o.currentClientSession.Request != nil {
 				// then read in the body since it wasnt written to disk
 				if err := o.currentClientSession.Request.ReadBody(); err != nil {
-					log.Printf("error reading request body buffer: %s", err.Error())
+					log.Error().Err(err).
+						Msg("error reading request body buffer")
 				}
 			}
 		}
@@ -113,7 +117,8 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 			if s.Request != nil {
 				// then read in the body since it wasnt written to disk
 				if err := s.Request.ReadBody(); err != nil {
-					log.Printf("error reading request body buffer: %s", err.Error())
+					log.Error().Err(err).
+						Msg("error reading request body buffer")
 				}
 			}
 		} else {
@@ -136,6 +141,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		Attempts: o.cls,
 	})
 	if err != nil {
-		log.Printf("error encoding json to stdout: %s", err.Error())
+		log.Error().Err(err).
+			Msg("error encoding json to stdout")
 	}
 }

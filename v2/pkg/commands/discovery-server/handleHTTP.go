@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,13 +15,25 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/template"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("http: %s %s", r.Method, r.URL.String())
-	log.Printf("host: %s", r.Host)
+	var (
+		log = zerolog.Ctx(r.Context()).With().
+			Str("method", r.Method).
+			Str("url", r.URL.String()).
+			Str("host", r.Host).
+			Logger()
+		ctx = log.WithContext(r.Context())
+	)
+	r = r.WithContext(ctx)
+	log.Info().Msg("got request")
+	defer log.Info().Msg("finished handling request")
+
 	r.URL.Scheme = "http"
 	r.URL.Host = r.Host
 
@@ -31,9 +43,7 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		Path:   r.URL.Path,
 	}
 	addrString := strings.TrimSuffix(addrURL.String(), "/")
-	log.Printf("url: %s", addrString)
 
-	log.Printf("assigned url: %s", s.assignedURL)
 	if s.assignedURL == "" || s.assignedURL != addrString || s.os == nil {
 		s.error(w, r, http.StatusNotFound,
 			"No pending oneshot found",
@@ -56,17 +66,17 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 	accept := r.Header.Get("Accept")
 	if strings.Contains(accept, "application/json") {
-		log.Printf("accept: application/json")
 		s.handleAcceptJSON(w, r)
 		return
 	}
 
 	// default to text/html
-	log.Printf("accept: text/html")
 	s.handleGET_HTML(w, r)
 }
 
 func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
+	log := zerolog.Ctx(r.Context())
+
 	if s.pendingSessionID != "" || s.os == nil {
 		s.error(w, r, http.StatusNotFound,
 			"No pending oneshot found",
@@ -76,6 +86,8 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ba := s.os.Arrival.BasicAuth; ba != nil {
+		log.Debug().Msg("checking basic auth")
+
 		user, pass, ok := r.BasicAuth()
 		if !ok {
 			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
@@ -83,17 +95,24 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		log.Debug().Msg("request contained basic auth credentials")
+
 		uHash := sha256.Sum256([]byte(user))
 		if !bytes.Equal(uHash[:], ba.UsernameHash) {
 			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+
+		log.Debug().Msg("username hash matched")
+
 		if bcrypt.CompareHashAndPassword(ba.PasswordHash, []byte(pass)) != nil {
 			w.Header().Set("WWW-Authenticate", `Basic realm="oneshot"`)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+
+		log.Debug().Msg("password hash matched")
 	}
 
 	sessionID := uuid.NewString()
@@ -103,7 +122,9 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 		"expires":    expirationTime.Unix(),
 	}).SignedString([]byte(s.config.JWTSecretConfig.Value))
 	if err != nil {
-		log.Printf("error signing jwt: %v", err)
+		log.Error().Err(err).
+			Msg("error signing jwt")
+
 		s.error(w, r, http.StatusInternalServerError,
 			"Internal Server Error",
 			"An internal server error occurred. Please try again later.",
@@ -117,6 +138,8 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 		Expires: expirationTime,
 	})
 	if r.Header.Get("User-Agent") == "oneshot" {
+		log.Debug().Msg("oneshot client detected")
+
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -132,16 +155,15 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 
 	err = template.WriteTo(w, tmpltCtx)
 	if err != nil {
-		log.Printf("error writing response: %v", err)
+		log.Error().Err(err).
+			Msg("error writing response")
 	}
 }
 
 func (s *server) handleAcceptJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		log.Printf("accept json get")
 		s.handleAcceptJSON_GET(w, r)
 	} else {
-		log.Printf("accept json post")
 		s.handleAcceptJSON_POST(w, r)
 	}
 }
@@ -150,15 +172,19 @@ func (s *server) handleAcceptJSON(w http.ResponseWriter, r *http.Request) {
 // the offer and rtc config. It queues up the request to be handled by a worker
 // so that the oneshot server only has to handle one request at a time.
 func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
-	// grab the raw token string
-	sessionTokenString := r.Header.Get("X-Session-Token")
+	var (
+		log                = zerolog.Ctx(r.Context())
+		sessionTokenString = r.Header.Get("X-Session-Token")
+	)
 
 	// parse the token string into a token
 	token, err := jwt.Parse(sessionTokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.config.JWTSecretConfig.Value), nil
 	})
 	if err != nil {
-		log.Printf("error parsing session token: %v", err)
+		log.Warn().Err(err).
+			Msg("error parsing session token")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Invalid Session Token",
 			"Your session token is invalid. Please try again.",
@@ -168,7 +194,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 
 	// verify the token algorithm hasnt been changed
 	if token.Method != jwt.SigningMethodHS256 {
-		log.Printf("invalid signing method: %v", token.Header["alg"])
+		log.Warn().
+			Str("alg", fmt.Sprintf("%v", token.Header["alg"])).
+			Msg("invalid signing method")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Invalid Session Token",
 			"Your session token is invalid. Please try again.",
@@ -179,7 +208,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	// extract the claims from the token
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		log.Printf("invalid claims type: %T", token.Claims)
+		log.Warn().
+			Str("type", fmt.Sprintf("%T", token.Claims)).
+			Msg("invalid claims type")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Invalid Session Token",
 			"Your session token is invalid. Please try again.",
@@ -190,7 +222,9 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	// get the expiration time from the claims
 	expiresIface, ok := claims["expires"]
 	if !ok {
-		log.Printf("missing expires claim")
+		log.Warn().
+			Msg("missing expires claim")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Expired Session Token",
 			"Your session token is expired. Please try again.",
@@ -201,7 +235,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	// apparently int64 will be marshalled as float64
 	expiresUnixFloat, ok := expiresIface.(float64)
 	if !ok {
-		log.Printf("expires claim is unexpected type: %T", expiresIface)
+		log.Warn().
+			Str("type", fmt.Sprintf("%T", expiresIface)).
+			Msg("invalid expires type")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Expired Session Token",
 			"Your session token is expired. Please try again.",
@@ -211,7 +248,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 
 	// check if the token has expired
 	if expires := time.Unix(int64(expiresUnixFloat), 0); time.Now().After(expires) {
-		log.Printf("session token expired")
+		log.Warn().
+			Time("expires", expires).
+			Msg("session token expired")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Expired Session Token",
 			"Your session token is expired. Please try again.",
@@ -222,7 +262,8 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	// get the session id from the claims
 	sessionIDIface, ok := claims["session_id"]
 	if !ok {
-		log.Printf("missing session_id claim")
+		log.Warn().Msg("missing session_id claim")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Invalid Session Token",
 			"Your session token is invalid. Please try again.",
@@ -232,7 +273,10 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 
 	sessionID, ok := sessionIDIface.(string)
 	if !ok {
-		log.Printf("session_id claim is unexpected type: %T", sessionIDIface)
+		log.Warn().
+			Str("type", fmt.Sprintf("%T", sessionIDIface)).
+			Msg("invalid session_id type")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Invalid Session Token",
 			"Your session token is invalid. Please try again.",
@@ -240,7 +284,8 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sessionID == "" {
-		log.Printf("session_id claim is empty")
+		log.Warn().Msg("session_id claim is empty")
+
 		s.error(w, r, http.StatusUnauthorized,
 			"Invalid Session Token",
 			"Your session token is invalid. Please try again.",
@@ -250,7 +295,9 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 
 	done, err := s.queueRequest(sessionID, w, r)
 	if err != nil {
-		log.Printf("error queuing request: %v", err)
+		log.Error().Err(err).
+			Msg("error queueing request")
+
 		s.error(w, r, http.StatusServiceUnavailable,
 			"Client queue is full",
 			"Too many clients are currently queued to connect. Please try again later.",
@@ -263,8 +310,11 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 // handleAcceptJSON_POST handles the POST request from the client that contains the answer to
 // the offer provided earlier by the worker.
 func (s *server) handleAcceptJSON_POST(w http.ResponseWriter, r *http.Request) {
+	log := zerolog.Ctx(r.Context())
+
 	if s.pendingSessionID == "" {
-		log.Printf("received answer without pending session")
+		log.Warn().Msg("received answer without pending session")
+
 		s.error(w, r, http.StatusBadRequest,
 			"No pending oneshot found",
 			"Please make sure you have a pending oneshot before trying to connect to this server.",
@@ -310,6 +360,8 @@ var ErrClientQueueFull = errors.New("client queue is full")
 // worker handles queued up requests from the client for an offer and rtc config.
 // the client asks for this after being sent the html page and running the client script.
 func (s *server) worker() {
+	log := log.Logger()
+
 	for bundle := range s.queue {
 		func() {
 			defer close(bundle.done)
@@ -332,7 +384,10 @@ func (s *server) worker() {
 			ctx := r.Context()
 			offer, err := s.os.RequestOffer(ctx, sessionID, s.rtcConfig)
 			if err != nil {
-				log.Printf("error requesting offer: %v", err)
+				log.Error().Err(err).
+					Str("session_id", sessionID).
+					Msg("error requesting offer from oneshot server")
+
 				s.error(w, r, http.StatusInternalServerError,
 					"Error requesting offer from oneshot server",
 					"Please try again later.",
@@ -342,7 +397,9 @@ func (s *server) worker() {
 
 			sd, err := offer.WebRTCSessionDescription()
 			if err != nil {
-				log.Printf("error getting session description: %v", err)
+				log.Error().Err(err).
+					Msg("error getting session description")
+
 				s.error(w, r, http.StatusInternalServerError,
 					"Internal Server Error",
 					"Please try again later.",
@@ -357,7 +414,9 @@ func (s *server) worker() {
 			}
 			payload, err := json.Marshal(resp)
 			if err != nil {
-				log.Printf("error marshaling response: %v", err)
+				log.Error().Err(err).
+					Msg("error marshaling response")
+
 				s.error(w, r, http.StatusInternalServerError,
 					"Internal Server Error",
 					"Please try again later.",
@@ -369,14 +428,19 @@ func (s *server) worker() {
 			w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
 			w.WriteHeader(http.StatusOK)
 			if _, err := w.Write(payload); err != nil {
-				log.Printf("error writing response: %v", err)
+				log.Error().Err(err).
+					Msg("error writing response")
 			}
 		}()
 	}
 }
 
 func (s *server) error(w http.ResponseWriter, r *http.Request, status int, title, description string) {
-	accept := r.Header.Get("Accept")
+	var (
+		log    = log.Logger()
+		accept = r.Header.Get("Accept")
+	)
+
 	switch {
 	case strings.Contains(accept, "application/json"):
 		w.Header().Set("Content-Type", "application/json")
@@ -386,11 +450,13 @@ func (s *server) error(w http.ResponseWriter, r *http.Request, status int, title
 			"description": description,
 		})
 		if err != nil {
-			log.Printf("error marshaling error: %v", err)
+			log.Error().Err(err).
+				Msg("error marshaling error")
 			return
 		}
 		if _, err = w.Write(payload); err != nil {
-			log.Printf("error writing error: %v", err)
+			log.Error().Err(err).
+				Msg("error writing error")
 		}
 		return
 	default:
@@ -398,7 +464,8 @@ func (s *server) error(w http.ResponseWriter, r *http.Request, status int, title
 		w.WriteHeader(status)
 		err := template.Error(w, title, description, s.errorPageTitle)
 		if err != nil {
-			log.Printf("error writing error: %v", err)
+			log.Error().Err(err).
+				Msg("error writing error")
 		}
 	}
 }

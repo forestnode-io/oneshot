@@ -2,11 +2,10 @@ package discoveryserver
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -55,12 +54,11 @@ Web browsers will be served a JS WebRTC client that will connect back to the dis
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	var (
 		ctx   = cmd.Context()
+		log   = zerolog.Ctx(ctx)
 		flags = cmd.Flags()
 
 		configFile, _ = flags.GetString("p2p-config-file")
 	)
-
-	output.InvocationInfo(ctx, cmd, args)
 
 	configData, err := os.ReadFile(configFile)
 	if err != nil {
@@ -84,10 +82,11 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to create signalling server: %w", err)
 	}
 	if err := s.run(ctx); err != nil {
-		log.Printf("error running server: %v", err)
+		log.Error().Err(err).
+			Msg("error running server")
 	}
 
-	log.Println("server stopped")
+	log.Info().Msg("discovery server exiting")
 
 	return nil
 }

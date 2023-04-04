@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/rs/zerolog"
 )
 
 var NewHTTPRequest = events.NewHTTPRequest
@@ -61,6 +61,8 @@ type output struct {
 }
 
 func (o *output) run(ctx context.Context) error {
+	log := zerolog.Ctx(ctx)
+
 	if o.quiet {
 		runQuiet(ctx, o)
 	} else {
@@ -82,7 +84,8 @@ func (o *output) run(ctx context.Context) error {
 
 	for _, f := range o.restoreConsole {
 		if err := f(); err != nil {
-			log.Println("error from console restore func:", err)
+			log.Error().Err(err).
+				Msg("error from console restore func")
 		}
 	}
 

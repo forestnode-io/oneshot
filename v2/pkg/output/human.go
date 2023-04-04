@@ -3,10 +3,10 @@ package output
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/rs/zerolog"
 )
 
 func runHuman(ctx context.Context, o *output) {
@@ -43,7 +43,9 @@ func runHuman(ctx context.Context, o *output) {
 }
 
 func _human_handleContextDone(ctx context.Context, o *output) {
+	log := zerolog.Ctx(ctx)
 	if err := events.GetCancellationError(ctx); err != nil {
-		log.Printf("connection cancellation error: %s", err.Error())
+		log.Error().Err(err).
+			Msg("connection cancelled event")
 	}
 }

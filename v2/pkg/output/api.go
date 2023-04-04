@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"sync/atomic"
@@ -14,6 +13,8 @@ import (
 
 	"github.com/muesli/termenv"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -32,12 +33,14 @@ func WithOutput(ctx context.Context) (context.Context, error) {
 }
 
 func InvocationInfo(ctx context.Context, cmd *cobra.Command, args []string) {
+	log := zerolog.Ctx(ctx)
 	o := getOutput(ctx)
 	o.setCommandInvocation(cmd, args)
 
 	go func() {
 		if err := getOutput(ctx).run(ctx); err != nil {
-			log.Printf("error running output system: %v", err)
+			log.Error().Err(err).
+				Msg("error running output system")
 		}
 	}()
 }
@@ -275,9 +278,12 @@ func newTabbedDynamicOutput(te *termenv.Output) *tabbedDynamicOutput {
 }
 
 func (o *tabbedDynamicOutput) resetLine() {
+	log := log.Logger()
+
 	_, err := o.te.WriteString("\r")
 	if err != nil {
-		log.Printf("error writing carriage-return character: %v", err)
+		log.Error().Err(err).
+			Msg("error writing carriage-return character")
 	}
 	o.te.ClearLineRight()
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/pion/webrtc/v3"
@@ -13,6 +12,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -47,7 +47,11 @@ This client can be used to establish a p2p connection with oneshot when not usin
 }
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {
-	ctx := cmd.Context()
+	var (
+		ctx = cmd.Context()
+		log = zerolog.Ctx(ctx)
+	)
+
 	output.InvocationInfo(ctx, cmd, args)
 	defer func() {
 		events.Succeeded(ctx)
@@ -78,7 +82,8 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	openBrowser, _ := cmd.Flags().GetBool("open")
 	if openBrowser {
 		if err := browser.OpenReader(buf); err != nil {
-			log.Println("failed to open browser:", err)
+			log.Error().Err(err).
+				Msg("failed to open browser")
 		}
 	} else {
 		fmt.Print(buf.String())

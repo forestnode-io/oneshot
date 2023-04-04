@@ -2,13 +2,14 @@ package upnpigd
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 )
 
 func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-chan *Device, error) {
@@ -18,6 +19,7 @@ func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-c
 	}
 
 	var (
+		log   = log.Logger()
 		wg    sync.WaitGroup
 		dc    = make(chan *Device, runtime.NumCPU())
 		outDC = make(chan *Device, runtime.NumCPU())
@@ -58,7 +60,8 @@ func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-c
 			go func(iface net.Interface, st string) {
 				defer wg.Done()
 				if err := d.discover(iface, st); err != nil {
-					log.Printf("unable to discover device: %v", err)
+					log.Error().Err(err).
+						Msg("unable to discover device")
 				}
 			}(iface, st)
 		}
@@ -82,6 +85,7 @@ type discoverer struct {
 }
 
 func (d *discoverer) discover(iface net.Interface, st string) error {
+	log := log.Logger()
 	tmplt := `M-SEARCH * HTTP/1.1
 HOST: %s
 ST: %s
@@ -112,7 +116,7 @@ USER-AGENT: %s
 	defer conn.Close()
 
 	if err = conn.SetDeadline(time.Now().Add(d.MX)); err != nil {
-		return err
+		return fmt.Errorf("unable to set deadline on %s: %v", iface.Name, err)
 	}
 
 	if _, err = conn.WriteTo([]byte(payload), d.Host); err != nil {
@@ -133,7 +137,8 @@ USER-AGENT: %s
 
 		dev, err := NewDevice(d.Client, st, buf[:n])
 		if err != nil {
-			log.Printf("unable to parse device: %v", err)
+			log.Error().Err(err).
+				Msg("unable to parse device")
 			continue
 		}
 

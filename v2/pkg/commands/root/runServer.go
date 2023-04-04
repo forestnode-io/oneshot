@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -17,12 +16,13 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/raphaelreyna/oneshot/v2/pkg/version"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
+func (r *rootCommand) init(cmd *cobra.Command, args []string) {
 	var (
 		ctx   = cmd.Context()
 		flags = cmd.Flags()
@@ -45,6 +45,7 @@ func (r *rootCommand) init(cmd *cobra.Command, _ []string) {
 func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	var (
 		ctx, cancel = context.WithCancel(cmd.Context())
+		log         = zerolog.Ctx(ctx)
 		flags       = cmd.Flags()
 		err         error
 
@@ -53,15 +54,15 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	defer func() {
-		log.Println("stopping events")
+		log.Debug().Msg("stopping events")
 		events.Stop(ctx)
 
-		log.Println("waiting for output to finish")
+		log.Debug().Msg("waiting for output to finish")
 		output.Wait(ctx)
 
-		log.Println("waiting for network connections to close")
+		log.Debug().Msg("waiting for http server to close")
 		r.wg.Wait()
-		log.Println("all network connections closed")
+		log.Debug().Msg("all network connections closed")
 	}()
 
 	if r.handler == nil {
@@ -71,7 +72,10 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	// handle port mapping ( this can take a while )
 	externalAddr_UPnP, cancelPortMapping, err := r.handlePortMap(ctx, flags)
 	if err != nil {
-		return fmt.Errorf("failed to handle port mapping: %w", err)
+		log.Error().Err(err).
+			Msg("failed to negotiate port mapping")
+
+		return fmt.Errorf("failed to negotiate port mapping: %w", err)
 	}
 	defer cancelPortMapping()
 
@@ -96,12 +100,18 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 		ctx, err = signallingserver.WithDiscoveryServer(ctx, dsConf)
 		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to create discovery server")
+
 			return fmt.Errorf("failed to create discovery server: %w", err)
 		}
 	}
 
 	baToken, err := r.configureServer(flags)
 	if err != nil {
+		log.Error().Err(err).
+			Msg("failed to configure server")
+
 		return fmt.Errorf("failed to configure server: %w", err)
 	}
 
@@ -124,6 +134,8 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		// redirect address
 		ds := signallingserver.GetDiscoveryServer(ctx)
 		if ds == nil {
+			log.Error().Msg("discovery server is nil")
+
 			return errors.New("discovery server is nil")
 		}
 
@@ -132,13 +144,23 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			RedirectOnly: true,
 		})
 		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to send server arrival request")
+
 			return fmt.Errorf("failed to send server arrival request: %w", err)
 		}
 		resp, err := signallingserver.Receive[*messages.ServerArrivalResponse](ds)
 		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to receive server arrival response")
+
 			return fmt.Errorf("failed to receive server arrival response: %w", err)
 		}
 		if resp.Error != "" {
+			log.Error().
+				Str("error", resp.Error).
+				Msg("server arrival response error")
+
 			return fmt.Errorf("server arrival response error: %s", resp.Error)
 		}
 		discoveryServerAssignedAddress = resp.AssignedURL
@@ -162,6 +184,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			if password != "" {
 				pHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 				if err != nil {
+					log.Error().Err(err).
+						Msg("failed to hash password")
+
 					return fmt.Errorf("failed to hash password: %w", err)
 				}
 				bam.PasswordHash = pHash
@@ -169,15 +194,19 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		}
 		go func() {
 			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, externalAddrChan, bam); err != nil {
+				log.Error().Err(err).
+					Msg("failed to listen for WebRTC connections")
+
 				webRTCError = err
-				log.Printf("failed to listen for WebRTC connections: %v", err)
 				cancel()
 			}
 		}()
 
-		log.Println("waiting for WebRTC listening address")
+		log.Debug().Msg("waiting for WebRTC listening address")
 		discoveryServerAssignedAddress = <-externalAddrChan
-		panic(fmt.Sprintf("got WebRTC listening address: %s", discoveryServerAssignedAddress))
+		log.Debug().
+			Str("address", discoveryServerAssignedAddress).
+			Msg("got WebRTC listening address")
 		if discoveryServerAssignedAddress == "" {
 			return errors.New("listening address is empty")
 		}
@@ -186,6 +215,10 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	portString := flags.Lookup("port").Value.String()
 	port, err := strconv.Atoi(portString)
 	if err != nil {
+		log.Error().Err(err).
+			Str("port", portString).
+			Msg("failed to parse port")
+
 		return fmt.Errorf("failed to parse port: %w", err)
 	}
 
@@ -207,7 +240,8 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	listeningAddr := oneshotfmt.Address(flags.Lookup("host").Value.String(), port)
 	err = r.listenAndServe(ctx, listeningAddr, userFacingAddr, flags)
 	if err != nil {
-		log.Printf("failed to listen for http connections: %v", err)
+		log.Error().Err(err).
+			Msg("failed to listen for http connections")
 	} else {
 		err = webRTCError
 	}

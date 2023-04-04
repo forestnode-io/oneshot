@@ -3,7 +3,6 @@ package receive
 import (
 	"encoding/base64"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 )
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +104,8 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
+	log := zerolog.Ctx(r.Context())
+
 	w.(oneshothttp.ResponseWriter).IgnoreOutcome()
 	defer r.Body.Close()
 
@@ -115,7 +117,9 @@ func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	if err := c.writeTemplate(w, withJS); err != nil {
-		log.Printf("error writing template: %v", err)
+		log.Error().Err(err).
+			Msg("failed to write template")
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

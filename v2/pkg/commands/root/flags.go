@@ -186,7 +186,6 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	p2pFS.Bool("p2p-only", false, `Only allow p2p connections.`)
 	p2pFS.String("p2p-config-file", "", `Path to file containing p2p configuration.`)
 	p2pFS.String("p2p-discovery-dir", "", `Directory to use for p2p discovery.`)
-	r.Command.MarkFlagsMutuallyExclusive("p2p-discovery-dir", "discovery-server-url")
 	p2pFS.String("p2p-discovery-server-request-url", "", `URL that the discovery server will try to reserve for connecting clients.`)
 	p2pFS.String("p2p-discovery-server-required-url", "", `URL that the discovery server needs to reserve for connecting clients.`)
 	pflags.AddFlagSet(p2pFS)
@@ -202,6 +201,8 @@ If a wildcard (*) is used, all headers will be allowed.`)
 	cobra.AddTemplateFunc("upnpFlags", func(cmd *cobra.Command) *pflag.FlagSet {
 		return ufs
 	})
+
+	r.Command.MarkFlagsMutuallyExclusive("p2p-discovery-dir", "discovery-server-url")
 }
 
 // newCorsConfig returns a new corsConfig from the given flag set.

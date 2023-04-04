@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -21,6 +20,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -57,6 +57,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
+		log = zerolog.Ctx(ctx)
 
 		flags                  = cmd.Flags()
 		offerFilePath, _       = flags.GetString("offer-file")
@@ -108,14 +109,16 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 	}()
 	defer signaller.Shutdown()
 
-	log.Println("waiting for connection to oneshot server to be established...")
+	log.Debug().Msg("waiting for connection to oneshot server to be established")
+
 	if err = transport.WaitForConnectionEstablished(ctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			log.Printf("... connection not established: %v", err)
 			return nil
 		}
 	}
-	log.Println("... connection established")
+
+	log.Debug().Msg("connection to oneshot server established")
 
 	preferredAddress, preferredPort := oneshotnet.PreferNonPrivateIP(transport.PeerAddresses())
 	host := "http://localhost:8080"
@@ -148,6 +151,11 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to receive file: %s", resp.Status)
 	}
 
+	log.Debug().
+		Int("status", resp.StatusCode).
+		Interface("headers", resp.Header).
+		Msg("received response from oneshot server")
+
 	cl := int64(0)
 	clString := resp.Header.Get("Content-Length")
 	if clString == "" {
@@ -163,12 +171,18 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 	}
 	c.fileTransferConfig, err = file.NewWriteTransferConfig(ctx, location)
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to create file transfer config")
+
+		return fmt.Errorf("failed to create file transfer config: %w", err)
 	}
 
 	wts, err := c.fileTransferConfig.NewWriteTransferSession(ctx, "", "")
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to create write transfer session")
+
+		return fmt.Errorf("failed to create write transfer session: %w", err)
 	}
 	defer wts.Close()
 
@@ -189,6 +203,9 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 
 	n, err := io.Copy(wts, body)
 	if err != nil {
+		log.Error().Err(err).
+			Msg("failed to copy response body to file")
+
 		return fmt.Errorf("failed to copy response body to file after %d bytes: %w", n, err)
 	}
 	fileReport.TransferEndTime = time.Now()

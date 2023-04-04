@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,7 +16,9 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -89,6 +90,7 @@ func newServer(c *Config) (*server, error) {
 }
 
 func (s *server) run(ctx context.Context) error {
+	log := zerolog.Ctx(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -118,13 +120,18 @@ func (s *server) run(ctx context.Context) error {
 		}
 	}
 
-	log.Printf("listening for api traffic on %s", dc.Addr)
+	log.Info().
+		Str("addr", dc.Addr).
+		Msg("listening for api traffic")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleHTTP)
 	hs := http.Server{
 		Addr:    hc.Addr,
 		Handler: mux,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
 	}
 
 	wg := sync.WaitGroup{}
@@ -137,7 +144,7 @@ func (s *server) run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
-		log.Println("shutting down")
+		log.Info().Msg("shutting down")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5)
 		defer cancel()
@@ -147,16 +154,18 @@ func (s *server) run(ctx context.Context) error {
 		}
 
 		if err := hs.Shutdown(ctx); err != nil {
-			log.Printf("error shutting down http server: %v", err)
+			log.Error().Err(err).
+				Msg("error shutting down http server")
 		}
 
-		log.Println("http service shutdown")
+		log.Info().Msg("http service shutdown")
 
 		if err := l.Close(); err != nil {
-			log.Printf("error closing listener: %v", err)
+			log.Error().Err(err).
+				Msg("error closing listener")
 		}
 
-		log.Println("dsicovery service shutdown")
+		log.Info().Msg("discovery service shutdown")
 	}()
 
 	wg.Add(1)
@@ -166,7 +175,8 @@ func (s *server) run(ctx context.Context) error {
 			if err := hs.ListenAndServeTLS(hc.TLS.Cert, hc.TLS.Key); err != nil {
 				cancel()
 				if err != http.ErrServerClosed {
-					log.Printf("error serving http: %v", err)
+					log.Error().Err(err).
+						Msg("error serving http")
 				}
 			}
 			return
@@ -174,7 +184,8 @@ func (s *server) run(ctx context.Context) error {
 			if err := hs.ListenAndServe(); err != nil {
 				cancel()
 				if err != http.ErrServerClosed {
-					log.Printf("error serving http: %v", err)
+					log.Error().Err(err).
+						Msg("error serving http")
 				}
 			}
 		}
@@ -182,7 +193,9 @@ func (s *server) run(ctx context.Context) error {
 
 	go s.worker()
 
-	log.Printf("listening for http traffic on %s", hc.Addr)
+	log.Info().
+		Str("addr", hc.Addr).
+		Msg("listening for http traffic")
 	server := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
@@ -190,7 +203,7 @@ func (s *server) run(ctx context.Context) error {
 	proto.RegisterSignallingServerServer(server, s)
 	if err := server.Serve(l); err != nil {
 		if !errors.Is(err, net.ErrClosed) {
-			return err
+			return fmt.Errorf("error serving grpc: %w", err)
 		}
 	}
 
@@ -254,14 +267,21 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 }
 
 func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
-	log.Printf("new connection")
+	var (
+		log = log.Logger()
+		ctx = log.WithContext(stream.Context())
+	)
+
+	log.Debug().Msg("new connection")
+
 	if s.os != nil {
-		log.Printf("already connected")
+		log.Debug().
+			Msg("got connection while another is in progress")
+
 		return errors.New("already connected")
 	}
 
 	var (
-		ctx          = stream.Context()
 		resetPending = func() {
 			s.mu.Lock()
 			defer s.mu.Unlock()
@@ -271,20 +291,20 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 	)
 	s.os, err = newOneshotServer(ctx, s.config.RequiredID.Value, stream, resetPending, s.handleURLRequest)
 	if err != nil {
-		log.Printf("error creating oneshot server: %v", err)
+		log.Error().Err(err).
+			Msg("error creating oneshot server")
 		return err
 	}
-	log.Println("new oneshot server arrival established")
+	log.Debug().Msg("new oneshot server arrival")
 
 	// hold the stream open until the oneshot server is done.
 	// from this point on, the http server will be the only thing
 	// using the stream, we just need to hold it open here.
-	log.Printf("waiting for oneshot server to finish")
 	select {
 	case <-ctx.Done():
 	case <-s.os.done:
 	}
-	log.Printf("oneshot server disconnected")
+	log.Debug().Msg("oneshot server disconnected")
 	s.os = nil
 	s.pendingSessionID = ""
 

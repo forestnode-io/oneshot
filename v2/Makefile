@@ -52,8 +52,8 @@ vet:
 .PHONY: webrtc-client
 webrtc-client:
 	npm --prefix $(WEBRTC_CLIENT_DIR) i && npm --prefix $(WEBRTC_CLIENT_DIR) run build
-	cp $(WEBRTC_CLIENT_DIR)/dist/main.minified.js ./pkg/commands/webrtc/signalling-server/template/webrtc-client.js
-	cp $(WEBRTC_CLIENT_DIR)/dist/sd-streams-polyfill.min.js ./pkg/commands/webrtc/signalling-server/template/sd-streams-polyfill.min.js
+	cp $(WEBRTC_CLIENT_DIR)/dist/main.minified.js ./pkg/commands/discovery-server/template/webrtc-client.js
+	cp $(WEBRTC_CLIENT_DIR)/dist/sd-streams-polyfill.min.js ./pkg/commands/discovery-server/template/sd-streams-polyfill.min.js
 
 .PHONY: upload-client
 upload-client:
@@ -66,5 +66,5 @@ clean:
 	rm -rf $(WEBRTC_CLIENT_DIR)/dist
 	rm -rf $(UPLOAD_CLIENT_DIR)/node_modules
 	rm -rf $(UPLOAD_CLIENT_DIR)/dist
-	rm ./pkg/commands/webrtc/signalling-server/main.js
-	rm ./pkg/commands/webrtc/signalling-server/main.js
+	rm ./pkg/commands/discovery-server/template/webrtc-client.js
+	rm ./pkg/commands/discovery-server/template/sd-streams-polyfill.min.js

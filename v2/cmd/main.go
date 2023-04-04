@@ -3,28 +3,37 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"math/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/root"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
-func main() {
+func init() {
 	rand.Seed(time.Now().UnixNano())
-	status := events.ExitCodeGenericFailure
+}
 
-	ctx := context.Background()
+func main() {
+	var (
+		status = events.ExitCodeGenericFailure
+		err    error
+	)
+
+	ctx, cleanupLogging, err := log.Logging(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	defer cleanupLogging()
+
 	ctx = events.WithEvents(ctx)
-	ctx, err := output.WithOutput(ctx)
+	ctx, err = output.WithOutput(ctx)
 	if err != nil {
 		fmt.Printf("error setting up output: %s\n", err.Error())
 		return
@@ -51,38 +60,6 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(ctx, sigs...)
 	defer cancel()
-
-	ld := os.Getenv("ONESHOT_LOG_DIR")
-	if ld == "" {
-		if cacheDir, _ := os.UserCacheDir(); cacheDir != "" {
-			ld = filepath.Join(cacheDir, "oneshot")
-			if err := os.Mkdir(ld, os.ModeDir|0700); err != nil {
-				if !os.IsExist(err) {
-					ld = ""
-				}
-			}
-		}
-	}
-
-	if ld != "" {
-		lp := filepath.Join(ld, "oneshot.log")
-
-		logFile, err := os.OpenFile(lp, os.O_CREATE|os.O_APPEND, os.ModePerm)
-		if err != nil {
-			fmt.Printf("unable to open log file in %s (ONESHOT_LOG_DIR)", ld)
-			return
-		}
-		defer logFile.Close()
-
-		log.SetOutput(logFile)
-		log.SetFlags(log.LstdFlags | log.Llongfile)
-	} else {
-		log.SetOutput(io.Discard)
-	}
-
-	if os.Getenv("ONESHOT_LOG_STDERR") != "" {
-		log.SetOutput(os.Stderr)
-	}
 
 	if err := root.ExecuteContext(ctx); err == nil {
 		status = events.ExitCodeSuccess

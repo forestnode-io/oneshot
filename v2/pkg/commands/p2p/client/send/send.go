@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +21,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -66,6 +66,7 @@ Recognized values are "zip", "tar" and "tar.gz".`)
 func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	var (
 		ctx   = cmd.Context()
+		log   = zerolog.Ctx(ctx)
 		paths = args
 
 		flags                  = cmd.Flags()
@@ -91,7 +92,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 	err := c.configureWebRTC(flags)
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to configure webrtc")
+
+		return fmt.Errorf("failed to configure webrtc: %w", err)
 	}
 
 	var (
@@ -102,27 +106,40 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	if webRTCSignallingDir != "" {
 		transport, err = client.NewTransport(c.webrtcConfig)
 		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to create transport")
+
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
 		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
 		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, username, password, http.DefaultClient)
 		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to negotiate offer request")
+
 			return fmt.Errorf("failed to negotiate offer request: %w", err)
 		}
 		transport, err = client.NewTransport(corr.RTCConfiguration)
 		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to create transport")
+
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
 		signaller, bat, err = signallers.NewServerClientSignaller(webRTCSignallingURL, corr.SessionID, corr.RTCSessionDescription, nil)
 	}
 	if err != nil {
+		log.Error().Err(err).
+			Msg("failed to create signaller")
+
 		return fmt.Errorf("failed to create signaller: %w", err)
 	}
 
 	go func() {
 		if err := signaller.Start(ctx, transport); err != nil {
-			log.Printf("signaller error: %v", err)
+			log.Error().Err(err).
+				Msg("failed to start signaller")
 		}
 	}()
 	defer signaller.Shutdown()
@@ -134,7 +151,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 	rtc, err := file.NewReadTransferConfig(archiveMethod, args...)
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to create read transfer config")
+
+		return fmt.Errorf("failed to create read transfer config: %w", err)
 	}
 
 	if file.IsArchive(rtc) {
@@ -147,7 +167,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}
 	rts, err := rtc.NewReaderTransferSession(ctx)
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to create reader transfer session")
+
+		return fmt.Errorf("failed to create reader transfer session: %w", err)
 	}
 	defer rts.Close()
 	size, err := rts.Size()
@@ -162,14 +185,16 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		TransferStartTime: time.Now(),
 	}
 
-	log.Println("waiting for connection to oneshot server to be established...")
+	log.Debug().Msg("waiting for connection to oneshot server to be established")
 	if err = transport.WaitForConnectionEstablished(ctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			log.Printf("... connection not established: %v", err)
+			log.Error().Err(err).
+				Msg("failed to establish connection to oneshot server")
+
 			return nil
 		}
 	}
-	log.Println("... connection established")
+	log.Debug().Msg("connection established")
 
 	preferredAddress, preferredPort := oneshotnet.PreferNonPrivateIP(transport.PeerAddresses())
 
@@ -181,7 +206,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 	req, err := http.NewRequest(http.MethodPost, "http://"+host, body)
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to create request")
+
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header = header
 	req.Close = true
@@ -205,7 +233,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return err
+		log.Error().Err(err).
+			Msg("failed to send file")
+
+		return fmt.Errorf("failed to send file: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to send file: %s", resp.Status)

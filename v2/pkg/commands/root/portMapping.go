@@ -4,18 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	upnpigd "github.com/raphaelreyna/oneshot/v2/pkg/net/upnp-igd"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 )
 
 func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (string, func(), error) {
 	var (
+		log = zerolog.Ctx(ctx)
+
 		externalPort, _        = flags.GetInt("external-port")
 		portMappingDuration, _ = flags.GetDuration("port-mapping-duration")
 		mapPort, _             = flags.GetBool("map-port")
@@ -58,16 +60,23 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 		finishSpinning()
 		return "", cancel, fmt.Errorf("failed to add port mapping: %w", err)
 	}
-	log.Printf("added port mapping for %d -> %d", port, externalPort)
 
-	log.Println("getting external address ...")
+	log.Info().
+		Int("internal-port", port).
+		Int("external-port", externalPort).
+		Str("duration", portMappingDuration.String()).
+		Msg("added port mapping")
+
 	externalIP, err := dev.GetExternalIP(ctx)
 	if err != nil {
 		finishSpinning()
 		return "", cancel, fmt.Errorf("failed to get external address: %w", err)
 	}
 	externalAddr := fmt.Sprintf("%s:%d", externalIP, externalPort)
-	log.Printf("... external address: %s", externalAddr)
+
+	log.Info().
+		Str("external-address", externalAddr).
+		Msg("got external address")
 
 	finishSpinning()
 
@@ -90,8 +99,15 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 	return externalAddr, func() {
 		t.Stop()
 		if err := dev.DeletePortMapping(ctx, "TCP", externalPort); err != nil {
-			log.Printf("failed to delete port mapping: %v", err)
+			log.Error().Err(err).
+				Int("internal-port", port).
+				Int("external-port", externalPort).
+				Msg("failed to delete port mapping")
 		}
-		log.Printf("deleted port mapping for %d -> %d", port, externalPort)
+		log.Info().
+			Int("internal-port", port).
+			Int("external-port", externalPort).
+			Msg("deleted port mapping")
+
 	}, nil
 }

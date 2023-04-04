@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	discoveryserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server"
+	"github.com/rs/zerolog"
 )
 
 func NegotiateOfferRequest(ctx context.Context, url, username, password string, client *http.Client) (*discoveryserver.ClientOfferRequestResponse, error) {
+	log := zerolog.Ctx(ctx)
+
 	// perform the first request which saves our spot in the queue.
 	// we're going to use the same pathways as browser clients to we
 	// set the accept header to text/http and the user agent to oneshot.
@@ -23,8 +25,8 @@ func NegotiateOfferRequest(ctx context.Context, url, username, password string, 
 	req.Header.Set("User-Agent", "oneshot")
 	if username != "" || password != "" {
 		req.SetBasicAuth(username, password)
-		log.Printf("set basic auth for discovery server request: %s:%s", username, password)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token request response: %w", err)
@@ -33,6 +35,11 @@ func NegotiateOfferRequest(ctx context.Context, url, username, password string, 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get token request response: %s", resp.Status)
 	}
+
+	log.Debug().
+		Int("status", resp.StatusCode).
+		Interface("headers", resp.Header).
+		Msg("got token request response")
 
 	cookies := resp.Cookies()
 	sessionToken := ""
@@ -62,5 +69,12 @@ func NegotiateOfferRequest(ctx context.Context, url, username, password string, 
 	if err := json.NewDecoder(resp.Body).Decode(&corr); err != nil {
 		return nil, fmt.Errorf("failed to decode offer request response: %w", err)
 	}
+
+	log.Debug().
+		Int("status", resp.StatusCode).
+		Interface("headers", resp.Header).
+		Interface("response_object", corr).
+		Msg("got offer request response")
+
 	return &corr, nil
 }
