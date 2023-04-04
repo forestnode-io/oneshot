@@ -47,11 +47,30 @@ func Logging(ctx context.Context) (context.Context, func(), error) {
 		output = os.Stderr
 	}
 
-	log = zerolog.New(output).With().
-		Timestamp().
-		Stack().
-		Caller().
-		Logger()
+	var (
+		levelString = os.Getenv("ONESHOT_LOG_LEVEL")
+		level       = zerolog.InfoLevel
+		err         error
+	)
+	if levelString != "" {
+		level, err = zerolog.ParseLevel(os.Getenv("ONESHOT_LOG_LEVEL"))
+		if err != nil {
+			return ctx, cleanup, fmt.Errorf("unable to parse log level from ONESHOT_LOG_LEVEL: %s", err.Error())
+		}
+	}
+
+	logContext := zerolog.New(output).
+		Level(level).
+		With().
+		Timestamp()
+	if level == zerolog.DebugLevel {
+		logContext = logContext.
+			Stack().
+			Caller()
+	}
+
+	log = logContext.Logger()
+
 	ctx = log.WithContext(ctx)
 	return ctx, cleanup, nil
 }
