@@ -53,7 +53,7 @@ func Logging(ctx context.Context) (context.Context, func(), error) {
 		err         error
 	)
 	if levelString != "" {
-		level, err = zerolog.ParseLevel(os.Getenv("ONESHOT_LOG_LEVEL"))
+		level, err = zerolog.ParseLevel(levelString)
 		if err != nil {
 			return ctx, cleanup, fmt.Errorf("unable to parse log level from ONESHOT_LOG_LEVEL: %s", err.Error())
 		}

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -14,17 +13,17 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/raphaelreyna/oneshot/v2/pkg/sys"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func main() {
 	var (
 		status = events.ExitCodeGenericFailure
 		err    error
 	)
+
+	//lint:ignore SA1019 the issues that plague this implementation are not relevant to this project
+	rand.Seed(time.Now().UnixNano())
 
 	ctx, cleanupLogging, err := log.Logging(context.Background())
 	if err != nil {
@@ -55,7 +54,7 @@ func main() {
 		os.Interrupt,
 		os.Kill,
 	}
-	if _, isUnix := unixOS[runtime.GOOS]; isUnix {
+	if sys.RunningOnUNIX() {
 		sigs = append(sigs, syscall.SIGINT, syscall.SIGHUP)
 	}
 	ctx, cancel := signal.NotifyContext(ctx, sigs...)
@@ -64,20 +63,4 @@ func main() {
 	if err := root.ExecuteContext(ctx); err == nil {
 		status = events.ExitCodeSuccess
 	}
-}
-
-// copied from https://github.com/golang/go/blob/ebb572d82f97d19d0016a49956eb1fddc658eb76/src/go/build/syslist.go#L38
-var unixOS = map[string]struct{}{
-	"aix":       {},
-	"android":   {},
-	"darwin":    {},
-	"dragonfly": {},
-	"freebsd":   {},
-	"hurd":      {},
-	"illumos":   {},
-	"ios":       {},
-	"linux":     {},
-	"netbsd":    {},
-	"openbsd":   {},
-	"solaris":   {},
 }
