@@ -11,27 +11,27 @@ import (
 	upnpigd "github.com/raphaelreyna/oneshot/v2/pkg/net/upnp-igd"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
-	"github.com/spf13/pflag"
 )
 
-func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (string, func(), error) {
+func (r *rootCommand) handlePortMap(ctx context.Context) (string, func(), error) {
 	var (
 		log = zerolog.Ctx(ctx)
 
-		externalPort, _        = flags.GetInt("external-port")
-		portMappingDuration, _ = flags.GetDuration("port-mapping-duration")
-		mapPort, _             = flags.GetBool("map-port")
+		pmConf = r.config.NATTraversal.UPnP
+
+		externalPort        = pmConf.ExternalPort
+		portMappingDuration = pmConf.Duration
+		mapPort             = pmConf.Enabled
+		port                = r.config.Server.Port
 
 		cancel = func() {}
 	)
 
-	userSetUPnPFlag := flags.Lookup("external-port").Changed || flags.Lookup("port-mapping-duration").Changed
+	userSetUPnPConfig := 0 < externalPort || 0 < portMappingDuration
 
-	if !mapPort && !userSetUPnPFlag {
+	if !mapPort && !userSetUPnPConfig {
 		return "", cancel, nil
 	}
-
-	port, _ := flags.GetInt("port")
 
 	finishSpinning := output.DisplaySpinner(ctx,
 		333*time.Millisecond,
@@ -40,7 +40,7 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 		[]string{".", "..", "...", ".."},
 	)
 
-	discoveryTimeout, _ := flags.GetDuration("upnp-discovery-timeout")
+	discoveryTimeout := pmConf.Timeout
 	devChan, err := upnpigd.Discover("oneshot", discoveryTimeout, http.DefaultClient)
 	if err != nil {
 		return "", cancel, fmt.Errorf("failed to discover UPnP IGD: %w", err)
@@ -91,7 +91,7 @@ func (r *rootCommand) handlePortMap(ctx context.Context, flags *pflag.FlagSet) (
 	})
 
 	scheme := "http"
-	if _, err := flags.GetString("tls-cert"); err != nil {
+	if r.config.Server.TLSCert != "" {
 		scheme = "https"
 	}
 	externalAddr = fmt.Sprintf("%s://%s", scheme, externalAddr)

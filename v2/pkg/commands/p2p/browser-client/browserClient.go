@@ -4,19 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/browser"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/template"
 	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
 )
 
 func New(config *configuration.Root) *Cmd {
@@ -67,7 +63,7 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		events.Stop(ctx)
 	}()
 
-	if err := c.configureWebRTC(cmd.Flags()); err != nil {
+	if err := c.configureWebRTC(); err != nil {
 		return err
 	}
 
@@ -100,21 +96,11 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
-	path, _ := flags.GetString("webrtc-config-file")
-	if path == "" {
-		return nil
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("unable to read webrtc config file: %w", err)
-	}
-
-	config := oneshotwebrtc.Configuration{}
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("unable to parse webrtc config file: %w", err)
-	}
+func (c *Cmd) configureWebRTC() error {
+	var (
+		config = c.config.NATTraversal.P2P.WebRTCConfiguration
+		err    error
+	)
 
 	c.webrtcConfig, err = config.WebRTCConfiguration()
 	if err != nil {

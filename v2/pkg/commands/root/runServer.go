@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver"
@@ -16,27 +16,16 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/raphaelreyna/oneshot/v2/pkg/version"
+	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/term"
 )
 
 func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
-	var (
-		ctx   = cmd.Context()
-		flags = cmd.Flags()
-	)
-
-	if quiet, _ := flags.GetBool("quiet"); quiet {
-		output.Quiet(ctx)
-	} else {
-		output.SetFormat(ctx, r.outFlag.Format)
-		output.SetFormatOpts(ctx, r.outFlag.Opts...)
-	}
-	if noColor, _ := flags.GetBool("no-color"); noColor {
-		output.NoColor(ctx)
-	}
+	var ctx = cmd.Context()
 
 	r.config.MergeFlags()
 	if err := r.config.Validate(); err != nil {
@@ -44,6 +33,16 @@ func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
 	}
 	if err := r.config.Hydrate(); err != nil {
 		return fmt.Errorf("failed to hydrate configuration: %w", err)
+	}
+
+	if r.config.Output.Quiet {
+		output.Quiet(ctx)
+	} else {
+		output.SetFormat(ctx, r.config.Output.Format.Format)
+		output.SetFormatOpts(ctx, r.config.Output.Format.Opts...)
+	}
+	if r.config.Output.NoColor {
+		output.NoColor(ctx)
 	}
 
 	return nil
@@ -56,10 +55,14 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	var (
 		ctx, cancel = context.WithCancel(cmd.Context())
 		log         = zerolog.Ctx(ctx)
-		flags       = cmd.Flags()
 		err         error
 
 		webRTCError error
+
+		ntConf  = r.config.NATTraversal
+		dsConf  = ntConf.DiscoveryServer
+		p2pConf = ntConf.P2P
+		baConf  = r.config.BasicAuth
 	)
 	defer cancel()
 
@@ -80,7 +83,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// handle port mapping ( this can take a while )
-	externalAddr_UPnP, cancelPortMapping, err := r.handlePortMap(ctx, flags)
+	externalAddr_UPnP, cancelPortMapping, err := r.handlePortMap(ctx)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to negotiate port mapping")
@@ -91,11 +94,11 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 	// connect to discovery server if one is provided
 	var (
-		discoveryServerURL, _ = flags.GetString("discovery-server-url")
-		usingDiscoveryServer  = discoveryServerURL != ""
+		discoveryServerURL   = dsConf.URL
+		usingDiscoveryServer = discoveryServerURL != ""
 
-		discoveryServerKey, _      = flags.GetString("discovery-server-key")
-		discoveryServerInsecure, _ = flags.GetBool("discovery-server-insecure")
+		discoveryServerKey      = dsConf.Key
+		discoveryServerInsecure = dsConf.Insecure
 	)
 	if discoveryServerURL != "" {
 		dsConf := signallingserver.DiscoveryServerConfig{
@@ -117,7 +120,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	baToken, err := r.configureServer(flags)
+	baToken, err := r.configureServer()
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to configure server")
@@ -126,10 +129,10 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	var (
-		useWebRTC, _           = flags.GetBool("p2p")
-		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
-		webRTCSignallingURL, _ = flags.GetString("p2p-discovery-server-url")
-		webRTCOnly, _          = flags.GetBool("p2p-only")
+		useWebRTC           = p2pConf.Enabled
+		webRTCSignallingDir = p2pConf.DiscoveryDir
+		webRTCSignallingURL = dsConf.URL
+		webRTCOnly          = p2pConf.Only
 
 		usingWebRTCWithDiscoveryServer = useWebRTC || webRTCOnly || webRTCSignallingURL != "" || usingDiscoveryServer
 		usingWebRTC                    = usingWebRTCWithDiscoveryServer || webRTCSignallingDir != ""
@@ -180,9 +183,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		var (
 			externalAddrChan = make(chan string, 1)
 
-			username, _ = flags.GetString("username")
-			password, _ = flags.GetString("password")
-			bam         *messages.BasicAuth
+			username = baConf.Username
+			password = baConf.Password
+			bam      *messages.BasicAuth
 		)
 
 		if username != "" || password != "" {
@@ -222,15 +225,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	portString := flags.Lookup("port").Value.String()
-	port, err := strconv.Atoi(portString)
-	if err != nil {
-		log.Error().Err(err).
-			Str("port", portString).
-			Msg("failed to parse port")
-
-		return fmt.Errorf("failed to parse port: %w", err)
-	}
+	port := r.config.Server.Port
 
 	userFacingAddr := discoveryServerAssignedAddress
 	if userFacingAddr == "" {
@@ -242,13 +237,13 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		// default gateway in the print out
 		sourceIP, err := oneshotnet.GetSourceIP("", 80)
 		if err == nil {
-			userFacingAddr = fmt.Sprintf("%s://%s:%s", "http", sourceIP, portString)
+			userFacingAddr = fmt.Sprintf("%s://%s:%d", "http", sourceIP, port)
 		} else {
-			userFacingAddr = fmt.Sprintf("%s://%s:%s", "http", "localhost", portString)
+			userFacingAddr = fmt.Sprintf("%s://%s:%d", "http", "localhost", port)
 		}
 	}
-	listeningAddr := oneshotfmt.Address(flags.Lookup("host").Value.String(), port)
-	err = r.listenAndServe(ctx, listeningAddr, userFacingAddr, flags)
+	listeningAddr := oneshotfmt.Address(r.config.Server.Host, port)
+	err = r.listenAndServe(ctx, listeningAddr, userFacingAddr)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to listen for http connections")
@@ -258,9 +253,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr, userFacingAddr string, flags *pflag.FlagSet) error {
+func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr, userFacingAddr string) error {
 	var (
-		webrtcOnly, _ = flags.GetBool("webrtc-only")
+		webrtcOnly = r.config.NATTraversal.P2P.Only
 
 		l   net.Listener
 		err error
@@ -275,7 +270,7 @@ func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr, userFac
 	}
 
 	// if we are using nat traversal show the user the external address
-	if qr, _ := flags.GetBool("qr-code"); qr {
+	if r.config.Output.QRCode {
 		output.WriteListeningOnQR(ctx, userFacingAddr)
 	} else {
 		output.WriteListeningOn(ctx, userFacingAddr)
@@ -307,4 +302,28 @@ func unauthenticatedHandler(triggerLogin bool, statCode int, content []byte) htt
 		w.WriteHeader(statCode)
 		_, _ = w.Write(content)
 	}
+}
+
+func corsOptionsFromConfig(config *configuration.CORS) *cors.Options {
+	if config == nil {
+		return &cors.Options{}
+	}
+
+	return &cors.Options{
+		AllowedOrigins:       config.AllowedOrigins,
+		AllowedHeaders:       config.AllowedHeaders,
+		MaxAge:               config.MaxAge,
+		AllowCredentials:     config.AllowCredentials,
+		AllowPrivateNetwork:  config.AllowPrivateNetwork,
+		OptionsSuccessStatus: config.SuccessStatus,
+	}
+}
+
+func wrappedFlagUsages(flags *pflag.FlagSet) string {
+	w, _, err := term.GetSize(0)
+	if err != nil {
+		w = 80
+	}
+
+	return flags.FlagUsagesWrapped(w)
 }

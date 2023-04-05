@@ -84,10 +84,16 @@ func ExecuteContext(ctx context.Context) error {
 }
 
 func CobraCommand() *cobra.Command {
-	var root rootCommand
+	var (
+		root rootCommand
+		cmd  = root.Command
+	)
+
 	root.Use = "oneshot"
 
-	root.setFlags()
+	root.config.Init()
+	root.config.SetFlags(&cmd, cmd.PersistentFlags())
+
 	root.setSubCommands()
 
 	return &root.Command

@@ -49,8 +49,6 @@ Web browsers will be served a JS WebRTC client that will connect back to the dis
 			if err := config.Hydrate(); err != nil {
 				return fmt.Errorf("failed to hydrate configuration: %w", err)
 			}
-			fmt.Printf("root %+v\n", *c.config)
-			fmt.Printf("nt %+v\n", c.config.NATTraversal)
 			return nil
 		},
 		RunE: c.run,

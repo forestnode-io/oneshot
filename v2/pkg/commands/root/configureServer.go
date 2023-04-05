@@ -5,30 +5,30 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/rs/cors"
-	"github.com/spf13/pflag"
 )
 
-func (r *rootCommand) configureServer(flags *pflag.FlagSet) (string, error) {
+func (r *rootCommand) configureServer() (string, error) {
 	var (
-		timeout, _    = flags.GetDuration("timeout")
-		allowBots, _  = flags.GetBool("allow-bots")
-		exitOnFail, _ = flags.GetBool("exit-on-fail")
-	)
+		sConf      = r.config.Server
+		timeout    = sConf.Timeout
+		allowBots  = sConf.AllowBots
+		exitOnFail = sConf.ExitOnFail
 
-	uname, passwd, err := usernamePassword(flags)
-	if err != nil {
-		return "", err
-	}
+		baConf = r.config.BasicAuth
+		uname  = baConf.Username
+		passwd = baConf.Password
+
+		err error
+	)
 
 	var (
 		unauthenticatedViewBytes []byte
 		unauthenticatedStatus    int
 	)
 	if uname != "" || (uname != "" && passwd != "") {
-		viewPath, _ := flags.GetString("unauthenticated-view")
+		viewPath := baConf.UnauthorizedPage
 		if viewPath != "" {
 			unauthenticatedViewBytes, err = os.ReadFile(viewPath)
 			if err != nil {
@@ -36,12 +36,7 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (string, error) {
 			}
 		}
 
-		unauthenticatedStatus, _ = flags.GetInt("unauthenticated-status")
-	}
-
-	tlsCert, tlsKey, err := tlsCertAndKey(flags)
-	if err != nil {
-		return "", err
+		unauthenticatedStatus = baConf.UnauthorizedStatus
 	}
 
 	goneHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,12 +44,11 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (string, error) {
 	})
 
 	var corsMW func(http.Handler) http.Handler
-	if copts := corsOptionsFromFlagSet(flags); copts != nil {
+	if copts := corsOptionsFromConfig(&r.config.CORS); copts != nil {
 		corsMW = cors.New(*copts).Handler
 	}
 
-	sfa := flags.Lookup("max-read-size").Value.(*flagargs.Size)
-	noLoginTrigger, _ := flags.GetBool("dont-trigger-login")
+	noLoginTrigger := baConf.NoDialog
 	baMiddleware, baToken, err := oneshothttp.BasicAuthMiddleware(
 		unauthenticatedHandler(!noLoginTrigger, unauthenticatedStatus, unauthenticatedViewBytes),
 		uname, passwd)
@@ -64,13 +58,13 @@ func (r *rootCommand) configureServer(flags *pflag.FlagSet) (string, error) {
 
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
-			Chain(oneshothttp.LimitReaderMiddleware(int64(*sfa))).
+			Chain(oneshothttp.LimitReaderMiddleware(int64(sConf.MaxReadSize))).
 			Chain(oneshothttp.MiddlewareShim(corsMW)).
 			Chain(oneshothttp.BotsMiddleware(allowBots)).
 			Chain(baMiddleware),
 	}...)
-	r.server.TLSCert = tlsCert
-	r.server.TLSKey = tlsKey
+	r.server.TLSCert = sConf.TLSCert
+	r.server.TLSKey = sConf.TLSKey
 	r.server.Timeout = timeout
 	r.server.ExitOnFail = exitOnFail
 

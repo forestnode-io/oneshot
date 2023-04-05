@@ -209,6 +209,7 @@ func (c *P2P) hydrate() error {
 
 type UPnP struct {
 	ExternalPort int           `mapstructure:"externalPort" yaml:"externalPort"`
+	Enabled      bool          `mapstructure:"mapPort" yaml:"mapPort"`
 	Duration     time.Duration `mapstructure:"duration" yaml:"duration"`
 	Timeout      time.Duration `mapstructure:"timeout" yaml:"timeout" flag:"upnp-discovery-timeout"`
 
@@ -261,6 +262,10 @@ func (c *UPnP) validate() error {
 
 	if 0 < c.Duration && c.ExternalPort == 0 {
 		return errors.New("external port must be specified when port mapping duration is specified")
+	}
+
+	if c.Enabled && c.Duration == 0 {
+		return errors.New("port mapping duration must be specified when UPnP is enabled")
 	}
 
 	return nil

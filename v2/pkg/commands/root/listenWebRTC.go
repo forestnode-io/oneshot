@@ -6,12 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/rs/zerolog"
-	"github.com/spf13/pflag"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -20,16 +19,15 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr, bat string,
 	defer r.wg.Done()
 
 	var (
-		flags = r.Flags()
-		log   = zerolog.Ctx(ctx)
+		log = zerolog.Ctx(ctx)
 	)
 
-	err := r.configureWebRTC(flags)
+	err := r.configureWebRTC()
 	if err != nil {
 		return fmt.Errorf("failed to configure p2p: %w", err)
 	}
 
-	signaller, err := getSignaller(ctx, flags, portMapAddr, r.webrtcConfig, ba)
+	signaller, err := getSignaller(ctx, r.config, portMapAddr, ba)
 	if err != nil {
 		return fmt.Errorf("failed to get p2p signaller: %w", err)
 	}
@@ -47,10 +45,12 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, portMapAddr, bat string,
 	return nil
 }
 
-func getSignaller(ctx context.Context, flags *pflag.FlagSet, portMapAddr string, config *webrtc.Configuration, ba *messages.BasicAuth) (signallers.ServerSignaller, error) {
+func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr string, ba *messages.BasicAuth) (signallers.ServerSignaller, error) {
 	var (
-		webRTCSignallingURL, _ = flags.GetString("discovery-server-url")
-		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
+		dsConf              = config.NATTraversal.DiscoveryServer
+		p2pConf             = config.NATTraversal.P2P
+		webRTCSignallingURL = dsConf.URL
+		webRTCSignallingDir = p2pConf.DiscoveryDir
 
 		kacp = keepalive.ClientParameters{
 			Time:    6 * time.Second, // send pings every 6 seconds if there is no activity
@@ -62,18 +62,23 @@ func getSignaller(ctx context.Context, flags *pflag.FlagSet, portMapAddr string,
 		if config == nil {
 			return nil, fmt.Errorf("nil p2p configuration")
 		}
-		return signallers.NewFileServerSignaller(webRTCSignallingDir, config), nil
+		wc, err := p2pConf.WebRTCConfiguration.WebRTCConfiguration()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get WebRTC configuration: %w", err)
+		}
+		return signallers.NewFileServerSignaller(webRTCSignallingDir, wc), nil
 	} else if webRTCSignallingURL != "" {
-		return newServerServerSignaller(flags, portMapAddr, ba, kacp), nil
+		return newServerServerSignaller(config, portMapAddr, ba, kacp), nil
 	}
 
 	return nil, fmt.Errorf("no p2p discovery mechanism specified")
 }
 
-func newServerServerSignaller(flags *pflag.FlagSet, portMapAddr string, ba *messages.BasicAuth, kacp keepalive.ClientParameters) signallers.ServerSignaller {
+func newServerServerSignaller(config *configuration.Root, portMapAddr string, ba *messages.BasicAuth, kacp keepalive.ClientParameters) signallers.ServerSignaller {
 	var (
-		assignURL, _         = flags.GetString("p2p-discovery-server-request-url")
-		assignRequiredURL, _ = flags.GetString("p2p-discovery-server-required-url")
+		dsConf            = config.NATTraversal.DiscoveryServer
+		assignURL         = dsConf.PreferredURL
+		assignRequiredURL = dsConf.RequiredURL
 	)
 
 	urlRequired := false
@@ -90,4 +95,19 @@ func newServerServerSignaller(flags *pflag.FlagSet, portMapAddr string, ba *mess
 	}
 
 	return signallers.NewServerServerSignaller(&conf)
+}
+
+func (r *rootCommand) configureWebRTC() error {
+	conf := r.config.NATTraversal.P2P.WebRTCConfiguration
+	if conf == nil {
+		return nil
+	}
+
+	var err error
+	r.webrtcConfig, err = conf.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("unable to configure p2p: %w", err)
+	}
+
+	return nil
 }
