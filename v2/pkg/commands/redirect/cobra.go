@@ -7,28 +7,23 @@ import (
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New() *Cmd {
+func New(config *Configuration) *Cmd {
 	return &Cmd{
-		header: make(http.Header),
+		config: config,
 	}
 }
 
 type Cmd struct {
 	cobraCommand *cobra.Command
-	header       http.Header
-	statusCode   int
+	config       *Configuration
 	url          string
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
-	if c.header == nil {
-		c.header = make(http.Header)
-	}
 	if c.cobraCommand != nil {
 		return c.cobraCommand
 	}
@@ -36,7 +31,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:   "redirect url",
 		Short: "Redirect all requests to the specified url",
-		RunE:  c.setHandlerFunc,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			c.config.MergeFlags()
+			return c.config.Validate()
+		},
+		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("redirect url required")
@@ -48,38 +47,17 @@ func (c *Cmd) Cobra() *cobra.Command {
 		},
 	}
 
-	flags := c.cobraCommand.LocalFlags()
-	flags.IntP("status-code", "s", http.StatusTemporaryRedirect, "HTTP status code.")
-
-	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
-Format: <HEADER NAME>=<HEADER VALUE>`)
+	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
 
 func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
-	var (
-		ctx = cmd.Context()
-
-		flags                = c.cobraCommand.Flags()
-		statCode, statCodeOk = flags.GetInt("status-code")
-		headerSlice, _       = flags.GetStringSlice("header")
-	)
+	var ctx = cmd.Context()
 
 	output.IncludeBody(ctx)
 
-	if statCodeOk != nil {
-		statCode = http.StatusTemporaryRedirect
-	}
-
 	c.url = args[0]
-	c.statusCode = statCode
-
-	var err error
-	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
-	if err != nil {
-		return err
-	}
 
 	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil
@@ -90,7 +68,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	doneReadingBody := make(chan struct{})
 	events.Raise(ctx, output.NewHTTPRequest(r))
 
-	var header = c.header
+	var header = http.Header(c.config.Header)
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}
@@ -101,7 +79,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
 	}()
 
-	http.Redirect(w, r, c.url, c.statusCode)
+	http.Redirect(w, r, c.url, c.config.StatusCode)
 
 	events.Success(ctx)
 	<-doneReadingBody

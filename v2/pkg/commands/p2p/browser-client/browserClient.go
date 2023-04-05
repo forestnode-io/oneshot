@@ -18,13 +18,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func New() *Cmd {
-	return &Cmd{}
+func New(config *Configuration) *Cmd {
+	return &Cmd{
+		config: config,
+	}
 }
 
 type Cmd struct {
 	cobraCommand *cobra.Command
 	webrtcConfig *webrtc.Configuration
+	config       *Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -37,11 +40,14 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short: "Get the p2p browser client as a single HTML file.",
 		Long: `Get the p2p browser client as a single HTML file.
 This client can be used to establish a p2p connection with oneshot when not using a discovery server.`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			c.config.MergeFlags()
+			return c.config.Validate()
+		},
 		RunE: c.run,
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.Bool("open", false, "Open the client in the browser automatically")
+	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -79,8 +85,7 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to write template: %w", err)
 	}
 
-	openBrowser, _ := cmd.Flags().GetBool("open")
-	if openBrowser {
+	if c.config.Open {
 		if err := browser.OpenReader(buf); err != nil {
 			log.Error().Err(err).
 				Msg("failed to open browser")

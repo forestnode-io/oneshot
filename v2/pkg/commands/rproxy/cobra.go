@@ -9,34 +9,23 @@ import (
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New() *Cmd {
+func New(config *Configuration) *Cmd {
 	return &Cmd{
-		requestHeaders:  make(http.Header),
-		responseHeaders: make(http.Header),
+		config: config,
 	}
 }
 
 type Cmd struct {
 	cobraCommand *cobra.Command
-
-	requestHeaders  http.Header
-	responseHeaders http.Header
-	statusCode      int
-	host            string
+	host         string
+	config       *Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
-	if c.requestHeaders == nil {
-		c.requestHeaders = make(http.Header)
-	}
-	if c.responseHeaders == nil {
-		c.responseHeaders = make(http.Header)
-	}
 	if c.cobraCommand != nil {
 		return c.cobraCommand
 	}
@@ -46,7 +35,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Aliases: []string{"rproxy"},
 		Short:   "Reverse proxy all requests to the specified host",
 		Long:    `Reverse proxy all requests to the specified host. The host may be a URL or a host:port combination.`,
-		RunE:    c.setHandlerFunc,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			c.config.MergeFlags()
+			return c.config.Validate()
+		},
+		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("proxy host required")
@@ -58,23 +51,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		},
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.Int("status-code", http.StatusOK, "HTTP status code to send with the proxied response.")
-
-	flags.String("method", "", "HTTP method to send with the proxied request.")
-
-	flags.Bool("match-host", false, `The 'Host' header will be set to match the host being reverse-proxied to.`)
-
-	flags.Bool("tee", false, `Send a copy of the proxied response to the console.`)
-
-	flags.String("spoof-host", "", `Spoof the request host, the 'Host' header will be set to this value.
-This Flag is ignored if the --match-host flag is set.`)
-
-	flags.StringSlice("request-header", nil, `Header to send with the proxied request. Can be specified multiple times.
-Format: <HEADER NAME>=<HEADER VALUE>`)
-
-	flags.StringSlice("response-header", nil, `Header to send to send with the proxied response. Can be specified multiple times.
-Format: <HEADER NAME>=<HEADER VALUE>`)
+	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -83,16 +60,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
 		ctx = cmd.Context()
 
-		flags              = c.cobraCommand.Flags()
-		statusCode, _      = flags.GetInt("status-code")
-		requestHeaders, _  = flags.GetStringSlice("request-header")
-		responseHeaders, _ = flags.GetStringSlice("response-header")
-		matchHost, _       = flags.GetBool("match-host")
-		spoofHost, _       = flags.GetString("spoof-host")
-		method, _          = flags.GetString("method")
-		tee, _             = flags.GetBool("tee")
-
-		host = args[0]
+		host      = args[0]
+		spoofHost = c.config.SpoofHost
 	)
 
 	output.IncludeBody(ctx)
@@ -103,7 +72,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	var spoofedHostURL *url.URL
-	if matchHost {
+	if c.config.MatchHost {
 		spoofedHostURL = hostURL
 	}
 	if spoofHost != "" {
@@ -117,22 +86,13 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c.statusCode = statusCode
 	c.host = host
-	c.requestHeaders, err = oneshothttp.HeaderFromStringSlice(requestHeaders)
-	if err != nil {
-		return err
-	}
-	c.responseHeaders, err = oneshothttp.HeaderFromStringSlice(responseHeaders)
-	if err != nil {
-		return err
-	}
 
 	if spoofedHostURL != nil {
-		if c.requestHeaders == nil {
-			c.requestHeaders = make(http.Header)
+		if len(c.config.RequestHeader) == 0 {
+			c.config.RequestHeader = make(map[string][]string)
 		}
-		c.requestHeaders.Set("Host", spoofedHostURL.Host)
+		c.config.RequestHeader["Host"] = []string{spoofedHostURL.Host}
 	}
 
 	rp := httputil.NewSingleHostReverseProxy(hostURL)
@@ -145,13 +105,13 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			Header:     originalHeader,
 		})
 
-		if c.responseHeaders != nil {
-			for k, v := range c.responseHeaders {
+		if 0 < len(c.config.ResponseHeader) {
+			for k, v := range c.config.ResponseHeader {
 				resp.Header[k] = v
 			}
 		}
-		if c.statusCode != 0 {
-			resp.StatusCode = c.statusCode
+		if c.config.StatusCode != 0 {
+			resp.StatusCode = c.config.StatusCode
 		}
 		return nil
 	}
@@ -160,8 +120,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx := c.cobraCommand.Context()
 		events.Raise(ctx, output.NewHTTPRequest(r))
 
-		if c.requestHeaders != nil {
-			for k, v := range c.requestHeaders {
+		if 0 < len(c.config.RequestHeader) {
+			for k, v := range c.config.RequestHeader {
 				r.Header[k] = v
 			}
 		}
@@ -171,8 +131,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			r.URL = spoofedHostURL
 		}
 
-		if method != "" {
-			r.Method = strings.ToUpper(method)
+		if c.config.Method != "" {
+			r.Method = strings.ToUpper(c.config.Method)
 		}
 
 		var jsonOutput bool
@@ -180,7 +140,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			jsonOutput = true
 		}
 
-		if tee || jsonOutput {
+		if c.config.Tee || jsonOutput {
 			bw, getBufByte := output.NewBufferedWriter(ctx, w)
 
 			ww := bw.(http.ResponseWriter)

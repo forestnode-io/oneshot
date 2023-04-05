@@ -6,12 +6,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func New() *Cmd {
+type Configuration struct {
+	BrowsertClient browserclient.Configuration
+}
+
+func New(config *Configuration) *Cmd {
 	return &Cmd{}
 }
 
 type Cmd struct {
 	cobraCommand *cobra.Command
+	config       *Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -25,14 +30,14 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Long:  "Peer-to-peer commands",
 	}
 
-	c.cobraCommand.AddCommand(subCommands()...)
+	c.cobraCommand.AddCommand(subCommands(c.config)...)
 
 	return c.cobraCommand
 }
 
-func subCommands() []*cobra.Command {
+func subCommands(config *Configuration) []*cobra.Command {
 	return []*cobra.Command{
 		client.New().Cobra(),
-		browserclient.New().Cobra(),
+		browserclient.New(&config.BrowsertClient).Cobra(),
 	}
 }

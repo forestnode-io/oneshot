@@ -22,7 +22,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (r *rootCommand) init(cmd *cobra.Command, args []string) {
+func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
 	var (
 		ctx   = cmd.Context()
 		flags = cmd.Flags()
@@ -37,6 +37,13 @@ func (r *rootCommand) init(cmd *cobra.Command, args []string) {
 	if noColor, _ := flags.GetBool("no-color"); noColor {
 		output.NoColor(ctx)
 	}
+
+	r.config.MergeFlags()
+	if err := r.config.Validate(); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return nil
 }
 
 // runServer starts the actual oneshot http server.

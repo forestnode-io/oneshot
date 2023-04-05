@@ -64,12 +64,18 @@ func (o *output) run(ctx context.Context) error {
 	log := zerolog.Ctx(ctx)
 
 	if o.quiet {
+		log.Debug().
+			Msg("output running in quiet mode")
 		runQuiet(ctx, o)
 	} else {
 		switch o.Format {
 		case "":
+			log.Debug().
+				Msg("output running in human mode")
 			runHuman(ctx, o)
 		case "json":
+			log.Debug().
+				Msg("output running in json mode")
 			NewHTTPRequest = events.NewHTTPRequest_WithBody
 			runJSON(ctx, o)
 		}
@@ -82,6 +88,9 @@ func (o *output) run(ctx context.Context) error {
 		}
 	}
 
+	log.Debug().
+		Msg("output system shutting down")
+
 	for _, f := range o.restoreConsole {
 		if err := f(); err != nil {
 			log.Error().Err(err).
@@ -90,6 +99,10 @@ func (o *output) run(ctx context.Context) error {
 	}
 
 	close(o.doneChan)
+
+	log.Debug().
+		Msg("output system shut down")
+
 	return nil
 }
 

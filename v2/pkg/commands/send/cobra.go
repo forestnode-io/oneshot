@@ -3,42 +3,33 @@ package send
 import (
 	"fmt"
 	"mime"
-	"net/http"
 	"path/filepath"
-	"runtime"
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New() *Cmd {
+func New(config *Configuration) *Cmd {
 	return &Cmd{
-		header: make(http.Header),
+		config: config,
 	}
 }
 
 type Cmd struct {
 	rtc          file.ReadTransferConfig
 	cobraCommand *cobra.Command
-	header       http.Header
-	status       int
 
-	archiveMethod archiveFlag
+	config *Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
-	if c.header == nil {
-		c.header = make(http.Header)
-	}
 	if c.cobraCommand != nil {
 		return c.cobraCommand
 	}
 
-	c.header = make(http.Header)
 	c.cobraCommand = &cobra.Command{
 		Use:   "send [file|dir]",
 		Short: "Send a file or directory to the client",
@@ -46,30 +37,14 @@ func (c *Cmd) Cobra() *cobra.Command {
 When sending from stdin, requests are blocked until an EOF is received; content from stdin is buffered for subsequent requests.
 If a directory is given, it will be archived and sent to the client; oneshot does not support sending unarchived directories.
 `,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			c.config.MergeFlags()
+			return c.config.Validate()
+		},
 		RunE: c.setHandlerFunc,
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.VarP(&c.archiveMethod, "archive-method", "a", `Which archive method to use when sending directories.
-Recognized values are "zip", "tar" and "tar.gz".`)
-	if runtime.GOOS == "windows" {
-		flags.Lookup("archive-method").DefValue = "zip"
-	} else {
-		flags.Lookup("archive-method").DefValue = "tar.gz"
-	}
-
-	flags.BoolP("no-download", "D", false, "Don't trigger client side browser download.")
-
-	flags.StringP("mime", "m", "", `MIME type of file presented to client.
-If not set, either no MIME type or the mime/type of the file will be user, depending on of a file was given.`)
-
-	flags.StringP("name", "n", "", `Name of file presented to client if downloading.
-If not set, either a random name or the name of the file will be used, depending on if a file was given.`)
-
-	flags.Int("status-code", http.StatusOK, "HTTP status code sent to client.")
-
-	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
-Format: <HEADER NAME>=<HEADER VALUE>`)
+	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -79,16 +54,12 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx   = cmd.Context()
 		paths = args
 
-		flags          = cmd.Flags()
-		headerSlice, _ = flags.GetStringSlice("header")
-		fileName, _    = flags.GetString("name")
-		fileMime, _    = flags.GetString("mime")
-		noDownload, _  = flags.GetBool("no-download")
+		fileName      = c.config.Name
+		fileMime      = c.config.MIME
+		archiveMethod = string(c.config.ArchiveMethod)
 	)
 
 	output.IncludeBody(ctx)
-
-	c.status, _ = flags.GetInt("status-code")
 
 	if len(paths) == 1 && fileName == "" {
 		fileName = filepath.Base(paths[0])
@@ -103,11 +74,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	archiveMethod := string(c.archiveMethod)
-	if archiveMethod == "" {
-		archiveMethod = flags.Lookup("archive-method").DefValue
-	}
-
 	var err error
 	c.rtc, err = file.NewReadTransferConfig(archiveMethod, args...)
 	if err != nil {
@@ -118,16 +84,16 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileName += "." + archiveMethod
 	}
 
-	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
-	if err != nil {
-		return err
+	if _, ok := c.config.Header["Content-Type"]; !ok {
+		c.config.Header["Content-Type"] = []string{fileMime}
 	}
-	c.header.Set("Content-Type", fileMime)
 	// Are we triggering a file download on the users browser?
-	if !noDownload {
-		c.header.Set("Content-Disposition",
-			fmt.Sprintf("attachment;filename=%s", fileName),
-		)
+	if !c.config.NoDownload {
+		if _, ok := c.config.Header["Content-Disposition"]; !ok {
+			c.config.Header["Content-Disposition"] = []string{
+				fmt.Sprintf("attachment;filename=%s", fileName),
+			}
+		}
 	}
 
 	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)

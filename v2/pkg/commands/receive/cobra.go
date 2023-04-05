@@ -13,7 +13,6 @@ import (
 	"github.com/jf-tech/iohelper"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -37,33 +36,29 @@ func init() {
 	}
 }
 
-func New() *Cmd {
-	return &Cmd{
-		header: make(http.Header),
-	}
+func New(config *Configuration) *Cmd {
+	c := Cmd{config: config}
+	return &c
 }
 
 type Cmd struct {
-	fileTransferConfig   *file.WriteTransferConfig
-	writeTemplate        func(io.Writer, bool) error
-	cobraCommand         *cobra.Command
-	header               http.Header
-	csrfToken            string
-	unixEOLNormalization bool
-	decodeBase64Output   bool
-	statusCode           int
+	fileTransferConfig *file.WriteTransferConfig
+	writeTemplate      func(io.Writer, bool) error
+	cobraCommand       *cobra.Command
+	config             *Configuration
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
-	if c.header == nil {
-		c.header = make(http.Header)
-	}
 	if c.cobraCommand != nil {
 		return c.cobraCommand
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:   "receive [file]",
+		Use: "receive [file]",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			c.config.MergeFlags()
+			return c.config.Validate()
+		},
 		RunE:  c.setHandlerFunc,
 		Short: "Receive a file from the client",
 		Long: `Receive a file from the client. If file is not specified, the content will be sent to stdout.
@@ -94,22 +89,7 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 		},
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.String("csrf-token", "", "Use a CSRF token, if left empty, a random one will be generated.")
-
-	flags.String("eol", "unix", `How to parse EOLs in the received file.
-Acceptable values are 'unix' and 'dos'; 'unix': '\n', 'dos': '\r\n'.`)
-
-	flags.StringP("ui", "U", "", "Name of ui file to use.")
-
-	flags.Bool("decode-b64", false, "Decode base-64.")
-
-	flags.Int("status-code", 200, "HTTP status code sent to client.")
-
-	flags.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
-Format: <HEADER NAME>=<HEADER VALUE>`)
-
-	flags.Bool("include-body", false, "Include the request body in the report. If not using json output, this will be ignored.")
+	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -119,8 +99,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx            = cmd.Context()
 		log            = zerolog.Ctx(ctx)
 		flags          = cmd.Flags()
-		headerSlice, _ = flags.GetStringSlice("header")
-		eol, _         = flags.GetString("eol")
 		includeBody, _ = flags.GetBool("include-body")
 
 		err error
@@ -128,15 +106,6 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	if includeBody {
 		output.IncludeBody(ctx)
-	}
-
-	c.statusCode, _ = flags.GetInt("status-code")
-	c.decodeBase64Output, _ = flags.GetBool("decode-b64")
-	c.csrfToken, _ = flags.GetString("csrf-token")
-	c.unixEOLNormalization = eol == "unix"
-	c.header, err = oneshothttp.HeaderFromStringSlice(headerSlice)
-	if err != nil {
-		return fmt.Errorf("error parsing header: %w", err)
 	}
 
 	var location string
@@ -155,7 +124,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	tmpl = tmpl.Funcs(template.FuncMap{
 		"enableBase64Decoding": func() error {
-			c.decodeBase64Output = true
+			c.config.DecodeBase64 = true
 			return nil
 		},
 	})
@@ -196,7 +165,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	}{
 		FileSection:  true,
 		InputSection: true,
-		CSRFToken:    c.csrfToken,
+		CSRFToken:    c.config.CSRFToken,
 	}
 	c.writeTemplate = func(w io.Writer, withJS bool) error {
 		sections.ClientJS = template.HTML(browserClientJS)
@@ -233,7 +202,7 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 	}
 
 	// Check for csrf token if we care to
-	if c.csrfToken != "" {
+	if c.config.CSRFToken != "" {
 		part, err := reader.NextPart()
 		if err != nil {
 			return nil, &httpError{
@@ -257,7 +226,7 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 			}
 		}
 
-		if string(partData) != c.csrfToken {
+		if string(partData) != c.config.CSRFToken {
 			return nil, &httpError{
 				error: errors.New("invalid CSRF token"),
 				stat:  http.StatusUnauthorized,
@@ -307,13 +276,14 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 
 func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, error) {
 	foundCSRFToken := false
+	csrfToken := c.config.CSRFToken
 	// Assume we found the CSRF token if the user doesn't care to use one
-	if c.csrfToken == "" {
+	if csrfToken == "" {
 		foundCSRFToken = true
 	}
 
 	// Look for the CSRF token in the header
-	if r.Header.Get("X-CSRF-Token") == c.csrfToken && c.csrfToken != "" {
+	if r.Header.Get("X-CSRF-Token") == csrfToken && csrfToken != "" {
 		foundCSRFToken = true
 	}
 
@@ -326,7 +296,7 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 	}
 
 	// If we havent found the CSRF token yet, look for it in the parsed form data
-	if !foundCSRFToken && r.PostFormValue("csrf-token") != c.csrfToken {
+	if !foundCSRFToken && r.PostFormValue("csrf-token") != csrfToken {
 		return nil, &httpError{
 			error: errors.New("invalid CSRF token"),
 			stat:  http.StatusUnauthorized,
@@ -334,7 +304,7 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 	}
 
 	var src io.Reader = strings.NewReader(r.PostForm.Get("text"))
-	if c.unixEOLNormalization {
+	if c.config.EOL == "unix" {
 		src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 	}
 
@@ -344,8 +314,9 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 }
 
 func (c *Cmd) readCloserFromRawBody(r *http.Request) (*requestBody, error) {
+	csrfToken := c.config.CSRFToken
 	// Check for csrf token if we care to
-	if c.csrfToken != "" && r.Header.Get("X-CSRF-Token") != c.csrfToken {
+	if csrfToken != "" && r.Header.Get("X-CSRF-Token") != csrfToken {
 		return nil, &httpError{
 			error: errors.New("invalid CSRF token"),
 			stat:  http.StatusUnauthorized,

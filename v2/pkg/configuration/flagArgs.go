@@ -1,4 +1,4 @@
-package commands
+package configuration
 
 import (
 	"errors"
@@ -7,12 +7,12 @@ import (
 	"strings"
 )
 
-type OutputFlagArg struct {
-	Format string
-	Opts   []string
+type OutputFormatFlagArg struct {
+	Format string   `mapstructure:"format" yaml:"format"`
+	Opts   []string `mapstructure:"opts" yaml:"opts"`
 }
 
-func (o *OutputFlagArg) String() string {
+func (o *OutputFormatFlagArg) String() string {
 	s := o.Format
 	if 0 < len(o.Opts) {
 		s += "=" + strings.Join(o.Opts, ",")
@@ -20,7 +20,7 @@ func (o *OutputFlagArg) String() string {
 	return s
 }
 
-func (o *OutputFlagArg) Set(v string) error {
+func (o *OutputFormatFlagArg) Set(v string) error {
 	switch {
 	case strings.HasPrefix(v, "json"):
 		o.Format = "json"
@@ -34,7 +34,7 @@ func (o *OutputFlagArg) Set(v string) error {
 	return errors.New(`must be "json[=opts...]"`)
 }
 
-func (o *OutputFlagArg) Type() string {
+func (o *OutputFormatFlagArg) Type() string {
 	return "string"
 }
 

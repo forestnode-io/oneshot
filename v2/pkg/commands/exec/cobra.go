@@ -10,7 +10,6 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/cgi"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
@@ -18,19 +17,16 @@ import (
 type Cmd struct {
 	cobraCommand *cobra.Command
 	handler      *cgi.Handler
-	header       http.Header
+	config       *Configuration
 }
 
-func New() *Cmd {
+func New(config *Configuration) *Cmd {
 	return &Cmd{
-		header: make(http.Header),
+		config: config,
 	}
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
-	if c.header == nil {
-		c.header = make(http.Header)
-	}
 	if c.cobraCommand != nil {
 		return c.cobraCommand
 	}
@@ -40,6 +36,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short: "Execute a command for each request, passing in the body to stdin and returning the stdout to the client",
 		Long: `Execute a command for each request, passing in the body to stdin and returning the stdout to the client.
 Commands may be CGI complaint but do not have to be. CGI compliance can be enforced with the --enforce-cgi flag.`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			c.config.MergeFlags()
+			return c.config.Validate()
+		},
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -50,65 +50,40 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 		},
 	}
 
-	flags := c.cobraCommand.LocalFlags()
-	flags.Bool("enforce-cgi", false, "The exec must conform to the CGI.")
-
-	flags.StringSliceP("env", "e", []string{}, "Set an environment variable.")
-
-	flags.String("dir", "", "Set the working directory.")
-
-	flags.String("stderr", "", "Where to send exec stderr.")
-
-	flags.Bool("replace-headers", false, "Allow command to replace header values.")
-
-	flags.StringArrayP("header", "H", nil, `HTTP header to send to client. Can be set multiple times.
-Format: <HEADER NAME>=<HEADER VALUE>`)
+	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
 
 func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
-		ctx = cmd.Context()
-
-		flags          = cmd.Flags()
-		headerSlice, _ = flags.GetStringSlice("header")
-		stderr, _      = flags.GetString("stderr")
-
-		strictCGI, _      = flags.GetBool("enforce-cgi")
-		env, _            = flags.GetStringSlice("env")
-		dir, _            = flags.GetString("dir")
-		replaceHeaders, _ = flags.GetBool("replace-headers")
+		ctx    = cmd.Context()
+		header = c.config.Header
 	)
 
 	output.IncludeBody(ctx)
 
-	header, err := oneshothttp.HeaderFromStringSlice(headerSlice)
-	if err != nil {
-		return err
-	}
-
 	handlerConf := cgi.HandlerConfig{
 		Cmd:           args,
-		WorkingDir:    dir,
+		WorkingDir:    c.config.Dir,
 		InheritEnvs:   nil,
-		BaseEnv:       env,
+		BaseEnv:       c.config.Env,
 		Header:        header,
 		OutputHandler: cgi.DefaultOutputHandler,
 		Stderr:        cmd.ErrOrStderr(),
 	}
 
 	switch {
-	case replaceHeaders:
+	case c.config.ReplaceHeaders:
 		handlerConf.OutputHandler = cgi.OutputHandlerReplacer
-	case strictCGI:
+	case c.config.EnforceCGI:
 		handlerConf.OutputHandler = cgi.DefaultOutputHandler
 	default:
 		handlerConf.OutputHandler = cgi.EZOutputHandler
 	}
-	if stderr != "" {
+	if c.config.StdErr != "" {
 		var err error
-		handlerConf.Stderr, err = os.Open(stderr)
+		handlerConf.Stderr, err = os.Open(c.config.StdErr)
 		if err != nil {
 			return err
 		}

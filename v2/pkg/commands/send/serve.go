@@ -16,7 +16,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		cmd = c.cobraCommand
 
-		header = c.header
+		header = http.Header(c.config.Header)
 
 		doneReadingBody = make(chan struct{})
 	)
@@ -47,7 +47,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}
-	w.WriteHeader(c.status)
+	w.WriteHeader(c.config.StatusCode)
 
 	cancelProgDisp := output.DisplayProgress(
 		cmd.Context(),

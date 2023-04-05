@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/rproxy"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/version"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
@@ -29,12 +31,13 @@ type rootCommand struct {
 	closers    []io.Closer
 	middleware oneshothttp.Middleware
 
-	outFlag       commands.OutputFlagArg
-	externalAddrs []string
+	outFlag configuration.OutputFormatFlagArg
 
 	webrtcConfig *webrtc.Configuration
 
 	handler http.HandlerFunc
+
+	config *configuration.Root
 
 	wg sync.WaitGroup
 }
@@ -42,13 +45,19 @@ type rootCommand struct {
 func ExecuteContext(ctx context.Context) error {
 	var (
 		root rootCommand
+		cmd  = &root.Command
 		err  error
 	)
 	root.Use = "oneshot"
-	root.PersistentPreRun = root.init
+	root.PersistentPreRunE = root.init
 	root.PersistentPostRunE = root.runServer
+	root.config, err = configuration.ReadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to read configuration: %w", err)
+	}
+	root.config.Init()
+	root.config.SetFlags(cmd, cmd.PersistentFlags())
 
-	root.setFlags()
 	root.setSubCommands()
 
 	ctx = commands.WithHTTPHandlerFuncSetter(ctx, &root.handler)
@@ -84,11 +93,16 @@ func CobraCommand() *cobra.Command {
 }
 
 func (r *rootCommand) setSubCommands() {
-	for _, sc := range subCommands() {
+	for _, sc := range subCommands(&r.config.Subcommands) {
 		if reFunc := sc.RunE; reFunc != nil {
 			sc.RunE = func(cmd *cobra.Command, args []string) error {
 				output.InvocationInfo(cmd.Context(), cmd, args)
 				return reFunc(cmd, args)
+			}
+		} else if rFunc := sc.Run; rFunc != nil {
+			sc.Run = func(cmd *cobra.Command, args []string) {
+				output.InvocationInfo(cmd.Context(), cmd, args)
+				rFunc(cmd, args)
 			}
 		}
 		sc.Flags().BoolP("help", "h", false, "Show this help message.")
@@ -96,14 +110,14 @@ func (r *rootCommand) setSubCommands() {
 	}
 }
 
-func subCommands() []*cobra.Command {
+func subCommands(config *configuration.Subcommands) []*cobra.Command {
 	return []*cobra.Command{
-		exec.New().Cobra(),
-		receive.New().Cobra(),
-		redirect.New().Cobra(),
-		send.New().Cobra(),
-		rproxy.New().Cobra(),
-		p2p.New().Cobra(),
+		exec.New(&config.Exec).Cobra(),
+		receive.New(&config.Receive).Cobra(),
+		redirect.New(&config.Redirect).Cobra(),
+		send.New(&config.Send).Cobra(),
+		rproxy.New(&config.RProxy).Cobra(),
+		p2p.New(&config.P2P).Cobra(),
 		discoveryserver.New().Cobra(),
 		version.New().Cobra(),
 	}

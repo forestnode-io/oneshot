@@ -48,14 +48,15 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	src := rb.r
-	if c.decodeBase64Output && 0 < rb.size {
+	decodeB64 := c.config.DecodeBase64
+	if decodeB64 && 0 < rb.size {
 		src = io.NopCloser(base64.NewDecoder(base64.StdEncoding, src))
 	}
 
 	fileSize := int(rb.size)
 	if fileSize != 0 {
 		// if decoding base64
-		if c.decodeBase64Output {
+		if decodeB64 {
 			fileSize = base64.StdEncoding.DecodedLen(fileSize)
 		}
 	}
@@ -94,7 +95,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(c.statusCode)
+	w.WriteHeader(c.config.StatusCode)
 
 	fileReport.Path = wts.Path()
 	fileReport.Content = getBufBytes
