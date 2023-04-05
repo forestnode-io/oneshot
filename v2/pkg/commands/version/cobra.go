@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
+	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	"github.com/raphaelreyna/oneshot/v2/pkg/version"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +27,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			ofa := cmd.Flags().Lookup("output").Value.(*configuration.OutputFormatFlagArg)
+			ofa := cmd.Flags().Lookup("output").Value.(*flagargs.OutputFormat)
 			if ofa.Format == "json" {
 				payload := map[string]string{}
 				if ver := version.Version; ver != "" {

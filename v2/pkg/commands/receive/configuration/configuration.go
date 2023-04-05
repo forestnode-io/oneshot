@@ -1,4 +1,4 @@
-package receive
+package configuration
 
 import (
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
@@ -70,5 +70,9 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	return nil
+}
+
+func (c *Configuration) Hydrate() error {
 	return nil
 }

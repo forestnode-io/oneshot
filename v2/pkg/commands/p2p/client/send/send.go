@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/client/discovery"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
@@ -23,18 +23,19 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 )
 
-func New() *Cmd {
-	return &Cmd{}
+func New(config *configuration.Root) *Cmd {
+	return &Cmd{
+		config: config,
+	}
 }
 
 type Cmd struct {
-	cobraCommand  *cobra.Command
-	archiveMethod archiveFlag
-	webrtcConfig  *webrtc.Configuration
+	cobraCommand *cobra.Command
+	webrtcConfig *webrtc.Configuration
+	config       *configuration.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -45,20 +46,18 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:   "send [file|dir]",
 		Short: "Send to a receiving oneshot instance over p2p",
-		RunE:  c.send,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			config := c.config.Subcommands.P2P.Client.Send
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return fmt.Errorf("invalid configuration: %w", err)
+			}
+			return nil
+		},
+		RunE: c.send,
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.StringP("name", "n", "", "Name of file presented to the server.")
-	flags.StringP("offer-file", "O", "", "Path to file containing the SDP offer.")
-	flags.StringP("answer-file", "A", "", "Path to file which the SDP answer should be written to.")
-	flags.VarP(&c.archiveMethod, "archive-method", "a", `Which archive method to use when sending directories.
-Recognized values are "zip", "tar" and "tar.gz".`)
-	if runtime.GOOS == "windows" {
-		flags.Lookup("archive-method").DefValue = "zip"
-	} else {
-		flags.Lookup("archive-method").DefValue = "tar.gz"
-	}
+	c.config.Subcommands.P2P.Client.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -69,15 +68,16 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		log   = zerolog.Ctx(ctx)
 		paths = args
 
-		flags                  = cmd.Flags()
-		fileName, _            = flags.GetString("name")
-		offerFilePath, _       = flags.GetString("offer-file")
-		answerFilePath, _      = flags.GetString("answer-file")
-		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
-		webRTCSignallingURL, _ = flags.GetString("discovery-server-url")
+		config    = c.config.Subcommands.P2P.Client.Send
+		p2pConfig = c.config.NATTraversal.P2P
+		dsConfig  = c.config.NATTraversal.DiscoveryServer
+		baConfig  = c.config.BasicAuth
 
-		username, _ = flags.GetString("username")
-		password, _ = flags.GetString("password")
+		fileName            = config.Name
+		offerFilePath       = config.OfferFile
+		answerFilePath      = config.AnswerFile
+		webRTCSignallingDir = p2pConfig.DiscoveryDir
+		webRTCSignallingURL = dsConfig.URL
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
@@ -90,7 +90,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	err := c.configureWebRTC(flags)
+	err := c.configureWebRTC()
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to configure webrtc")
@@ -113,7 +113,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		}
 		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
-		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, username, password, http.DefaultClient)
+		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, baConfig.Username, baConfig.Password, http.DefaultClient)
 		if err != nil {
 			log.Error().Err(err).
 				Msg("failed to negotiate offer request")
@@ -144,12 +144,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}()
 	defer signaller.Shutdown()
 
-	archiveMethod := string(c.archiveMethod)
-	if archiveMethod == "" {
-		archiveMethod = flags.Lookup("archive-method").DefValue
-	}
-
-	rtc, err := file.NewReadTransferConfig(archiveMethod, args...)
+	rtc, err := file.NewReadTransferConfig(config.ArchiveMethod.String(), args...)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to create read transfer config")
@@ -158,7 +153,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}
 
 	if file.IsArchive(rtc) {
-		fileName += "." + archiveMethod
+		fileName += "." + config.ArchiveMethod.String()
 	}
 
 	header := http.Header{}
@@ -256,33 +251,14 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-type archiveFlag string
-
-func (a *archiveFlag) String() string {
-	return string(*a)
-}
-
-func (a *archiveFlag) Set(value string) error {
-	switch value {
-	case "zip", "tar", "tar.gz":
-		*a = archiveFlag(value)
-		return nil
-	default:
-		return fmt.Errorf(`invalid archive method %q, must be "zip", "tar" or "tar.gz`, value)
-	}
-}
-
-func (a archiveFlag) Type() string {
-	return "string"
-}
-
-func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
-	path, _ := flags.GetString("webrtc-config-file")
-	if path == "" {
+func (c *Cmd) configureWebRTC() error {
+	p2pConfig := c.config.NATTraversal.P2P
+	configFilePath := p2pConfig.WebRTCConfigurationFile
+	if configFilePath == "" {
 		return nil
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return fmt.Errorf("unable to read webrtc config file: %w", err)
 	}

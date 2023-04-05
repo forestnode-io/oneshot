@@ -1,27 +1,56 @@
 package configuration
 
 import (
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/exec"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/receive"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/rproxy"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/send"
+	discoveryserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/configuration"
+	exec "github.com/raphaelreyna/oneshot/v2/pkg/commands/exec/configuration"
+	p2p "github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/configuration"
+	receive "github.com/raphaelreyna/oneshot/v2/pkg/commands/receive/configuration"
+	redirect "github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect/configuration"
+	rproxy "github.com/raphaelreyna/oneshot/v2/pkg/commands/rproxy/configuration"
+	send "github.com/raphaelreyna/oneshot/v2/pkg/commands/send/configuration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 type Subcommands struct {
-	Receive  receive.Configuration  `mapstructure:"receive" yaml:"receive"`
-	Send     send.Configuration     `mapstructure:"send" yaml:"send"`
-	Exec     exec.Configuration     `mapstructure:"exec" yaml:"exec"`
-	Redirect redirect.Configuration `mapstructure:"redirect" yaml:"redirect"`
-	RProxy   rproxy.Configuration   `mapstructure:"rproxy" yaml:"rproxy"`
-	P2P      p2p.Configuration      `mapstructure:"p2p" yaml:"p2p"`
+	Receive         *receive.Configuration         `mapstructure:"receive" yaml:"receive"`
+	Send            *send.Configuration            `mapstructure:"send" yaml:"send"`
+	Exec            *exec.Configuration            `mapstructure:"exec" yaml:"exec"`
+	Redirect        *redirect.Configuration        `mapstructure:"redirect" yaml:"redirect"`
+	RProxy          *rproxy.Configuration          `mapstructure:"rproxy" yaml:"rproxy"`
+	P2P             *p2p.Configuration             `mapstructure:"p2p" yaml:"p2p"`
+	DiscoveryServer *discoveryserver.Configuration `mapstructure:"discoveryServer" yaml:"discoveryServer"`
 }
 
 func (c *Subcommands) init() {
+	if c.Receive == nil {
+		c.Receive = &receive.Configuration{}
+	}
 	c.Receive.Init()
+	if c.Send == nil {
+		c.Send = &send.Configuration{}
+	}
+	c.Send.Init()
+	if c.Exec == nil {
+		c.Exec = &exec.Configuration{}
+	}
+	c.Exec.Init()
+	if c.Redirect == nil {
+		c.Redirect = &redirect.Configuration{}
+	}
+	c.Redirect.Init()
+	if c.RProxy == nil {
+		c.RProxy = &rproxy.Configuration{}
+	}
+	c.RProxy.Init()
+	if c.P2P == nil {
+		c.P2P = &p2p.Configuration{}
+	}
+	c.P2P.Init()
+	if c.DiscoveryServer == nil {
+		c.DiscoveryServer = &discoveryserver.Configuration{}
+	}
+	c.DiscoveryServer.Init()
 }
 
 type Root struct {
@@ -30,7 +59,7 @@ type Root struct {
 	BasicAuth    BasicAuth    `mapstructure:"basicAuth" yaml:"basicAuth"`
 	CORS         CORS         `mapstructure:"cors" yaml:"cors"`
 	NATTraversal NATTraversal `mapstructure:"natTraversal" yaml:"natTraversal"`
-	Subcommands  Subcommands  `mapstructure:"subcommands" yaml:"subcommands"`
+	Subcommands  *Subcommands `mapstructure:"subcommands" yaml:"subcommands"`
 }
 
 func (c *Root) Init() {
@@ -75,5 +104,9 @@ func (c *Root) Validate() error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *Root) Hydrate() error {
 	return nil
 }

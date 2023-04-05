@@ -2,16 +2,18 @@ package redirect
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New(config *Configuration) *Cmd {
+func New(config *configuration.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -19,7 +21,7 @@ func New(config *Configuration) *Cmd {
 
 type Cmd struct {
 	cobraCommand *cobra.Command
-	config       *Configuration
+	config       *configuration.Root
 	url          string
 }
 
@@ -32,8 +34,15 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:   "redirect url",
 		Short: "Redirect all requests to the specified url",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			c.config.MergeFlags()
-			return c.config.Validate()
+			config := c.config.Subcommands.Redirect
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return fmt.Errorf("invalid configuration: %w", err)
+			}
+			if err := config.Hydrate(); err != nil {
+				return fmt.Errorf("failed to hydrate configuration: %w", err)
+			}
+			return nil
 		},
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -47,7 +56,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		},
 	}
 
-	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.config.Subcommands.Redirect.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -64,11 +73,15 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 }
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := c.cobraCommand.Context()
+	var (
+		ctx    = c.cobraCommand.Context()
+		config = c.config.Subcommands.Redirect
+	)
+
 	doneReadingBody := make(chan struct{})
 	events.Raise(ctx, output.NewHTTPRequest(r))
 
-	var header = http.Header(c.config.Header)
+	var header = http.Header(config.Header)
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}
@@ -79,7 +92,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
 	}()
 
-	http.Redirect(w, r, c.url, c.config.StatusCode)
+	http.Redirect(w, r, c.url, config.StatusCode)
 
 	events.Success(ctx)
 	<-doneReadingBody

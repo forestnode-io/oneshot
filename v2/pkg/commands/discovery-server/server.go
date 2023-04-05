@@ -8,16 +8,17 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
 	_ "embed"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -48,7 +49,7 @@ type server struct {
 	assignedURL      string
 
 	rtcConfig *webrtc.Configuration
-	config    Config
+	config    *configuration.Root
 
 	errorPageTitle string
 
@@ -58,32 +59,22 @@ type server struct {
 	proto.UnimplementedSignallingServerServer
 }
 
-func newServer(c *Config) (*server, error) {
-	if err := c.SetDefaults(); err != nil {
-		return nil, fmt.Errorf("unable to set defaults: %w", err)
+func newServer(c *configuration.Root) (*server, error) {
+	config := c.Subcommands.DiscoveryServer
+	p2pConfig := c.NATTraversal.P2P
+	if p2pConfig.WebRTCConfiguration == nil {
+		return nil, errors.New("p2p configuration is nil")
 	}
 
-	// read jwt secret from file if necessary
-	if c.JWTSecretConfig.Value == "" {
-		data, err := os.ReadFile(c.JWTSecretConfig.Path)
-		if err != nil {
-			return nil, fmt.Errorf("unable to readt JWT secret from file")
-		}
-		c.JWTSecretConfig.Value = string(data)
-	}
-	if c.JWTSecretConfig.Value == "" {
-		return nil, fmt.Errorf("JWT secret is empty")
-	}
-
-	rc, err := c.WebRTCConfiguration.WebRTCConfiguration()
+	rc, err := p2pConfig.WebRTCConfiguration.WebRTCConfiguration()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create webrtc configuration: %w", err)
 	}
 
 	s := server{
-		queue:     make(chan requestBundle, c.MaxClientQueueSize),
+		queue:     make(chan requestBundle, config.MaxClientQueueSize),
 		rtcConfig: rc,
-		config:    *c,
+		config:    c,
 	}
 
 	return &s, nil
@@ -98,12 +89,14 @@ func (s *server) run(ctx context.Context) error {
 		l   net.Listener
 		err error
 
-		dc = s.config.Servers.Discovery
-		hc = s.config.Servers.HTTP
+		config = s.config.Subcommands.DiscoveryServer
+
+		dc = config.APIServer
+		hc = s.config.Server
 	)
 
-	if tc := s.config.Servers.Discovery.TLS; tc != nil {
-		cert, err := tls.LoadX509KeyPair(tc.Cert, tc.Key)
+	if dc.TLSCert != "" && dc.TLSKey != "" {
+		cert, err := tls.LoadX509KeyPair(dc.TLSCert, dc.TLSKey)
 		if err != nil {
 			return fmt.Errorf("unable to load tls key pair: %w", err)
 		}
@@ -127,7 +120,7 @@ func (s *server) run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleHTTP)
 	hs := http.Server{
-		Addr:    hc.Addr,
+		Addr:    oneshotfmt.Address(hc.Host, hc.Port),
 		Handler: mux,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx
@@ -171,8 +164,8 @@ func (s *server) run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if hc.TLS != nil {
-			if err := hs.ListenAndServeTLS(hc.TLS.Cert, hc.TLS.Key); err != nil {
+		if hc.TLSCert != "" && hc.TLSKey != "" {
+			if err := hs.ListenAndServeTLS(hc.TLSCert, hc.TLSKey); err != nil {
 				cancel()
 				if err != http.ErrServerClosed {
 					log.Error().Err(err).
@@ -194,7 +187,7 @@ func (s *server) run(ctx context.Context) error {
 	go s.worker()
 
 	log.Info().
-		Str("addr", hc.Addr).
+		Str("addr", hs.Addr).
 		Msg("listening for http traffic")
 	server := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(kaep),
@@ -235,8 +228,9 @@ func (s *server) queueRequest(sessionID string, w http.ResponseWriter, r *http.R
 
 func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 	var (
-		scheme = s.config.URLAssignment.Scheme
-		domain = s.config.URLAssignment.Domain + fmt.Sprintf(":%d", s.config.URLAssignment.Port)
+		config = s.config.Subcommands.DiscoveryServer
+		scheme = config.URLAssignment.Scheme
+		domain = config.URLAssignment.Domain + fmt.Sprintf(":%d", config.URLAssignment.Port)
 	)
 
 	if rurl == "" {
@@ -268,8 +262,9 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 
 func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 	var (
-		log = log.Logger()
-		ctx = log.WithContext(stream.Context())
+		log    = log.Logger()
+		ctx    = log.WithContext(stream.Context())
+		config = s.config.Subcommands.DiscoveryServer
 	)
 
 	log.Debug().Msg("new connection")
@@ -289,7 +284,7 @@ func (s *server) Connect(stream proto.SignallingServer_ConnectServer) error {
 		}
 		err error
 	)
-	s.os, err = newOneshotServer(ctx, s.config.RequiredID.Value, stream, resetPending, s.handleURLRequest)
+	s.os, err = newOneshotServer(ctx, config.RequiredKey.Value, stream, resetPending, s.handleURLRequest)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("error creating oneshot server")

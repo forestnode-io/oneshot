@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
+	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -103,7 +103,7 @@ Cert file must also be provided using the --tls-cert flag.`)
 
 	sfs.Bool("allow-bots", false, "Allow bot access.")
 
-	sfa := configuration.SizeFlagArg(0)
+	sfa := flagargs.Size(0)
 	sfs.Var(&sfa, "max-read-size", `Maximum read size for incoming request bodies. A value of zero will cause oneshot to read until EOF.
 Format is a number followed by a unit of measurement.
 Valid units are: b, B, 

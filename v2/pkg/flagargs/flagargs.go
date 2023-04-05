@@ -1,18 +1,39 @@
-package configuration
+package flagargs
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-type OutputFormatFlagArg struct {
+type ArchiveMethod string
+
+func (a *ArchiveMethod) String() string {
+	return string(*a)
+}
+
+func (a *ArchiveMethod) Set(value string) error {
+	switch value {
+	case "zip", "tar", "tar.gz":
+		*a = ArchiveMethod(value)
+		return nil
+	default:
+		return fmt.Errorf(`invalid archive method %q, must be "zip", "tar" or "tar.gz`, value)
+	}
+}
+
+func (a ArchiveMethod) Type() string {
+	return "string"
+}
+
+type OutputFormat struct {
 	Format string   `mapstructure:"format" yaml:"format"`
 	Opts   []string `mapstructure:"opts" yaml:"opts"`
 }
 
-func (o *OutputFormatFlagArg) String() string {
+func (o *OutputFormat) String() string {
 	s := o.Format
 	if 0 < len(o.Opts) {
 		s += "=" + strings.Join(o.Opts, ",")
@@ -20,7 +41,7 @@ func (o *OutputFormatFlagArg) String() string {
 	return s
 }
 
-func (o *OutputFormatFlagArg) Set(v string) error {
+func (o *OutputFormat) Set(v string) error {
 	switch {
 	case strings.HasPrefix(v, "json"):
 		o.Format = "json"
@@ -34,13 +55,32 @@ func (o *OutputFormatFlagArg) Set(v string) error {
 	return errors.New(`must be "json[=opts...]"`)
 }
 
-func (o *OutputFormatFlagArg) Type() string {
+func (o *OutputFormat) Type() string {
+	return "string"
+}
+
+type Size int
+
+func (s *Size) String() string {
+	return strconv.Itoa(int(*s)) + "B"
+}
+
+func (s *Size) Set(v string) error {
+	size, err := parseSize(v)
+	if err != nil {
+		return err
+	}
+	*s = Size(size)
+	return nil
+}
+
+func (s *Size) Type() string {
 	return "string"
 }
 
 var sizeRe = regexp.MustCompile(`([1-9]\d*)([kmgtKMGT]?[i]?[bB])`)
 
-func ParseSize(s string) (int64, error) {
+func parseSize(s string) (int64, error) {
 	const (
 		k  = 1000
 		ki = 1024
@@ -114,23 +154,4 @@ func ParseSize(s string) (int64, error) {
 	}
 
 	return mult * n, nil
-}
-
-type SizeFlagArg int
-
-func (s *SizeFlagArg) String() string {
-	return strconv.Itoa(int(*s)) + "B"
-}
-
-func (s *SizeFlagArg) Set(v string) error {
-	size, err := ParseSize(v)
-	if err != nil {
-		return err
-	}
-	*s = SizeFlagArg(size)
-	return nil
-}
-
-func (s *SizeFlagArg) Type() string {
-	return "string"
 }

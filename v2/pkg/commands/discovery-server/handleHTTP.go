@@ -75,7 +75,10 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
-	log := zerolog.Ctx(r.Context())
+	var (
+		log    = zerolog.Ctx(r.Context())
+		config = s.config.Subcommands.DiscoveryServer
+	)
 
 	if s.pendingSessionID != "" || s.os == nil {
 		s.error(w, r, http.StatusNotFound,
@@ -120,7 +123,7 @@ func (s *server) handleGET_HTML(w http.ResponseWriter, r *http.Request) {
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"session_id": sessionID,
 		"expires":    expirationTime.Unix(),
-	}).SignedString([]byte(s.config.JWTSecretConfig.Value))
+	}).SignedString([]byte(config.JWT.Value))
 	if err != nil {
 		log.Error().Err(err).
 			Msg("error signing jwt")
@@ -175,11 +178,12 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 	var (
 		log                = zerolog.Ctx(r.Context())
 		sessionTokenString = r.Header.Get("X-Session-Token")
+		config             = s.config.Subcommands.DiscoveryServer
 	)
 
 	// parse the token string into a token
 	token, err := jwt.Parse(sessionTokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(s.config.JWTSecretConfig.Value), nil
+		return []byte(config.JWT.Value), nil
 	})
 	if err != nil {
 		log.Warn().Err(err).

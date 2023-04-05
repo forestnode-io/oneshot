@@ -3,15 +3,19 @@ package client
 import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/client/receive"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/client/send"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/spf13/cobra"
 )
 
-func New() *Cmd {
-	return &Cmd{}
+func New(config *configuration.Root) *Cmd {
+	return &Cmd{
+		config: config,
+	}
 }
 
 type Cmd struct {
 	cobraCommand *cobra.Command
+	config       *configuration.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -25,14 +29,14 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Long:  "WebRTC client commands",
 	}
 
-	c.cobraCommand.AddCommand(subCommands()...)
+	c.cobraCommand.AddCommand(subCommands(c.config)...)
 
 	return c.cobraCommand
 }
 
-func subCommands() []*cobra.Command {
+func subCommands(config *configuration.Root) []*cobra.Command {
 	return []*cobra.Command{
-		send.New().Cobra(),
-		receive.New().Cobra(),
+		send.New(config).Cobra(),
+		receive.New(config).Cobra(),
 	}
 }

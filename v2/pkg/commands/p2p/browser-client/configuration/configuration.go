@@ -1,4 +1,4 @@
-package browserclient
+package configuration
 
 import (
 	"github.com/spf13/cobra"

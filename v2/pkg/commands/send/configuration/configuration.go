@@ -1,21 +1,22 @@
-package send
+package configuration
 
 import (
 	"net/http"
 	"runtime"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 type Configuration struct {
-	ArchiveMethod archiveFlag         `mapstructure:"archiveMethod" yaml:"archiveMethod"`
-	NoDownload    bool                `mapstructure:"noDownload" yaml:"noDownload"`
-	MIME          string              `mapstructure:"mime" yaml:"mime"`
-	Name          string              `mapstructure:"name" yaml:"name"`
-	StatusCode    int                 `mapstructure:"statusCode" yaml:"statusCode"`
-	Header        map[string][]string `mapstructure:"header" yaml:"header"`
+	ArchiveMethod flagargs.ArchiveMethod `mapstructure:"archiveMethod" yaml:"archiveMethod"`
+	NoDownload    bool                   `mapstructure:"noDownload" yaml:"noDownload"`
+	MIME          string                 `mapstructure:"mime" yaml:"mime"`
+	Name          string                 `mapstructure:"name" yaml:"name"`
+	StatusCode    int                    `mapstructure:"statusCode" yaml:"statusCode"`
+	Header        map[string][]string    `mapstructure:"header" yaml:"header"`
 
 	fs *pflag.FlagSet
 }
@@ -23,7 +24,7 @@ type Configuration struct {
 func (c *Configuration) Init() {
 	c.fs = pflag.NewFlagSet("send flags", pflag.ExitOnError)
 
-	var amf archiveFlag
+	var amf flagargs.ArchiveMethod
 	c.fs.VarP(&amf, "archive-method", "a", `Which archive method to use when sending directories.
 Recognized values are 'zip', 'tar' and 'tar.gz'.`)
 	if runtime.GOOS == "windows" {
@@ -51,7 +52,7 @@ func (c *Configuration) SetFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 
 func (c *Configuration) MergeFlags() {
 	if c.fs.Changed("archive-method") {
-		am, ok := c.fs.Lookup("archive-method").Value.(*archiveFlag)
+		am, ok := c.fs.Lookup("archive-method").Value.(*flagargs.ArchiveMethod)
 		if !ok {
 			panic("archive-method flag is not an archiveFlag")
 		}
@@ -80,5 +81,9 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	return nil
+}
+
+func (c *Configuration) Hydrate() error {
 	return nil
 }

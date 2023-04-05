@@ -1,15 +1,16 @@
 package configuration
 
 import (
+	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 type Output struct {
-	Quiet   bool                `mapstructure:"quiet" yaml:"quiet"`
-	Format  OutputFormatFlagArg `mapstructure:"format" yaml:"format"`
-	QRCode  bool                `mapstructure:"qrCode" yaml:"qrCode"`
-	NoColor bool                `mapstructure:"noColor" yaml:"noColor"`
+	Quiet   bool                  `mapstructure:"quiet" yaml:"quiet"`
+	Format  flagargs.OutputFormat `mapstructure:"format" yaml:"format"`
+	QRCode  bool                  `mapstructure:"qrCode" yaml:"qrCode"`
+	NoColor bool                  `mapstructure:"noColor" yaml:"noColor"`
 
 	fs *pflag.FlagSet
 }
@@ -18,7 +19,7 @@ func (c *Output) init() {
 	c.fs = pflag.NewFlagSet("Output Flags", pflag.ExitOnError)
 
 	c.fs.BoolP("quiet", "q", false, "Disable all output except for received data")
-	var format OutputFormatFlagArg
+	var format flagargs.OutputFormat
 	c.fs.VarP(&format, "output", "o", `Set output format. Valid formats are: json[=opts].
 	Valid json opts are:
 		- compact
@@ -46,7 +47,7 @@ func (c *Output) mergeFlags() {
 		c.Quiet, _ = c.fs.GetBool("quiet")
 	}
 	if c.fs.Changed("output") {
-		offa, ok := c.fs.Lookup("output").Value.(*OutputFormatFlagArg)
+		offa, ok := c.fs.Lookup("output").Value.(*flagargs.OutputFormat)
 		if !ok {
 			panic("invalid type for output flag")
 		}

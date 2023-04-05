@@ -2,21 +2,22 @@ package discoveryserver
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 type Cmd struct {
 	cobraCommand *cobra.Command
-	webrtcConfig *webrtc.Configuration
+	config       *configuration.Root
 }
 
-func New() *Cmd {
-	return &Cmd{}
+func New(config *configuration.Root) *Cmd {
+	return &Cmd{
+		config: config,
+	}
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -25,9 +26,8 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:     "discovery-server",
-		Aliases: []string{"discovery-server"},
-		Short:   "A NAT traversal discovery server",
+		Use:   "discovery-server",
+		Short: "A NAT traversal discovery server",
 		Long: `A NAT traversal discovery server.
 If using UPnP-IGD NAT traversal, the discovery server will redirect traffic to the public ip + newly opened external port.
 This allows for a dynamic DNS type service.
@@ -40,44 +40,34 @@ Web browsers will be served a JS WebRTC client that will connect back to the dis
 			"p2p client send",
 			"p2p client receive",
 		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			config := c.config.Subcommands.DiscoveryServer
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return fmt.Errorf("invalid configuration: %w", err)
+			}
+			if err := config.Hydrate(); err != nil {
+				return fmt.Errorf("failed to hydrate configuration: %w", err)
+			}
+			fmt.Printf("root %+v\n", *c.config)
+			fmt.Printf("nt %+v\n", c.config.NATTraversal)
+			return nil
+		},
 		RunE: c.run,
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.String("p2p-config-file", "", "Path to a YAML file containing a WebRTC configuration")
-	c.cobraCommand.MarkFlagRequired("p2p-config-file")
-	c.cobraCommand.MarkFlagFilename("p2p-config-file", "yaml", "yml")
+	c.config.Subcommands.DiscoveryServer.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	var (
-		ctx   = cmd.Context()
-		log   = zerolog.Ctx(ctx)
-		flags = cmd.Flags()
-
-		configFile, _ = flags.GetString("p2p-config-file")
+		ctx = cmd.Context()
+		log = zerolog.Ctx(ctx)
 	)
 
-	configData, err := os.ReadFile(configFile)
-	if err != nil {
-		return fmt.Errorf("unable to read p2p config file: %w", err)
-	}
-	config := Config{}
-	if err = yaml.Unmarshal(configData, &config); err != nil {
-		return fmt.Errorf("unable to parse p2p config file: %w", err)
-	}
-	c.webrtcConfig, err = config.WebRTCConfiguration.WebRTCConfiguration()
-	if err != nil {
-		return fmt.Errorf("unable to configure p2p: %w", err)
-	}
-
-	if c.webrtcConfig == nil {
-		return fmt.Errorf("webrtc configuration is required")
-	}
-
-	s, err := newServer(&config)
+	s, err := newServer(c.config)
 	if err != nil {
 		return fmt.Errorf("unable to create signalling server: %w", err)
 	}

@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New(config *Configuration) *Cmd {
+func New(config *configuration.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -22,7 +23,7 @@ func New(config *Configuration) *Cmd {
 type Cmd struct {
 	cobraCommand *cobra.Command
 	host         string
-	config       *Configuration
+	config       *configuration.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -36,8 +37,15 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short:   "Reverse proxy all requests to the specified host",
 		Long:    `Reverse proxy all requests to the specified host. The host may be a URL or a host:port combination.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			c.config.MergeFlags()
-			return c.config.Validate()
+			config := c.config.Subcommands.RProxy
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return errors.New("invalid configuration")
+			}
+			if err := config.Hydrate(); err != nil {
+				return errors.New("failed to hydrate configuration")
+			}
+			return nil
 		},
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -51,7 +59,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		},
 	}
 
-	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.config.Subcommands.RProxy.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -61,7 +69,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx = cmd.Context()
 
 		host      = args[0]
-		spoofHost = c.config.SpoofHost
+		config    = c.config.Subcommands.RProxy
+		spoofHost = config.SpoofHost
 	)
 
 	output.IncludeBody(ctx)
@@ -72,7 +81,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	var spoofedHostURL *url.URL
-	if c.config.MatchHost {
+	if config.MatchHost {
 		spoofedHostURL = hostURL
 	}
 	if spoofHost != "" {
@@ -89,10 +98,10 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	c.host = host
 
 	if spoofedHostURL != nil {
-		if len(c.config.RequestHeader) == 0 {
-			c.config.RequestHeader = make(map[string][]string)
+		if len(config.RequestHeader) == 0 {
+			config.RequestHeader = make(map[string][]string)
 		}
-		c.config.RequestHeader["Host"] = []string{spoofedHostURL.Host}
+		config.RequestHeader["Host"] = []string{spoofedHostURL.Host}
 	}
 
 	rp := httputil.NewSingleHostReverseProxy(hostURL)
@@ -105,13 +114,13 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			Header:     originalHeader,
 		})
 
-		if 0 < len(c.config.ResponseHeader) {
-			for k, v := range c.config.ResponseHeader {
+		if 0 < len(config.ResponseHeader) {
+			for k, v := range config.ResponseHeader {
 				resp.Header[k] = v
 			}
 		}
-		if c.config.StatusCode != 0 {
-			resp.StatusCode = c.config.StatusCode
+		if config.StatusCode != 0 {
+			resp.StatusCode = config.StatusCode
 		}
 		return nil
 	}
@@ -120,8 +129,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx := c.cobraCommand.Context()
 		events.Raise(ctx, output.NewHTTPRequest(r))
 
-		if 0 < len(c.config.RequestHeader) {
-			for k, v := range c.config.RequestHeader {
+		if 0 < len(config.RequestHeader) {
+			for k, v := range config.RequestHeader {
 				r.Header[k] = v
 			}
 		}
@@ -131,8 +140,8 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			r.URL = spoofedHostURL
 		}
 
-		if c.config.Method != "" {
-			r.Method = strings.ToUpper(c.config.Method)
+		if config.Method != "" {
+			r.Method = strings.ToUpper(config.Method)
 		}
 
 		var jsonOutput bool
@@ -140,7 +149,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 			jsonOutput = true
 		}
 
-		if c.config.Tee || jsonOutput {
+		if config.Tee || jsonOutput {
 			bw, getBufByte := output.NewBufferedWriter(ctx, w)
 
 			ww := bw.(http.ResponseWriter)

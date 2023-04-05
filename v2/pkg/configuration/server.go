@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -13,7 +14,7 @@ type Server struct {
 	Port        int           `mapstructure:"port" yaml:"port"`
 	Timeout     time.Duration `mapstructure:"timeout" yaml:"timeout"`
 	AllowBots   bool          `mapstructure:"allowBots" yaml:"allowBots"`
-	MaxReadSize SizeFlagArg   `mapstructure:"maxReadSize" yaml:"maxReadSize"`
+	MaxReadSize flagargs.Size `mapstructure:"maxReadSize" yaml:"maxReadSize"`
 	ExitOnFail  bool          `mapstructure:"exitOnFail" yaml:"exitOnFail"`
 	TLSCert     string        `mapstructure:"tlsCert" yaml:"tlsCert"`
 	TLSKey      string        `mapstructure:"tlsKey" yaml:"tlsKey"`
@@ -29,7 +30,7 @@ func (c *Server) init() {
 	c.fs.Duration("timeout", 0, `How long to wait for a connection to be established before timing out.
 A value of 0 will cause oneshot to wait indefinitely.`)
 	c.fs.Bool("allow-bots", false, "Allow bots access")
-	var maxReadSize SizeFlagArg
+	var maxReadSize flagargs.Size
 	c.fs.Var(&maxReadSize, "max-read-size", `Maximum read size for incoming request bodies. A value of zero will cause oneshot to read until EOF.
 	Format is a number followed by a unit of measurement.
 	Valid units are: b, B,
@@ -65,7 +66,7 @@ func (c *Server) mergeFlags() {
 		c.AllowBots, _ = c.fs.GetBool("allow-bots")
 	}
 	if c.fs.Changed("max-read-size") {
-		mrs, ok := c.fs.Lookup("max-read-size").Value.(*SizeFlagArg)
+		mrs, ok := c.fs.Lookup("max-read-size").Value.(*flagargs.Size)
 		if !ok {
 			panic("max-read-size flag is not a SizeFlagArg")
 		}

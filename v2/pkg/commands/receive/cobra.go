@@ -12,6 +12,7 @@ import (
 
 	"github.com/jf-tech/iohelper"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
@@ -36,7 +37,7 @@ func init() {
 	}
 }
 
-func New(config *Configuration) *Cmd {
+func New(config *configuration.Root) *Cmd {
 	c := Cmd{config: config}
 	return &c
 }
@@ -45,7 +46,7 @@ type Cmd struct {
 	fileTransferConfig *file.WriteTransferConfig
 	writeTemplate      func(io.Writer, bool) error
 	cobraCommand       *cobra.Command
-	config             *Configuration
+	config             *configuration.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -56,8 +57,15 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use: "receive [file]",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			c.config.MergeFlags()
-			return c.config.Validate()
+			config := c.config.Subcommands.Receive
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return fmt.Errorf("invalid configuration: %w", err)
+			}
+			if err := config.Hydrate(); err != nil {
+				return fmt.Errorf("failed to hydrate configuration: %w", err)
+			}
+			return nil
 		},
 		RunE:  c.setHandlerFunc,
 		Short: "Receive a file from the client",
@@ -89,22 +97,21 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 		},
 	}
 
-	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.config.Subcommands.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
 
 func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
-		ctx            = cmd.Context()
-		log            = zerolog.Ctx(ctx)
-		flags          = cmd.Flags()
-		includeBody, _ = flags.GetBool("include-body")
+		ctx    = cmd.Context()
+		log    = zerolog.Ctx(ctx)
+		config = c.config.Subcommands.Receive
 
 		err error
 	)
 
-	if includeBody {
+	if config.IncludeBody {
 		output.IncludeBody(ctx)
 	}
 
@@ -124,13 +131,13 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	tmpl = tmpl.Funcs(template.FuncMap{
 		"enableBase64Decoding": func() error {
-			c.config.DecodeBase64 = true
+			config.DecodeBase64 = true
 			return nil
 		},
 	})
 
-	if flagUI, _ := flags.GetString("ui"); flagUI != "" {
-		ui = flagUI
+	if config.UI != "" {
+		ui = config.UI
 	}
 
 	if ui != "" {
@@ -165,7 +172,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	}{
 		FileSection:  true,
 		InputSection: true,
-		CSRFToken:    c.config.CSRFToken,
+		CSRFToken:    config.CSRFToken,
 	}
 	c.writeTemplate = func(w io.Writer, withJS bool) error {
 		sections.ClientJS = template.HTML(browserClientJS)
@@ -193,6 +200,7 @@ type requestBody struct {
 }
 
 func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, error) {
+	config := c.config.Subcommands.Receive
 	reader, err := r.MultipartReader()
 	if err != nil {
 		return nil, &httpError{
@@ -202,7 +210,7 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 	}
 
 	// Check for csrf token if we care to
-	if c.config.CSRFToken != "" {
+	if config.CSRFToken != "" {
 		part, err := reader.NextPart()
 		if err != nil {
 			return nil, &httpError{
@@ -226,7 +234,7 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 			}
 		}
 
-		if string(partData) != c.config.CSRFToken {
+		if string(partData) != config.CSRFToken {
 			return nil, &httpError{
 				error: errors.New("invalid CSRF token"),
 				stat:  http.StatusUnauthorized,
@@ -275,8 +283,9 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 }
 
 func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, error) {
+	config := c.config.Subcommands.Receive
 	foundCSRFToken := false
-	csrfToken := c.config.CSRFToken
+	csrfToken := config.CSRFToken
 	// Assume we found the CSRF token if the user doesn't care to use one
 	if csrfToken == "" {
 		foundCSRFToken = true
@@ -304,7 +313,7 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 	}
 
 	var src io.Reader = strings.NewReader(r.PostForm.Get("text"))
-	if c.config.EOL == "unix" {
+	if config.EOL == "unix" {
 		src = iohelper.NewBytesReplacingReader(src, crlf, lf)
 	}
 
@@ -314,7 +323,8 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 }
 
 func (c *Cmd) readCloserFromRawBody(r *http.Request) (*requestBody, error) {
-	csrfToken := c.config.CSRFToken
+	config := c.config.Subcommands.Receive
+	csrfToken := config.CSRFToken
 	// Check for csrf token if we care to
 	if csrfToken != "" && r.Header.Get("X-CSRF-Token") != csrfToken {
 		return nil, &httpError{

@@ -20,6 +20,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/version"
 	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
@@ -31,7 +32,7 @@ type rootCommand struct {
 	closers    []io.Closer
 	middleware oneshothttp.Middleware
 
-	outFlag configuration.OutputFormatFlagArg
+	outFlag flagargs.OutputFormat
 
 	webrtcConfig *webrtc.Configuration
 
@@ -53,6 +54,7 @@ func ExecuteContext(ctx context.Context) error {
 	root.PersistentPostRunE = root.runServer
 	root.config, err = configuration.ReadConfig()
 	if err != nil {
+		panic(err)
 		return fmt.Errorf("failed to read configuration: %w", err)
 	}
 	root.config.Init()
@@ -93,7 +95,7 @@ func CobraCommand() *cobra.Command {
 }
 
 func (r *rootCommand) setSubCommands() {
-	for _, sc := range subCommands(&r.config.Subcommands) {
+	for _, sc := range subCommands(r.config) {
 		if reFunc := sc.RunE; reFunc != nil {
 			sc.RunE = func(cmd *cobra.Command, args []string) error {
 				output.InvocationInfo(cmd.Context(), cmd, args)
@@ -110,15 +112,15 @@ func (r *rootCommand) setSubCommands() {
 	}
 }
 
-func subCommands(config *configuration.Subcommands) []*cobra.Command {
+func subCommands(config *configuration.Root) []*cobra.Command {
 	return []*cobra.Command{
-		exec.New(&config.Exec).Cobra(),
-		receive.New(&config.Receive).Cobra(),
-		redirect.New(&config.Redirect).Cobra(),
-		send.New(&config.Send).Cobra(),
-		rproxy.New(&config.RProxy).Cobra(),
-		p2p.New(&config.P2P).Cobra(),
-		discoveryserver.New().Cobra(),
+		exec.New(config).Cobra(),
+		receive.New(config).Cobra(),
+		redirect.New(config).Cobra(),
+		send.New(config).Cobra(),
+		rproxy.New(config).Cobra(),
+		p2p.New(config).Cobra(),
+		discoveryserver.New(config).Cobra(),
 		version.New().Cobra(),
 	}
 }

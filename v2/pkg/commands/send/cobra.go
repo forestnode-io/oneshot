@@ -7,12 +7,13 @@ import (
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New(config *Configuration) *Cmd {
+func New(config *configuration.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -22,7 +23,7 @@ type Cmd struct {
 	rtc          file.ReadTransferConfig
 	cobraCommand *cobra.Command
 
-	config *Configuration
+	config *configuration.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -38,13 +39,20 @@ When sending from stdin, requests are blocked until an EOF is received; content 
 If a directory is given, it will be archived and sent to the client; oneshot does not support sending unarchived directories.
 `,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			c.config.MergeFlags()
-			return c.config.Validate()
+			config := c.config.Subcommands.Send
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return fmt.Errorf("invalid configuration: %w", err)
+			}
+			if err := config.Hydrate(); err != nil {
+				return fmt.Errorf("failed to hydrate configuration: %w", err)
+			}
+			return nil
 		},
 		RunE: c.setHandlerFunc,
 	}
 
-	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.config.Subcommands.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -54,9 +62,10 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		ctx   = cmd.Context()
 		paths = args
 
-		fileName      = c.config.Name
-		fileMime      = c.config.MIME
-		archiveMethod = string(c.config.ArchiveMethod)
+		config        = c.config.Subcommands.Send
+		fileName      = config.Name
+		fileMime      = config.MIME
+		archiveMethod = string(config.ArchiveMethod)
 	)
 
 	output.IncludeBody(ctx)
@@ -84,13 +93,13 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileName += "." + archiveMethod
 	}
 
-	if _, ok := c.config.Header["Content-Type"]; !ok {
-		c.config.Header["Content-Type"] = []string{fileMime}
+	if _, ok := config.Header["Content-Type"]; !ok {
+		config.Header["Content-Type"] = []string{fileMime}
 	}
 	// Are we triggering a file download on the users browser?
-	if !c.config.NoDownload {
-		if _, ok := c.config.Header["Content-Disposition"]; !ok {
-			c.config.Header["Content-Disposition"] = []string{
+	if !config.NoDownload {
+		if _, ok := config.Header["Content-Disposition"]; !ok {
+			config.Header["Content-Disposition"] = []string{
 				fmt.Sprintf("attachment;filename=%s", fileName),
 			}
 		}
@@ -98,24 +107,4 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	commands.SetHTTPHandlerFunc(ctx, c.ServeHTTP)
 	return nil
-}
-
-type archiveFlag string
-
-func (a *archiveFlag) String() string {
-	return string(*a)
-}
-
-func (a *archiveFlag) Set(value string) error {
-	switch value {
-	case "zip", "tar", "tar.gz":
-		*a = archiveFlag(value)
-		return nil
-	default:
-		return fmt.Errorf(`invalid archive method %q, must be "zip", "tar" or "tar.gz`, value)
-	}
-}
-
-func (a archiveFlag) Type() string {
-	return "string"
 }

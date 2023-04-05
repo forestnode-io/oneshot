@@ -14,19 +14,19 @@ import (
 )
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := c.cobraCommand.Context()
-
 	if r.Method == "GET" {
 		c._handleGET(w, r)
 		return
 	}
 
-	events.Raise(ctx, output.NewHTTPRequest(r))
-
 	var (
-		rb  *requestBody
-		err error
+		ctx    = c.cobraCommand.Context()
+		config = c.config.Subcommands.Receive
+		rb     *requestBody
+		err    error
 	)
+
+	events.Raise(ctx, output.NewHTTPRequest(r))
 
 	// Switch on the type of upload to obtain the appropriate src io.Reader to read data from.
 	// Uploads may happen by uploading a file, uploading text from an HTML text box, or straight from the request body
@@ -48,7 +48,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	src := rb.r
-	decodeB64 := c.config.DecodeBase64
+	decodeB64 := config.DecodeBase64
 	if decodeB64 && 0 < rb.size {
 		src = io.NopCloser(base64.NewDecoder(base64.StdEncoding, src))
 	}
@@ -95,7 +95,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(c.config.StatusCode)
+	w.WriteHeader(config.StatusCode)
 
 	fileReport.Path = wts.Path()
 	fileReport.Content = getBufBytes

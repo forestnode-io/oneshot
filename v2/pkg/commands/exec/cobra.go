@@ -2,6 +2,7 @@ package exec
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/raphaelreyna/oneshot/v2/pkg/cgi"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
+	rootconfig "github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
@@ -17,10 +19,10 @@ import (
 type Cmd struct {
 	cobraCommand *cobra.Command
 	handler      *cgi.Handler
-	config       *Configuration
+	config       *rootconfig.Root
 }
 
-func New(config *Configuration) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -37,8 +39,15 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Long: `Execute a command for each request, passing in the body to stdin and returning the stdout to the client.
 Commands may be CGI complaint but do not have to be. CGI compliance can be enforced with the --enforce-cgi flag.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			c.config.MergeFlags()
-			return c.config.Validate()
+			config := c.config.Subcommands.Exec
+			config.MergeFlags()
+			if err := config.Validate(); err != nil {
+				return fmt.Errorf("invalid configuration: %w", err)
+			}
+			if err := config.Hydrate(); err != nil {
+				return fmt.Errorf("failed to hydrate configuration: %w", err)
+			}
+			return nil
 		},
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -50,7 +59,7 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 		},
 	}
 
-	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.config.Subcommands.Exec.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -58,32 +67,33 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var (
 		ctx    = cmd.Context()
-		header = c.config.Header
+		config = c.config.Subcommands.Exec
+		header = config.Header
 	)
 
 	output.IncludeBody(ctx)
 
 	handlerConf := cgi.HandlerConfig{
 		Cmd:           args,
-		WorkingDir:    c.config.Dir,
+		WorkingDir:    config.Dir,
 		InheritEnvs:   nil,
-		BaseEnv:       c.config.Env,
+		BaseEnv:       config.Env,
 		Header:        header,
 		OutputHandler: cgi.DefaultOutputHandler,
 		Stderr:        cmd.ErrOrStderr(),
 	}
 
 	switch {
-	case c.config.ReplaceHeaders:
+	case config.ReplaceHeaders:
 		handlerConf.OutputHandler = cgi.OutputHandlerReplacer
-	case c.config.EnforceCGI:
+	case config.EnforceCGI:
 		handlerConf.OutputHandler = cgi.DefaultOutputHandler
 	default:
 		handlerConf.OutputHandler = cgi.EZOutputHandler
 	}
-	if c.config.StdErr != "" {
+	if config.StdErr != "" {
 		var err error
-		handlerConf.Stderr, err = os.Open(c.config.StdErr)
+		handlerConf.Stderr, err = os.Open(config.StdErr)
 		if err != nil {
 			return err
 		}

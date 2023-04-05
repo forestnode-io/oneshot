@@ -13,6 +13,7 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/client/discovery"
+	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/file"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
@@ -22,18 +23,20 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 )
 
-func New() *Cmd {
-	return &Cmd{}
+func New(config *configuration.Root) *Cmd {
+	return &Cmd{
+		config: config,
+	}
 }
 
 type Cmd struct {
 	cobraCommand       *cobra.Command
 	fileTransferConfig *file.WriteTransferConfig
 	webrtcConfig       *webrtc.Configuration
+	config             *configuration.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -44,12 +47,15 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:   "receive [file]",
 		Short: "Receive from a sending oneshot instance over p2p",
-		RunE:  c.receive,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			config := c.config.Subcommands.P2P.Client.Receive
+			config.MergeFlags()
+			return config.Validate()
+		},
+		RunE: c.receive,
 	}
 
-	flags := c.cobraCommand.Flags()
-	flags.StringP("offer-file", "O", "", "Path to file containing the SDP offer.")
-	flags.StringP("answer-file", "A", "", "Path to file which the SDP answer should be written to.")
+	c.config.Subcommands.P2P.Client.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
@@ -59,19 +65,15 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		ctx = cmd.Context()
 		log = zerolog.Ctx(ctx)
 
-		flags                  = cmd.Flags()
-		offerFilePath, _       = flags.GetString("offer-file")
-		answerFilePath, _      = flags.GetString("answer-file")
-		webRTCSignallingDir, _ = flags.GetString("p2p-discovery-dir")
-		webRTCSignallingURL, _ = flags.GetString("discovery-server-url")
-
-		username, _ = flags.GetString("username")
-		password, _ = flags.GetString("password")
+		config    = c.config.Subcommands.P2P.Client.Receive
+		p2pConfig = c.config.NATTraversal.P2P
+		dsConfig  = c.config.NATTraversal.DiscoveryServer
+		baConfig  = c.config.BasicAuth
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
 
-	err := c.configureWebRTC(flags)
+	err := c.configureWebRTC()
 	if err != nil {
 		return err
 	}
@@ -81,14 +83,14 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		transport *client.Transport
 		bat       string
 	)
-	if webRTCSignallingDir != "" {
+	if p2pConfig.DiscoveryDir != "" {
 		transport, err = client.NewTransport(c.webrtcConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
-		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
+		signaller, bat, err = signallers.NewFileClientSignaller(config.OfferFile, config.AnswerFile)
 	} else {
-		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, username, password, http.DefaultClient)
+		corr, err := discovery.NegotiateOfferRequest(ctx, dsConfig.URL, baConfig.Username, baConfig.Password, http.DefaultClient)
 		if err != nil {
 			return fmt.Errorf("failed to negotiate offer request: %w", err)
 		}
@@ -96,7 +98,7 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
-		signaller, bat, err = signallers.NewServerClientSignaller(webRTCSignallingURL, corr.SessionID, corr.RTCSessionDescription, nil)
+		signaller, bat, err = signallers.NewServerClientSignaller(dsConfig.URL, corr.SessionID, corr.RTCSessionDescription, nil)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create signaller: %w", err)
@@ -221,13 +223,16 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (c *Cmd) configureWebRTC(flags *pflag.FlagSet) error {
-	path, _ := flags.GetString("webrtc-config-file")
-	if path == "" {
+func (c *Cmd) configureWebRTC() error {
+	var (
+		p2pConfig      = c.config.NATTraversal.P2P
+		configFilePath = p2pConfig.WebRTCConfigurationFile
+	)
+	if configFilePath == "" {
 		return nil
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return fmt.Errorf("unable to read webrtc config file: %w", err)
 	}

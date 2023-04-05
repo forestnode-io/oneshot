@@ -3,10 +3,13 @@ package configuration
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v3"
 )
 
 type NATTraversal struct {
@@ -53,6 +56,13 @@ func (c *NATTraversal) validate() error {
 		return fmt.Errorf("invalid UPnP configuration: %w", err)
 	}
 
+	return nil
+}
+
+func (c *NATTraversal) hydrate() error {
+	if err := c.P2P.hydrate(); err != nil {
+		return fmt.Errorf("failed to hydrate P2P configuration: %w", err)
+	}
 	return nil
 }
 
@@ -125,10 +135,11 @@ func (c *DiscoveryServer) validate() error {
 }
 
 type P2P struct {
-	Enabled      bool   `mapstructure:"enabled" yaml:"enabled"`
-	Only         bool   `mapstructure:"only" yaml:"only"`
-	ConfigFile   string `mapstructure:"configFile" yaml:"configFile"`
-	DiscoveryDir string `mapstructure:"discoveryDir" yaml:"discoveryDir"`
+	Enabled                 bool                  `mapstructure:"enabled" yaml:"enabled"`
+	Only                    bool                  `mapstructure:"only" yaml:"only"`
+	WebRTCConfigurationFile string                `mapstructure:"webrtcConfigurationFile" yaml:"webrtcConfigurationFile"`
+	WebRTCConfiguration     *webrtc.Configuration `json:"webrtcConfiguration" yaml:"webrtcConfiguration"`
+	DiscoveryDir            string                `mapstructure:"discoveryDir" yaml:"discoveryDir"`
 
 	fs *pflag.FlagSet
 }
@@ -164,7 +175,7 @@ func (c *P2P) mergeFlags() {
 		c.Only = true
 	}
 	if c.fs.Changed("p2p-webrtc-config-file") {
-		c.ConfigFile, _ = c.fs.GetString("p2p-webrtc-config-file")
+		c.WebRTCConfigurationFile, _ = c.fs.GetString("p2p-webrtc-config-file")
 	}
 	if c.fs.Changed("p2p-discovery-dir") {
 		c.DiscoveryDir, _ = c.fs.GetString("p2p-discovery-dir")
@@ -175,9 +186,32 @@ func (c *P2P) mergeFlags() {
 
 func (c *P2P) validate() error {
 	// config file must be set if discovery dir is set
-	if c.DiscoveryDir != "" && c.ConfigFile == "" {
+	if c.DiscoveryDir != "" && c.WebRTCConfigurationFile == "" {
 		return errors.New("p2p-webrtc-config-file must be set if p2p-discovery-dir is set")
 	}
+	return nil
+}
+
+func (c *P2P) hydrate() error {
+	if c.WebRTCConfigurationFile == "" {
+		return nil
+	}
+	if c.WebRTCConfiguration != nil {
+		return nil
+	}
+
+	data, err := os.ReadFile(c.WebRTCConfigurationFile)
+	if err != nil {
+		return fmt.Errorf("failed to read WebRTC configuration from file: %w", err)
+	}
+
+	var wv webrtc.Configuration
+	if err = yaml.Unmarshal(data, &wv); err != nil {
+		return fmt.Errorf("failed to unmarshal WebRTC configuration: %w", err)
+	}
+
+	c.WebRTCConfiguration = &wv
+
 	return nil
 }
 

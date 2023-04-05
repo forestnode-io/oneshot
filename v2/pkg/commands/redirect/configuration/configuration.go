@@ -1,4 +1,4 @@
-package redirect
+package configuration
 
 import (
 	"net/http"
@@ -45,5 +45,9 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	return nil
+}
+
+func (c *Configuration) Hydrate() error {
 	return nil
 }

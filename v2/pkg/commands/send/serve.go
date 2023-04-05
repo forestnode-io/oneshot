@@ -12,11 +12,10 @@ import (
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var (
-		ctx = c.Cobra().Context()
-
-		cmd = c.cobraCommand
-
-		header = http.Header(c.config.Header)
+		ctx    = c.Cobra().Context()
+		cmd    = c.cobraCommand
+		config = c.config.Subcommands.Send
+		header = http.Header(config.Header)
 
 		doneReadingBody = make(chan struct{})
 	)
@@ -47,7 +46,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}
-	w.WriteHeader(c.config.StatusCode)
+	w.WriteHeader(config.StatusCode)
 
 	cancelProgDisp := output.DisplayProgress(
 		cmd.Context(),

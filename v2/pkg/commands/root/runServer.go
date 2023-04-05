@@ -42,6 +42,9 @@ func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
 	if err := r.config.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
+	if err := r.config.Hydrate(); err != nil {
+		return fmt.Errorf("failed to hydrate configuration: %w", err)
+	}
 
 	return nil
 }
