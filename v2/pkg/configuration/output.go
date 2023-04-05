@@ -33,7 +33,7 @@ func (c *Output) init() {
 	c.fs.Bool("qr-code", false, "Print a QR code of a URL that the server can be reached at")
 	c.fs.Bool("no-color", false, "Disable color output")
 
-	cobra.AddTemplateFunc("outputFlags", func(cmd *cobra.Command) *pflag.FlagSet {
+	cobra.AddTemplateFunc("outputFlags", func() *pflag.FlagSet {
 		return c.fs
 	})
 }

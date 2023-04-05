@@ -43,8 +43,8 @@ func (c *BasicAuth) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 	cmd.MarkFlagFilename("password-file")
 	cmd.MarkFlagFilename("unauthorized-page")
 
-	cobra.AddTemplateFunc("basicAuthFlags", func(cmd *cobra.Command) *pflag.FlagSet {
-		return fs
+	cobra.AddTemplateFunc("basicAuthFlags", func() *pflag.FlagSet {
+		return c.fs
 	})
 }
 

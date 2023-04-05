@@ -54,7 +54,6 @@ func ExecuteContext(ctx context.Context) error {
 	root.PersistentPostRunE = root.runServer
 	root.config, err = configuration.ReadConfig()
 	if err != nil {
-		panic(err)
 		return fmt.Errorf("failed to read configuration: %w", err)
 	}
 	root.config.Init()

@@ -87,8 +87,8 @@ func (c *DiscoveryServer) init() {
 	c.fs.String("discovery-server-preferred-url", "", "URL that the discovery server should try to reserve for connecting client.")
 	c.fs.String("discovery-server-required-url", "", "URL that the discovery server must reserve for connecting client.")
 
-	cobra.AddTemplateFunc("discoveryServerURL", func() string {
-		return c.URL
+	cobra.AddTemplateFunc("discoveryServerFlags", func() *pflag.FlagSet {
+		return c.fs
 	})
 }
 
@@ -118,17 +118,11 @@ func (c *DiscoveryServer) mergeFlags() {
 	if c.fs.Changed("discovery-server-required-url") {
 		c.RequiredURL, _ = c.fs.GetString("discovery-server-required-url")
 	}
-
-	c.fs = nil
 }
 
 func (c *DiscoveryServer) validate() error {
 	if c.URL == "" {
 		return nil
-	}
-
-	if c.KeyPath == "" && c.Key == "" {
-		return errors.New("discovery server key or key path must be provided")
 	}
 
 	return nil
@@ -156,8 +150,8 @@ In this directory, each peer connection has a numerically named subdirectory con
 The offer file contains the RTCSessionDescription JSON of the WebRTc offer
 and the answer file contains the RTCSessionDescription JSON of the WebRTC answer.`)
 
-	cobra.AddTemplateFunc("p2pFlags", func() string {
-		return c.fs.FlagUsages()
+	cobra.AddTemplateFunc("p2pFlags", func() *pflag.FlagSet {
+		return c.fs
 	})
 }
 
@@ -180,8 +174,6 @@ func (c *P2P) mergeFlags() {
 	if c.fs.Changed("p2p-discovery-dir") {
 		c.DiscoveryDir, _ = c.fs.GetString("p2p-discovery-dir")
 	}
-
-	c.fs = nil
 }
 
 func (c *P2P) validate() error {
@@ -252,8 +244,6 @@ func (c *UPnP) mergeFlags() {
 	if c.fs.Changed("upnp-discovery-timeout") {
 		c.Timeout, _ = c.fs.GetDuration("upnp-discovery-timeout")
 	}
-
-	c.fs = nil
 }
 
 func (c *UPnP) validate() error {

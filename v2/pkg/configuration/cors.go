@@ -30,8 +30,8 @@ func (c *CORS) init() {
 	c.fs.Bool("cors-allow-private-network", false, `Allow private network requests from CORS requests.`)
 	c.fs.Int("cors-success-status", 0, `HTTP status code to return for successful CORS requests.`)
 
-	cobra.AddTemplateFunc("corsAllowedOrigins", func() []string {
-		return c.AllowedOrigins
+	cobra.AddTemplateFunc("corsFlags", func() *pflag.FlagSet {
+		return c.fs
 	})
 }
 

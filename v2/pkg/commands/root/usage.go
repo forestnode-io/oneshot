@@ -11,24 +11,24 @@ Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "he
   {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if and .HasAvailableLocalFlags (ne .Name "oneshot")}}
 
 Flags:
-{{.LocalFlags | wrappedFlagUsages | trimTrailingWhitespaces}}{{end}}
+{{ .LocalFlags | wrappedFlagUsages | trimTrailingWhitespaces}}{{end}}
 
 Global Flags:
 {{ "Output flags:" | indent 4}}
-{{flags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
+{{ outputFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
 
 {{ "Server Flags:" | indent 4 }}
-{{serverFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
+{{ serverFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
 
 {{ "Basic Authentication Flags:" | indent 4 }}
-{{basicAuthFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
+{{ basicAuthFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
 
 {{ "CORS Flags:" | indent 4 }}
-{{corsFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
+{{ corsFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 8}}
 
 {{ "NAT Traversal Flags:" | indent 4 }}
 {{ "P2P Flags:" | indent 8 }}
-{{p2pFlags . | wrappedFlagUsages | trimTrailingWhitespaces | indent 12}}{{if eq .Name "oneshot" }}
+{{ p2pFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 12}}{{if eq .Name "oneshot" }}
 
 Use "oneshot [command] --help" for more information about a command.{{end}}
 `
