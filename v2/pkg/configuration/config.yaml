@@ -1,0 +1,324 @@
+# Output options
+output:
+  # quiet suppresses all output except for received data
+  #
+  # equivalent flag: -q, --quiet
+  quiet: false
+  # format specifies the output format of non-received data
+  # such as version info or transfer reports.
+  #
+  # equivalent flag: -o, --output
+  format:
+    # available formats:
+    #   - "": human-readable format
+    #   - "json": JSON format
+    format: ""
+    # Valid json opts are:
+    # - compact
+    #     Disables tabbed, pretty printed json.
+    # - include-file-contents
+    #     Includes the contents of files in the json output.
+    #     This is on by default when sending from stdin or receiving to stdout.
+    # - exclude-file-contents
+    #     Excludes the contents of files in the json output.
+    #     This is on by default when sending or receiving to or from disk.
+    opts: []
+  # print a code of a URL that the server can be reached at
+  #
+  # equivalent flag: --qr-code
+  qrCode: false
+  # equivalent flag: --no-color
+  noColor: false
+# Server options
+# These apply to the main HTTP one-shot server.
+server:
+  # equivalent flag: --host
+  host: ""
+  # equivalent flag: -p, --port
+  port: 8080
+  # how long to wait for a connection to be established before timing out.
+  # a value of 0 will cause oneshot to wait indefinitely.
+  #
+  # equivalent flag: --timeout
+  timeout: 0s
+  # do not filter out connections from bots and crawlers or other automated clients such as prefetch requests and previews.
+  #
+  # equivalent flag: --allow-bots
+  allowBots: false
+  # the maximum read size for incoming request bodies. A value of zero will cause oneshot to read until EOF.
+  # format is a number followed by a unit of measurement.
+  # Valid units are: b, B,
+  #   Kb, KB, KiB,
+  #   Mb, MB, MiB,
+  #   Gb, GB, GiB,
+  #   Tb, TB, TiB
+  # Example: 1.5GB
+  #
+  # equivalent flag: --max-read-size
+  maxReadSize: 0
+  # exit after a failed transfer, without waiting for a new connection.
+  #
+  # equivalent flag: --exit-on-fail
+  exitOnFail: false
+  # equivalent flag: --tls-cert
+  tlsCert: ""
+  # equivalent flag: --tls-key
+  tlsKey: ""
+# basicAuth specifies the username and password to require from clients.
+basicAuth:
+  # equivalent flag: -u, --username
+  username: ""
+  # equivalent flag: -P, --password
+  password: ""
+  # equivalent flag: --password-file
+  passwordFile: ""
+  # prompt for a password once oneshot is run.
+  # this prevents the password from being saved in the terminals history.
+  #
+  # equivalent flag: --password-prompt
+  passwordPrompt: false
+  # path to the html file to serve when a client connects without authorization.
+  #
+  # equivalent flag: --unauthorized-page
+  unauthorizedPage: ""
+  # the status code to return when a client connects without authorization.
+  #
+  # equivalent flag: --unauthorized-status
+  unauthorizedStatus: 0
+  # if true, the server will not prompt for credentials when a client connects without authorization.
+  #
+  # equivalent flag: --no-dialog
+  noDialog: false
+cors:
+  # equivalent flag: --cors-allowed-origins
+  allowedOrigins: []
+  # equivalent flag: --cors-allowed-headers
+  allowedHeaders: []
+  # equivalent flag: --cors-max-age
+  maxAge: 0
+  # equivalent flag: --cors-allow-credentials
+  allowCredentials: false
+  # equivalent flag: --cors-allow-private-network
+  allowPrivateNetwork: false
+  # equivalent flag: --cors-success-status
+  successStatus: 0
+# natTraversal specifies options for NAT traversal as a means of enabling
+# connections across most common private network setups.
+natTraversal:
+  # discoveryServer specifies the URL of the discovery server to use.
+  # if this is empty, the server will not attempt to use NAT traversal by default.
+  discoveryServer:
+    # equivalent flag: --discovery-server-url
+    url: ""
+    # equivalent flag: --discovery-server-key-path
+    keyPath: ""
+    # if true, oneshot will not require a valid TLS certificate from the discovery server.
+    #
+    # equivalent flag: --discovery-server-insecure
+    insecure: false
+    # the url to request that the discovery server assign for clients to connect to.
+    # if the preferred url cannot be assigned, the server will generate one.
+    # if the url is empty, the server will use the url that the client connected to.
+    #
+    # equivalent flag: --discovery-server-preferred-url
+    preferredURL: ""
+    # the url to require that the discovery server assign for clients to connect to.
+    # if the required url cannot be assigned, the connection will be rejected.
+    #
+    # equivalent flag: --discovery-server-required-url
+    requiredURL: ""
+  # p2p specifies options for peer-to-peer NAT traversal via WebRTC.
+  p2p:
+    # if true, oneshot will attempt to use WebRTC for NAT traversal.
+    # this option requires that either a connection to a discovery server 
+    # or that the discoveryDir option is set. 
+    #
+    # equivalent flag: --p2p
+    enabled: true
+    # only allow connections from clients that support WebRTC, do not accept non p2p connections.
+    #
+    # equivalent flag: --p2p-only
+    only: false
+    # Path to the directory containing the discovery files.
+    # In this directory, each peer connection has a numerically named subdirectory containing an answer and offer file.
+    # The offer file contains the RTCSessionDescription JSON of the WebRTc offer
+    # and the answer file contains the RTCSessionDescription JSON of the WebRTC answer.
+    #
+    # This method of NAT traversal requires that a webrtcConfiguration be set.
+    #
+    # equivalent flag: --p2p-discovery-dir 
+    discoveryDir: ""
+    # the path to the WebRTC configuration file to use.
+    #
+    # equivalent flag: --p2p-webrtc-config-file
+    webrtcConfigurationFile: ""
+    # equivalent flag: none
+    webrtcConfiguration: null
+      # iceServers:
+      #   - urls:
+      #       - ""
+      #     username: ""
+      #     credential: ""
+      #     credentialPath: ""
+      #     credentialTypeIsOAuth: false
+      # relayOnly: false
+      # certificates:
+      #   - type: "rsa"
+      #     privateKeyPath: ""
+  # upnp specifies options for NAT traversal via UPnP IGD, which
+  # is a common protocol for enabling port forwarding on home routers.
+  #
+  # this method of NAT traversal requires that a duration be set.
+  upnp:
+    # equivalent flag: --external-port
+    externalPort: 0
+    # mapPort enables port mapping via UPnP IGD, it defaults to setting the external port to the same as the internal port.
+    #
+    # equivalent flag: --map-port
+    mapPort: false
+    # equivalent flag: --port-mapping-duration
+    duration: 0s
+    # sets the amount of time to wait for a UPnP IGD device to respond to a discovery request.
+    #
+    # equivalent flag: --upnp-discovery-timeout
+    timeout: 0s
+subcommands:
+  send:
+    # equivalent flag: -a, --archive-method
+    archiveMethod: ""
+    # don't trigger a download on connected browsers.
+    #
+    # equivalent flag: -D, --no-download
+    noDownload: false
+    # the mime type of the file presented to the client.
+    # if this is empty, the mime type will be inferred from the file extension.
+    #
+    # equivalent flag: -m, --mime
+    mime: ""
+    # the name of the file presented to the client.
+    # if this is empty, the name will be inferred from the file path.
+    #
+    # equivalent flag: -n, --name
+    name: ""
+    # the status code to send to the client.
+    #
+    # equivalent flag: --status-code
+    statusCode: 200
+    # equivalent flag: -H, --header
+    header: {}
+      # X-Foo: ["bar"]
+  receive:
+    # csrf token to require from clients.
+    # if this is empty, a random token will be generated.
+    #
+    # equivalent flag: --csrf-token
+    crsfToken: ""
+    # how to parse EOLs in the received data.
+    # available options: 'unix' and 'dos'
+    #
+    # equivalent flag: --eol
+    eol: ""
+    # path to html file to serve as an upload client.
+    #
+    # equivalent flag: -U, --ui
+    ui: ""
+    # equivalent flag: -H, --header
+    header: {}
+      # X-Foo: ["bar"]
+    # include the request body in the report.
+    #
+    # equivalent flag: --include-body
+    includeBody: false
+  redirect:
+    # equivalent flag: --status-code
+    statusCode: 302
+    # equivalent flag: -H, --header
+    header : {}
+      # X-Foo: ["bar"]
+  rproxy:
+    # status code to send with the proxied response.
+    # this overrides the status code of the proxied response.
+    # if this is 0, the status code of the proxied response will be used.
+    #
+    # equivalent flag: --status-code
+    statusCode: 0
+    # http method to send with the proxied request.
+    # this overrides the method of the proxied request.
+    # if this is empty, the method of the proxied request will be used.
+    #
+    # equivalent flag: --method
+    method: ""
+    # the 'Host' header will be set to match the host being reverse-proxied to.
+    #
+    # equivalent flag: --match-host
+    matchHost: false
+    # send a copy of the proxied response to stdout.
+    #
+    # equivalent flag: --tee
+    tee: false
+    # spoof the request host.
+    # the 'Host' header will be set to this value.
+    # this is ignored if matchHost is true.
+    #
+    # equivalent flag: --spoof-host
+    spoofHost: ""
+    # header to send with the proxied request.
+    #
+    # equivalent flag: --request-header
+    requestHeader: {}
+      # X-Foo: ["bar"]
+    # header to send with the proxied response.
+    #
+    # equivalent flag: --response-header
+    responseHeader: {}
+      # X-Foo: ["bar"]
+  exec:
+    # the executable must conform to the CGI specification.
+    #
+    # equivalent flag: --enforce-cgi
+    enforceCGI: false
+    # equivalent flag: -e, --env
+    env: []
+      # - "FOO=bar"
+    # the working directory of the executable.
+    #
+    # equivalent flag: --dir
+    dir: ""
+    # where to send the stderr of the executable.
+    #
+    # equivalent flag: --stderr
+    stderr: ""
+    # allow the executable to replace header values.
+    #
+    # equivalent flag: --replace-headers
+    replaceHeaders: false
+    # equivalent flag: -H, --header
+    header: {}
+      # X-Foo: ["bar"]
+  p2p:
+    browserClient:
+      # equivalent flag: --open
+      open: false
+    client:
+      send: {}
+      receive: {}
+  # specifies options for the discovery server.
+  # none of these options are have equivalent flags.
+  discoveryServer:
+    requiredKey:
+      path: ""
+      value: ""
+    jwt:
+      path: ""
+      value: ""
+    maxClientQueueSize: 1
+    urlAssignment:
+      scheme: ""
+      domain: ""
+      port: 0
+      path: ""
+      pathPrefix: ""
+    apiServer:
+      addr: ":8081"
+      tlsCert: ""
+      tlsKey: ""

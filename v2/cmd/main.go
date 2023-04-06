@@ -62,5 +62,7 @@ func main() {
 
 	if err := root.ExecuteContext(ctx); err == nil {
 		status = events.ExitCodeSuccess
+	} else {
+		fmt.Printf("error: %s\n", err.Error())
 	}
 }

@@ -222,6 +222,7 @@ func (c *UPnP) init() {
 	c.fs.Int("external-port", 0, "External port to use for UPnP IGD port mapping.")
 	c.fs.Duration("port-mapping-duration", 0, "Duration to use for UPnP IGD port mapping.")
 	c.fs.Duration("upnp-discovery-timeout", 60*time.Second, "Timeout for UPnP IGD discovery.")
+	c.fs.Bool("map-port", false, "Map port using UPnP IGD.")
 
 	cobra.AddTemplateFunc("upnpFlags", func() *pflag.FlagSet {
 		return c.fs
@@ -231,6 +232,7 @@ func (c *UPnP) init() {
 func (c *UPnP) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 	fs.AddFlagSet(c.fs)
 	cmd.MarkFlagsRequiredTogether("external-port", "port-mapping-duration")
+	cmd.MarkFlagsRequiredTogether("map-port", "port-mapping-duration")
 }
 
 func (c *UPnP) mergeFlags() {
@@ -244,6 +246,10 @@ func (c *UPnP) mergeFlags() {
 
 	if c.fs.Changed("upnp-discovery-timeout") {
 		c.Timeout, _ = c.fs.GetDuration("upnp-discovery-timeout")
+	}
+
+	if c.fs.Changed("map-port") {
+		c.Enabled, _ = c.fs.GetBool("map-port")
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	oneshotos "github.com/raphaelreyna/oneshot/v2/pkg/os"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -62,7 +65,6 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		ctx = cmd.Context()
 		log = zerolog.Ctx(ctx)
 
-		config    = c.config.Subcommands.P2P.Client.Receive
 		p2pConfig = c.config.NATTraversal.P2P
 		dsConfig  = c.config.NATTraversal.DiscoveryServer
 		baConfig  = c.config.BasicAuth
@@ -80,12 +82,52 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		transport *client.Transport
 		bat       string
 	)
-	if p2pConfig.DiscoveryDir != "" {
+	if webRTCSignallingDir := p2pConfig.DiscoveryDir; webRTCSignallingDir != "" {
 		transport, err = client.NewTransport(c.webrtcConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
-		signaller, bat, err = signallers.NewFileClientSignaller(config.OfferFile, config.AnswerFile)
+
+		foundPair := false
+		offerFilePath := filepath.Join(webRTCSignallingDir, "offer")
+		answerFilePath := filepath.Join(webRTCSignallingDir, "answer")
+		_, err := os.Stat(offerFilePath)
+		if err == nil {
+			_, err = os.Stat(answerFilePath)
+			if err == nil {
+				foundPair = true
+			}
+		}
+		if !foundPair {
+			dirContents, err := oneshotos.ReadDirSorted(webRTCSignallingDir, true)
+			if err != nil {
+				log.Error().Err(err).
+					Msg("failed to read dir")
+
+				return fmt.Errorf("failed to read dir: %w", err)
+			}
+			latestDir := dirContents[len(dirContents)-1].Name()
+
+			ofp := filepath.Join(webRTCSignallingDir, latestDir, "offer")
+			afp := filepath.Join(webRTCSignallingDir, latestDir, "answer")
+			_, err = os.Stat(ofp)
+			if err == nil {
+				_, err = os.Stat(afp)
+				if err == nil {
+					offerFilePath = ofp
+					answerFilePath = afp
+					foundPair = true
+				}
+			}
+		}
+		if !foundPair {
+			log.Error().
+				Msg("no offer/answer pair found")
+
+			return fmt.Errorf("no offer/answer pair found")
+		}
+
+		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
 		corr, err := discovery.NegotiateOfferRequest(ctx, dsConfig.URL, baConfig.Username, baConfig.Password, http.DefaultClient)
 		if err != nil {

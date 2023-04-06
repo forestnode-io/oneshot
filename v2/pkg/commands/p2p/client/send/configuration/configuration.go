@@ -10,8 +10,6 @@ import (
 
 type Configuration struct {
 	Name          string                 `json:"name" yaml:"name"`
-	OfferFile     string                 `json:"offerFile" yaml:"offerFile"`
-	AnswerFile    string                 `json:"answerFile" yaml:"answerFile"`
 	ArchiveMethod flagargs.ArchiveMethod `json:"archiveMethod" yaml:"archiveMethod"`
 
 	fs *pflag.FlagSet
@@ -21,8 +19,6 @@ func (c *Configuration) Init() {
 	c.fs = pflag.NewFlagSet("send flags", pflag.ExitOnError)
 
 	c.fs.StringP("name", "n", "", "Name of file presented to the server.")
-	c.fs.StringP("offer-file", "O", "", "Path to file containing the SDP offer.")
-	c.fs.StringP("answer-file", "A", "", "Path to file which the SDP answer should be written to.")
 	var archiveMethod flagargs.ArchiveMethod
 	c.fs.VarP(&archiveMethod, "archive-method", "a", `Which archive method to use when sending directories.
 Recognized values are "zip", "tar" and "tar.gz".`)
@@ -44,12 +40,6 @@ func (c *Configuration) SetFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 func (c *Configuration) MergeFlags() {
 	if c.fs.Changed("name") {
 		c.Name, _ = c.fs.GetString("name")
-	}
-	if c.fs.Changed("offer-file") {
-		c.OfferFile, _ = c.fs.GetString("offer-file")
-	}
-	if c.fs.Changed("answer-file") {
-		c.AnswerFile, _ = c.fs.GetString("answer-file")
 	}
 	if c.fs.Changed("archive-method") {
 		am, ok := c.fs.Lookup("archive-method").Value.(*flagargs.ArchiveMethod)

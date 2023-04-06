@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/client"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	oneshotos "github.com/raphaelreyna/oneshot/v2/pkg/os"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -71,8 +73,6 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		baConfig  = c.config.BasicAuth
 
 		fileName            = config.Name
-		offerFilePath       = config.OfferFile
-		answerFilePath      = config.AnswerFile
 		webRTCSignallingDir = p2pConfig.DiscoveryDir
 		webRTCSignallingURL = dsConfig.URL
 	)
@@ -108,6 +108,46 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
+
+		foundPair := false
+		offerFilePath := filepath.Join(webRTCSignallingDir, "offer")
+		answerFilePath := filepath.Join(webRTCSignallingDir, "answer")
+		_, err := os.Stat(offerFilePath)
+		if err == nil {
+			_, err = os.Stat(answerFilePath)
+			if err == nil {
+				foundPair = true
+			}
+		}
+		if !foundPair {
+			dirContents, err := oneshotos.ReadDirSorted(webRTCSignallingDir, true)
+			if err != nil {
+				log.Error().Err(err).
+					Msg("failed to read dir")
+
+				return fmt.Errorf("failed to read dir: %w", err)
+			}
+			latestDir := dirContents[len(dirContents)-1].Name()
+
+			ofp := filepath.Join(webRTCSignallingDir, latestDir, "offer")
+			afp := filepath.Join(webRTCSignallingDir, latestDir, "answer")
+			_, err = os.Stat(ofp)
+			if err == nil {
+				_, err = os.Stat(afp)
+				if err == nil {
+					offerFilePath = ofp
+					answerFilePath = afp
+					foundPair = true
+				}
+			}
+		}
+		if !foundPair {
+			log.Error().
+				Msg("no offer/answer pair found")
+
+			return fmt.Errorf("no offer/answer pair found")
+		}
+
 		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
 		corr, err := discovery.NegotiateOfferRequest(ctx, webRTCSignallingURL, baConfig.Username, baConfig.Password, http.DefaultClient)

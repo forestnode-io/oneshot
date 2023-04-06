@@ -1,6 +1,8 @@
 package configuration
 
 import (
+	"fmt"
+
 	discoveryserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/configuration"
 	exec "github.com/raphaelreyna/oneshot/v2/pkg/commands/exec/configuration"
 	p2p "github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/configuration"
@@ -108,5 +110,8 @@ func (c *Root) Validate() error {
 }
 
 func (c *Root) Hydrate() error {
+	if err := c.NATTraversal.hydrate(); err != nil {
+		return fmt.Errorf("error hydrating NAT traversal configuration: %w", err)
+	}
 	return nil
 }
