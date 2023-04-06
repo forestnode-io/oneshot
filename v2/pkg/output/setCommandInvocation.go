@@ -18,6 +18,7 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 		}
 	)
 
+	o.gotInvocationInfo = true
 	o.cmdName = name
 	cmd.VisitParents(func(c *cobra.Command) {
 		if c.Name() == "oneshot" {

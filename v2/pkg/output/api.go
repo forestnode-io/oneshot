@@ -119,7 +119,10 @@ func ReceivingToStdout(ctx context.Context) {
 }
 
 func Wait(ctx context.Context) {
-	<-getOutput(ctx).doneChan
+	o := getOutput(ctx)
+	if o.gotInvocationInfo {
+		<-o.doneChan
+	}
 }
 
 func GetBufferedWriteCloser(ctx context.Context) io.WriteCloser {

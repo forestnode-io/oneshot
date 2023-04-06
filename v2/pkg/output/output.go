@@ -57,6 +57,8 @@ type output struct {
 	stdoutFailColor termenv.Color
 	stderrFailColor termenv.Color
 
+	gotInvocationInfo bool
+
 	cmdName string
 }
 
