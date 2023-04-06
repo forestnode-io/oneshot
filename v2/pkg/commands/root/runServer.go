@@ -280,7 +280,6 @@ func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr, userFac
 	}
 
 	return r.server.Serve(ctx, l)
-
 }
 
 var ErrTimeout = errors.New("timeout")

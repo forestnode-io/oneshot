@@ -222,6 +222,12 @@ subcommands:
     #
     # equivalent flag: -U, --ui
     ui: ""
+    # Decode received data as base64.
+    #
+    # equivalent flag: --decode-b64
+    decodeBase64: false
+    # equivalent flag: --status-code
+    statusCode: 200
     # equivalent flag: -H, --header
     header: {}
       # X-Foo: ["bar"]

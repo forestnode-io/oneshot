@@ -14,13 +14,20 @@ import (
 )
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var (
+		ctx = c.cobraCommand.Context()
+		log = zerolog.Ctx(ctx)
+	)
+
 	if r.Method == "GET" {
+		log.Debug().
+			Msg("serving receive browser client")
+
 		c._handleGET(w, r)
 		return
 	}
 
 	var (
-		ctx    = c.cobraCommand.Context()
 		config = c.config.Subcommands.Receive
 		rb     *requestBody
 		err    error
@@ -28,20 +35,28 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	events.Raise(ctx, output.NewHTTPRequest(r))
 
+	rct := r.Header.Get("Content-Type")
+	log.Debug().
+		Str("content-type", rct).
+		Msg("raise new request event")
+
 	// Switch on the type of upload to obtain the appropriate src io.Reader to read data from.
 	// Uploads may happen by uploading a file, uploading text from an HTML text box, or straight from the request body
-	rct := r.Header.Get("Content-Type")
 	switch {
 	case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
 		rb, err = c.readCloserFromMultipartFormData(r)
+	case r.Header.Get("Content-Length") != "0": // this usually means theres a non-empty body, lets grab it
+		rb, err = c.readCloserFromRawBody(r)
 	case strings.Contains(rct, "application/x-www-form-urlencoded"): // User uploaded text from HTML text box
 		rb, err = c.readCloserFromApplicationWWWForm(r)
 	default: // Could not determine how file upload was initiated, grabbing the request body
 		rb, err = c.readCloserFromRawBody(r)
 	}
 	defer r.Body.Close()
-
 	if err != nil {
+		log.Error().Err(err).
+			Msg("error determining upload type")
+
 		http.Error(w, err.Error(), err.(*httpError).stat)
 		events.Raise(ctx, events.ClientDisconnected{Err: err})
 		return
@@ -63,11 +78,16 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	wts, err := c.fileTransferConfig.NewWriteTransferSession(ctx, rb.name, rb.mime)
 	if err != nil {
+		log.Error().Err(err).
+			Msg("error creating write transfer session")
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		events.Raise(ctx, events.ClientDisconnected{Err: err})
 		return
 	}
 	defer wts.Close()
+
+	log.Debug().Msg("created write transfer session")
 
 	cancelProgDisp := output.DisplayProgress(
 		ctx,
@@ -78,6 +98,8 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 	defer cancelProgDisp()
 
+	log.Debug().Msg("started progress display")
+
 	file, getBufBytes := output.NewBufferedWriter(ctx, wts)
 	fileReport := events.File{
 		MIME:              rb.mime,
@@ -85,9 +107,18 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Name:              rb.name,
 		TransferStartTime: time.Now(),
 	}
+
+	log.Debug().Msg("starting file copy")
+
 	fileReport.TransferSize, err = io.Copy(file, src)
 	fileReport.TransferEndTime = time.Now()
+
+	log.Debug().Msg("finished file copy")
+
 	if err != nil {
+		log.Error().Err(err).
+			Msg("error copying file from request")
+
 		events.Raise(ctx, &fileReport)
 		events.Raise(ctx, events.ClientDisconnected{
 			Err: err,
