@@ -8,6 +8,7 @@ import (
 
 	_ "embed"
 
+	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -111,14 +112,21 @@ type Configuration interface {
 }
 
 func ReadConfig() (*Root, error) {
-	var config Root
-	if userConfigPath == "" {
-		return &config, nil
-	}
+	var (
+		config Root
+		log    = log.Logger()
 
-	data, err := os.ReadFile(userConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read user config file: %w", err)
+		data []byte
+		err  error
+	)
+	if userConfigPath == "" {
+		data = defaultConfig
+		log.Info().Msg("using built-in default config")
+	} else {
+		data, err = os.ReadFile(userConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read user config file: %w", err)
+		}
 	}
 
 	if err = yaml.Unmarshal(data, &config); err != nil {
