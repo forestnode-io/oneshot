@@ -216,12 +216,15 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		}()
 
 		log.Debug().Msg("waiting for WebRTC listening address")
-		discoveryServerAssignedAddress = <-externalAddrChan
+		select {
+		case <-ctx.Done():
+		case discoveryServerAssignedAddress = <-externalAddrChan:
+		}
 		log.Debug().
 			Str("address", discoveryServerAssignedAddress).
 			Msg("got WebRTC listening address")
 		if discoveryServerAssignedAddress == "" {
-			return errors.New("listening address is empty")
+			return errors.New("unable to establish a connection with the discovery server")
 		}
 	}
 
