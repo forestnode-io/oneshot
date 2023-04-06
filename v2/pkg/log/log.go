@@ -31,7 +31,7 @@ func Logging(ctx context.Context) (context.Context, func(), error) {
 	var output io.Writer
 	if logDir != "" {
 		logPath := filepath.Join(logDir, "oneshot.log")
-		logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND, os.ModePerm)
+		logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("unable to open log file in %s (ONESHOT_LOG_DIR)", logDir)
 		}
