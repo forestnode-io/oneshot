@@ -90,6 +90,14 @@ func (c *DiscoveryServer) init() {
 	cobra.AddTemplateFunc("discoveryServerFlags", func() *pflag.FlagSet {
 		return c.fs
 	})
+	cobra.AddTemplateFunc("discoveryServerClientFlags", func() *pflag.FlagSet {
+		fs := pflag.NewFlagSet("Discovery Server", pflag.ExitOnError)
+		fs.String("discovery-server-url", "", "URL of the discovery server to connect to.")
+		fs.String("discovery-server-key-path", "", "Path to the key to present to the discovery server.")
+		fs.String("discovery-server-key", "", "Key to present to the discovery server.")
+		fs.Bool("discovery-server-insecure", false, "Allow insecure connections to the discovery server.")
+		return fs
+	})
 }
 
 func (c *DiscoveryServer) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
@@ -152,6 +160,15 @@ and the answer file contains the RTCSessionDescription JSON of the WebRTC answer
 
 	cobra.AddTemplateFunc("p2pFlags", func() *pflag.FlagSet {
 		return c.fs
+	})
+	cobra.AddTemplateFunc("p2pClientFlags", func() *pflag.FlagSet {
+		fs := pflag.NewFlagSet("P2P Client", pflag.ExitOnError)
+		fs.String("p2p-discovery-dir", "", `Path to the directory containing the discovery files.
+In this directory, each peer connection has a numerically named subdirectory containing an answer and offer file.
+The offer file contains the RTCSessionDescription JSON of the WebRTc offer
+and the answer file contains the RTCSessionDescription JSON of the WebRTC answer.`)
+
+		return fs
 	})
 }
 

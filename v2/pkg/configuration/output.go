@@ -21,20 +21,37 @@ func (c *Output) init() {
 	c.fs.BoolP("quiet", "q", false, "Disable all output except for received data")
 	var format flagargs.OutputFormat
 	c.fs.VarP(&format, "output", "o", `Set output format. Valid formats are: json[=opts].
-	Valid json opts are:
-		- compact
-			Disables tabbed, pretty printed json.
-		- include-file-contents
-			Includes the contents of files in the json output.
-			This is on by default when sending from stdin or receiving to stdout.
-		- exclude-file-contents
-			Excludes the contents of files in the json output.
-			This is on by default when sending or receiving to or from disk.`)
+Valid json opts are:
+	- compact
+		Disables tabbed, pretty printed json.
+	- include-file-contents
+		Includes the contents of files in the json output.
+		This is on by default when sending from stdin or receiving to stdout.
+	- exclude-file-contents
+		Excludes the contents of files in the json output.
+		This is on by default when sending or receiving to or from disk.`)
 	c.fs.Bool("qr-code", false, "Print a QR code of a URL that the server can be reached at")
 	c.fs.Bool("no-color", false, "Disable color output")
 
 	cobra.AddTemplateFunc("outputFlags", func() *pflag.FlagSet {
 		return c.fs
+	})
+	cobra.AddTemplateFunc("outputClientFlags", func() *pflag.FlagSet {
+		fs := pflag.NewFlagSet("Output Flags", pflag.ExitOnError)
+		fs.BoolP("quiet", "q", false, "Disable all output except for received data")
+		var format flagargs.OutputFormat
+		fs.VarP(&format, "output", "o", `Set output format. Valid formats are: json[=opts].
+Valid json opts are:
+	- compact
+		Disables tabbed, pretty printed json.
+	- include-file-contents
+		Includes the contents of files in the json output.
+		This is on by default when sending from stdin or receiving to stdout.
+	- exclude-file-contents
+		Excludes the contents of files in the json output.
+		This is on by default when sending or receiving to or from disk.`)
+		fs.Bool("no-color", false, "Disable color output")
+		return fs
 	})
 }
 

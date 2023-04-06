@@ -59,7 +59,9 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 		},
 	}
 
-	c.config.Subcommands.Exec.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
+	c.config.Subcommands.Exec.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
 
 	return c.cobraCommand
 }

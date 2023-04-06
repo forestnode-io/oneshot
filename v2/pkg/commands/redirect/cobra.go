@@ -56,7 +56,9 @@ func (c *Cmd) Cobra() *cobra.Command {
 		},
 	}
 
-	c.config.Subcommands.Redirect.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
+	c.config.Subcommands.Redirect.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
 
 	return c.cobraCommand
 }

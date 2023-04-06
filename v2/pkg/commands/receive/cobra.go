@@ -97,7 +97,9 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 		},
 	}
 
-	c.config.Subcommands.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
+	c.config.Subcommands.Receive.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
 
 	return c.cobraCommand
 }

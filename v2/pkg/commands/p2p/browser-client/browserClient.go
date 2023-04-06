@@ -45,7 +45,9 @@ This client can be used to establish a p2p connection with oneshot when not usin
 		RunE: c.run,
 	}
 
-	c.config.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
+	c.config.Subcommands.P2P.BrowserClient.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
 
 	return c.cobraCommand
 }

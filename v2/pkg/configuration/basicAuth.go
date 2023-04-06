@@ -21,20 +21,39 @@ func (c *BasicAuth) init() {
 	c.fs = pflag.NewFlagSet("Basic Auth Flags", pflag.ExitOnError)
 
 	c.fs.StringP("username", "u", "", `Username for basic authentication.
-	If a password is not also provided then the client may enter any password.`)
+If a password is not also provided then the client may enter any password.`)
 	c.fs.StringP("password", "P", "", `Password for basic authentication.
-	If a username is not also provided using the --username flag then the client may enter any username.
-	If either the --password-prompt or --password-file flags are set, this flag will be ignored.`)
+If a username is not also provided using the --username flag then the client may enter any username.
+If either the --password-prompt or --password-file flags are set, this flag will be ignored.`)
 	c.fs.String("password-file", "", `Path to file containing password for basic authentication.
-	If a username is not also provided then the client may enter any username.
-	If the --password-prompt flag is set, this flags will be ignored.`)
+If a username is not also provided then the client may enter any username.
+If the --password-prompt flag is set, this flags will be ignored.`)
 	c.fs.BoolP("password-prompt", "W", false, `Prompt for password for basic authentication.
-	If a username is not also provided then the client may enter any username.
-	If the --password-file flag is set, this flag will be ignored.`)
+If a username is not also provided then the client may enter any username.
+If the --password-file flag is set, this flag will be ignored.`)
 	c.fs.String("unauthorized-page", "", `Path to file containing HTML to display when a user is unauthorized.
-	If this flag is not set then a default page will be displayed.`)
+If this flag is not set then a default page will be displayed.`)
 	c.fs.Int("unauthorized-status", 401, `HTTP status code to return when a user is unauthorized.`)
 	c.fs.Bool("no-dialog", false, `Do not display a dialog box when prompting for credentials.`)
+
+	cobra.AddTemplateFunc("basicAuthFlags", func() *pflag.FlagSet {
+		return c.fs
+	})
+	cobra.AddTemplateFunc("basicAuthClientFlags", func() *pflag.FlagSet {
+		fs := pflag.NewFlagSet("Basic Auth Client Flags", pflag.ExitOnError)
+		fs.StringP("username", "u", "", `Username for basic authentication.
+If a password is not also provided then the client may enter any password.`)
+		fs.StringP("password", "P", "", `Password for basic authentication.
+If a username is not also provided using the --username flag then the client may enter any username.
+If either the --password-prompt or --password-file flags are set, this flag will be ignored.`)
+		fs.String("password-file", "", `Path to file containing password for basic authentication.
+If a username is not also provided then the client may enter any username.
+If the --password-prompt flag is set, this flags will be ignored.`)
+		fs.BoolP("password-prompt", "W", false, `Prompt for password for basic authentication.
+If a username is not also provided then the client may enter any username.
+If the --password-file flag is set, this flag will be ignored.`)
+		return fs
+	})
 }
 
 func (c *BasicAuth) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
@@ -42,10 +61,6 @@ func (c *BasicAuth) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 	cmd.MarkFlagsMutuallyExclusive("password", "password-file")
 	cmd.MarkFlagFilename("password-file")
 	cmd.MarkFlagFilename("unauthorized-page")
-
-	cobra.AddTemplateFunc("basicAuthFlags", func() *pflag.FlagSet {
-		return c.fs
-	})
 }
 
 func (c *BasicAuth) mergeFlags() {

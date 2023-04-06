@@ -20,7 +20,7 @@ func (c *Configuration) Init() {
 
 	c.fs.Int("status-code", http.StatusTemporaryRedirect, "HTTP status code to send to client.")
 	c.fs.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times. 
-	Format: <HEADER NAME>=<HEADER VALUE>`)
+Format: <HEADER NAME>=<HEADER VALUE>`)
 
 	cobra.AddTemplateFunc("redirectFlags", func() *pflag.FlagSet {
 		return c.fs

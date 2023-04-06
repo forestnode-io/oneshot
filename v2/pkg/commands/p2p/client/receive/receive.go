@@ -55,6 +55,8 @@ func (c *Cmd) Cobra() *cobra.Command {
 		RunE: c.receive,
 	}
 
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
 	c.config.Subcommands.P2P.Client.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand

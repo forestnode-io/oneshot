@@ -76,5 +76,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		},
 	}
 
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
 	return c.cobraCommand
 }

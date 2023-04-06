@@ -29,6 +29,8 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Long:  "WebRTC client commands",
 	}
 
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
 	c.cobraCommand.AddCommand(subCommands(c.config)...)
 
 	return c.cobraCommand

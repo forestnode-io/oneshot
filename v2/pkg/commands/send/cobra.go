@@ -52,7 +52,9 @@ If a directory is given, it will be archived and sent to the client; oneshot doe
 		RunE: c.setHandlerFunc,
 	}
 
-	c.config.Subcommands.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	c.cobraCommand.SetUsageTemplate(usageTemplate)
+
+	c.config.Subcommands.Send.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
 
 	return c.cobraCommand
 }
