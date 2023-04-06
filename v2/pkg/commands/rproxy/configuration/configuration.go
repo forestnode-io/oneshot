@@ -58,7 +58,7 @@ func (c *Configuration) MergeFlags() {
 		c.SpoofHost, _ = c.fs.GetString("spoof-host")
 	}
 	if c.fs.Changed("request-header") {
-		header, _ := c.fs.GetStringSlice("header")
+		header, _ := c.fs.GetStringSlice("request-header")
 		hdr, err := oneshothttp.HeaderFromStringSlice(header)
 		if err != nil {
 			panic(err)
@@ -66,7 +66,7 @@ func (c *Configuration) MergeFlags() {
 		c.RequestHeader = hdr
 	}
 	if c.fs.Changed("response-header") {
-		header, _ := c.fs.GetStringSlice("header")
+		header, _ := c.fs.GetStringSlice("response-header")
 		hdr, err := oneshothttp.HeaderFromStringSlice(header)
 		if err != nil {
 			panic(err)

@@ -59,7 +59,7 @@ func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutTTY_StdoutErrTTY() {
 	suite.Assert().Equal("\n", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutNONTTY_StderrTTY() {
@@ -91,7 +91,7 @@ func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutNONTTY_StderrTTY() {
 	suite.Assert().NotContains(string(stdout), "\x1b")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__StdoutTTY_StderrTTY() {
@@ -123,7 +123,7 @@ func (suite *ts) Test_FROM_File_TO_ANY__StdoutTTY_StderrTTY() {
 	suite.Assert().Contains(string(stdout), "success\n\x1b[?25h")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrTTY() {
@@ -188,7 +188,7 @@ func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrNONTTY() {
 	suite.Assert().NotContains(string(stdout), "\x1b")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__JSON() {
@@ -419,5 +419,5 @@ func (suite *ts) Test_MultipleClients() {
 	suite.Assert().Contains(string(stdout), "success\n\x1b[?25h")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }

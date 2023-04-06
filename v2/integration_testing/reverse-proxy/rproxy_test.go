@@ -68,8 +68,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
 	suite.Assert().Equal("", string(stdout))
 
-	stderrr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderrr))
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_tee_FROM_ANY_TO_StdoutTTY__StderrTTY() {
@@ -114,8 +114,8 @@ func (suite *ts) Test_tee_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
 	suite.Assert().Equal("SUCCESS\n", string(stdout))
 
-	stderrr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderrr))
+	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_flags_FROM_ANY_TO_Stdout() {

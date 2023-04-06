@@ -50,7 +50,7 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 	suite.Assert().Equal("SUCCESS\n", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrNONTTY() {

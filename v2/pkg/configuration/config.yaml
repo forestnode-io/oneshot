@@ -237,7 +237,7 @@ subcommands:
     includeBody: false
   redirect:
     # equivalent flag: --status-code
-    statusCode: 302
+    statusCode: 307
     # equivalent flag: -H, --header
     header : {}
       # X-Foo: ["bar"]
