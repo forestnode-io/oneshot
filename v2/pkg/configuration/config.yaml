@@ -134,7 +134,7 @@ natTraversal:
     # or that the discoveryDir option is set. 
     #
     # equivalent flag: --p2p
-    enabled: true
+    enabled: false
     # only allow connections from clients that support WebRTC, do not accept non p2p connections.
     #
     # equivalent flag: --p2p-only
