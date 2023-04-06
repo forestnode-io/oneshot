@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
@@ -31,13 +32,13 @@ func Logging(ctx context.Context) (context.Context, func(), error) {
 	var output io.Writer
 	if logDir != "" {
 		logPath := filepath.Join(logDir, "oneshot.log")
-		logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm)
-		if err != nil {
-			return nil, cleanup, fmt.Errorf("unable to open log file in %s (ONESHOT_LOG_DIR)", logDir)
+		lj := lumberjack.Logger{
+			Filename: logPath,
+			MaxSize:  500, // megabytes
 		}
-		output = logFile
+		output = &lj
 		cleanup = func() {
-			logFile.Close()
+			lj.Close()
 		}
 	} else {
 		output = io.Discard
