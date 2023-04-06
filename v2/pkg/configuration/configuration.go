@@ -8,6 +8,7 @@ import (
 
 	_ "embed"
 
+	"github.com/miracl/conflate"
 	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -129,8 +130,22 @@ func ReadConfig() (*Root, error) {
 		}
 	}
 
-	if err = yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal user config file: %w", err)
+	backgroundConfig, err := conflate.FromData(defaultConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create background config: %w", err)
+	}
+
+	if err = backgroundConfig.AddData(data); err != nil {
+		return nil, fmt.Errorf("failed to add user config data to background config %w", err)
+	}
+
+	confData, err := backgroundConfig.MarshalYAML()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal background config: %w", err)
+	}
+
+	if err = yaml.Unmarshal(confData, &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal background config: %w", err)
 	}
 
 	return &config, nil
