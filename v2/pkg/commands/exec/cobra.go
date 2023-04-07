@@ -61,7 +61,7 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
 
-	c.config.Subcommands.Exec.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
+	c.config.Subcommands.Exec.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }

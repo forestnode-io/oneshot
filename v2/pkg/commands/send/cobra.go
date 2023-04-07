@@ -54,7 +54,7 @@ If a directory is given, it will be archived and sent to the client; oneshot doe
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
 
-	c.config.Subcommands.Send.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
+	c.config.Subcommands.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }

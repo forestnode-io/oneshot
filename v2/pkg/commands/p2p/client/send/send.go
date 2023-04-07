@@ -58,7 +58,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
 
-	c.config.Subcommands.P2P.Client.Send.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
+	c.config.Subcommands.P2P.Client.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }

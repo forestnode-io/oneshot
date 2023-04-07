@@ -57,7 +57,7 @@ Web browsers will be served a JS WebRTC client that will connect back to the dis
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
 
-	c.config.Subcommands.DiscoveryServer.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
+	c.config.Subcommands.DiscoveryServer.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }

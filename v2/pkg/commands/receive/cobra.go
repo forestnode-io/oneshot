@@ -99,7 +99,7 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
 
-	c.config.Subcommands.Receive.SetFlags(c.cobraCommand, c.cobraCommand.LocalFlags())
+	c.config.Subcommands.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }
