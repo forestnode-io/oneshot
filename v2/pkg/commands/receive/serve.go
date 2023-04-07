@@ -147,7 +147,6 @@ func (c *Cmd) _handleGET(w http.ResponseWriter, r *http.Request) {
 		withJS = false
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
 	if err := c.writeTemplate(w, withJS); err != nil {
 		log.Error().Err(err).
 			Msg("failed to write template")

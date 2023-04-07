@@ -231,6 +231,8 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 		config = s.config.Subcommands.DiscoveryServer
 		scheme = config.URLAssignment.Scheme
 		domain = config.URLAssignment.Domain + fmt.Sprintf(":%d", config.URLAssignment.Port)
+		path   = config.URLAssignment.Path
+		//TODO(raphaelreyna): handle the case where theres a path prefix
 	)
 
 	if rurl == "" {
@@ -240,6 +242,7 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 		u := url.URL{
 			Scheme: scheme,
 			Host:   domain,
+			Path:   path,
 		}
 		s.assignedURL = u.String()
 		return s.assignedURL, nil

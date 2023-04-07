@@ -5,6 +5,7 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
+	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -63,9 +64,35 @@ Web browsers will be served a JS WebRTC client that will connect back to the dis
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	var (
-		ctx = cmd.Context()
-		log = zerolog.Ctx(ctx)
+		ctx    = cmd.Context()
+		log    = zerolog.Ctx(ctx)
+		uaConf = c.config.Subcommands.DiscoveryServer.URLAssignment
+		sConf  = c.config.Server
 	)
+
+	if uaConf.Scheme == "" {
+		if sConf.TLSCert != "" && sConf.TLSKey != "" {
+			uaConf.Scheme = "https"
+		} else {
+			uaConf.Scheme = "http"
+		}
+	}
+	if uaConf.Domain == "" {
+		uaConf.Domain = sConf.Host
+		if uaConf.Domain == "" {
+			sip, err := oneshotnet.GetSourceIP("", 0)
+			if err != nil {
+				return fmt.Errorf("unable to get source ip: %w", err)
+			}
+			uaConf.Domain = sip
+		}
+	}
+	if uaConf.Port == 0 {
+		uaConf.Port = sConf.Port
+	}
+	if uaConf.Path == "" {
+		uaConf.Path = "/"
+	}
 
 	s, err := newServer(c.config)
 	if err != nil {

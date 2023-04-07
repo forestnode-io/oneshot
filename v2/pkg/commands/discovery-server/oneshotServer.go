@@ -90,10 +90,12 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 	}
 	o.Arrival = *arrivalRequest
 
-	log.Debug().
-		Str("url", arrivalRequest.URL.URL).
-		Bool("url-required", arrivalRequest.URL.Required).
-		Msg("received arrival request")
+	le := log.Debug()
+	if arrivalRequest.URL != nil {
+		le = le.Str("url", arrivalRequest.URL.URL).
+			Bool("url-required", arrivalRequest.URL.Required)
+	}
+	le.Msg("received arrival request")
 
 	resp := messages.ServerArrivalResponse{}
 	rurl := ""
