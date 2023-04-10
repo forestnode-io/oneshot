@@ -58,6 +58,7 @@ func (r *rootCommand) configureServer() (string, error) {
 
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
+			Chain(oneshothttp.BlockPrefetch("Safari")).
 			Chain(oneshothttp.LimitReaderMiddleware(int64(sConf.MaxReadSize))).
 			Chain(oneshothttp.MiddlewareShim(corsMW)).
 			Chain(oneshothttp.BotsMiddleware(allowBots)).

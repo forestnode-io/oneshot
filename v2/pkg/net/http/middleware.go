@@ -1,8 +1,11 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -117,5 +120,65 @@ func MiddlewareShim(mw func(http.Handler) http.Handler) Middleware {
 	}
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return mw(http.HandlerFunc(next)).ServeHTTP
+	}
+}
+
+// BlockPrefetch blocks prefetching of the page by reloading the page with a short-lived cookie
+// thats only set if the page is visible. This is to prevent browsers and bots from prefetching.
+// Some have recently started not marking the request as a prefetch, so this is a last resort.
+func BlockPrefetch(userAgentKeys ...string) Middleware {
+	bpCookieName := "block-prefetch"
+	preClient := `<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+<script>
+	if (document.visibilityState === 'visible') {
+		document.cookie = '%s=%d' + '; max-age=1; path=/';
+		window.location.reload();
+	}
+</script>
+</body>
+</html>`
+	writePreClient := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.WriteHeader(http.StatusOK)
+		payload := fmt.Sprintf(preClient, bpCookieName, time.Now().UnixNano())
+		_, _ = w.Write([]byte(payload))
+	}
+	cookieIsValid := func(cookie *http.Cookie) bool {
+		if cookie == nil {
+			return false
+		}
+		cv, err := strconv.ParseInt(cookie.Value, 10, 64)
+		if err != nil {
+			return false
+		}
+		if time.Second < time.Since(time.Unix(0, cv)) {
+			return false
+		}
+		return true
+	}
+
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			userAgent := r.Header.Get("User-Agent")
+			for _, key := range userAgentKeys {
+				if strings.Contains(userAgent, key) {
+					cookie, err := r.Cookie("block-prefetch")
+					if err != nil || cookie == nil {
+						writePreClient(w)
+						return
+					}
+					if cookieIsValid(cookie) {
+						next(w, r)
+						return
+					}
+				}
+			}
+			next(w, r)
+		}
 	}
 }
