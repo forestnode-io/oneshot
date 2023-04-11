@@ -112,7 +112,7 @@ func (suite *ts) Test_tee_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 	wg.Wait()
 
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("SUCCESS\n", string(stdout))
+	suite.Assert().Equal("SUCCESS", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
 	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
@@ -245,7 +245,7 @@ func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
 	suite.Assert().Equal("SUCCESS", string(bodyBytes))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_MultipleClients() {
@@ -326,5 +326,5 @@ func (suite *ts) Test_MultipleClients() {
 	suite.Assert().Equal("SUCCESS", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }

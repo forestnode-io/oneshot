@@ -28,7 +28,6 @@ func getOutput(ctx context.Context) *output {
 type output struct {
 	events chan events.Event
 
-	stdoutTTY *termenv.Output
 	stderrTTY *termenv.Output
 
 	dynamicOutput *tabbedDynamicOutput
@@ -36,10 +35,9 @@ type output struct {
 	Format     string
 	FormatOpts map[string]struct{}
 
-	skipSummary       bool
-	ttyForContentOnly bool
-	includeBody       bool
-	receivedBuf       *bytes.Buffer
+	skipSummary bool
+	includeBody bool
+	receivedBuf *bytes.Buffer
 
 	cls                  []*clientSession
 	currentClientSession *clientSession
@@ -47,8 +45,6 @@ type output struct {
 	quiet bool
 
 	doneChan chan struct{}
-
-	stdinIsTTY bool
 
 	displayProgresssPeriod    time.Duration
 	lastProgressDisplayAmount int64
@@ -81,13 +77,6 @@ func (o *output) run(ctx context.Context) error {
 			NewHTTPRequest = events.NewHTTPRequest_WithBody
 			runJSON(ctx, o)
 		}
-
-		// is outputting human readable content to stdout
-		if o.ttyForContentOnly && o.Format != "json" && events.Succeeded(ctx) {
-			// add a newline.
-			// some shells will add a EOF character otherwise
-			fmt.Fprint(os.Stdout, "\n")
-		}
 	}
 
 	log.Debug().
@@ -109,7 +98,7 @@ func (o *output) run(ctx context.Context) error {
 }
 
 func (o *output) writeListeningOnQRCode(addr string) {
-	if o.Format == "json" || o.skipSummary || o.quiet || addr == "" {
+	if o.skipSummary || o.quiet || addr == "" {
 		return
 	}
 
@@ -127,7 +116,7 @@ func (o *output) writeListeningOnQRCode(addr string) {
 }
 
 func (o *output) writeListeningOn(addr string) {
-	if o.Format == "json" || o.skipSummary || o.quiet || addr == "" {
+	if o.skipSummary || o.quiet || addr == "" {
 		return
 	}
 
@@ -141,7 +130,6 @@ func (o *output) ttyCheck() error {
 	if err != nil {
 		return err
 	}
-	stdoutIsTTY := (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
 
 	stat, err = os.Stderr.Stat()
 	if err != nil {
@@ -153,36 +141,14 @@ func (o *output) ttyCheck() error {
 	if err != nil {
 		return err
 	}
-	o.stdinIsTTY = (stat.Mode() & os.ModeCharDevice) == os.ModeCharDevice
 
 	// if we're running in a docker container, assume both stdout and stderr are ttys
 	if _, err := os.Stat("/.dockerenv"); err == nil {
-		stdoutIsTTY = true
 		stderrIsTTY = true
-	}
-
-	if os.Getenv("ONESHOT_TESTING_TTY_STDOUT") != "" {
-		stdoutIsTTY = true
 	}
 
 	if os.Getenv("ONESHOT_TESTING_TTY_STDERR") != "" {
 		stderrIsTTY = true
-	}
-
-	if os.Getenv("ONESHOT_TESTING_TTY_STDIN") != "" {
-		o.stdinIsTTY = true
-	}
-
-	if stdoutIsTTY {
-		o.stdoutTTY = termenv.DefaultOutput()
-		restoreStdout, err := termenv.EnableVirtualTerminalProcessing(o.stdoutTTY)
-		if err != nil {
-			return err
-		}
-		if !o.stdoutTTY.EnvNoColor() {
-			o.stdoutFailColor = o.stdoutTTY.Color("#ff0000")
-		}
-		o.restoreConsole = append(o.restoreConsole, restoreStdout)
 	}
 
 	if stderrIsTTY {
@@ -200,23 +166,12 @@ func (o *output) ttyCheck() error {
 	return nil
 }
 
-func (o *output) enableDynamicOutput(te *termenv.Output) {
-	if te == nil {
-		if o.stdoutTTY != nil {
-			te = o.stdoutTTY
-		} else if o.stderrTTY != nil {
-			te = o.stderrTTY
-		}
-	}
-
-	if te != nil {
-		o.dynamicOutput = newTabbedDynamicOutput(te)
-	}
-
-	if o.dynamicOutput == nil {
+func (o *output) enableDynamicOutput() {
+	if o.stderrTTY == nil {
 		return
 	}
 
+	o.dynamicOutput = newTabbedDynamicOutput(o.stderrTTY)
 	o.dynamicOutput.HideCursor()
 	o.restoreConsole = append(o.restoreConsole, func() error {
 		if o.dynamicOutput != nil {

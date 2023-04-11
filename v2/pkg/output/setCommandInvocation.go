@@ -39,45 +39,27 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 		switch argc {
 		case 0: // sending from stdin
 			if o.Format != "json" {
-				// if stdin is not a tty we can try dynamic output to the tty
-				if !o.stdinIsTTY {
-					o.enableDynamicOutput(nil)
-				} else {
-					o.ttyForContentOnly = true
-				}
+				o.enableDynamicOutput()
 			} else {
 				includeContent()
 			}
 		default: // sending file(s)
 			if o.Format != "json" {
-				o.enableDynamicOutput(nil)
+				o.enableDynamicOutput()
 			}
 		}
 	case "webrtc client receive":
 		fallthrough
 	case "receive":
+		if !o.quiet {
+			o.enableDynamicOutput()
+		}
 		switch argc {
 		case 0: // receiving to stdout
-			if o.Format != "json" {
-				if o.stdoutTTY != nil {
-					o.ttyForContentOnly = true
-				}
-
-				// try to fallback to stderr for dynamic out output but only if
-				// stdout is not a tty since the stderr tty is usually the same as the stdout tty.
-				if o.dynamicOutput != nil {
-					o.dynamicOutput = nil
-					if o.stdoutTTY == nil && o.stderrTTY != nil {
-						o.enableDynamicOutput(o.stderrTTY)
-					}
-				}
-			} else {
+			if o.Format == "json" {
 				includeContent()
 			}
-		default: // receiving to file
-			if o.Format != "json" {
-				o.enableDynamicOutput(nil)
-			}
+		default: // receiving to a file
 		}
 	case "reverse-proxy":
 		if o.Format == "json" {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sync/atomic"
-	"text/tabwriter"
 	"time"
 
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
@@ -73,8 +72,7 @@ func displayProgressFailFlush(o *output, prefix string, start time.Time, prog, t
 
 func _displayFlush(o *output, s string, success bool) {
 	// if we were dynamically displaying progress to stderr
-	var printedToStderr bool
-	if o.dynamicOutput != nil && o.stdoutTTY == nil {
+	if o.dynamicOutput != nil {
 		// update the progress there
 		o.dynamicOutput.resetLine()
 		if color := o.stderrFailColor; !success && color != nil {
@@ -86,42 +84,14 @@ func _displayFlush(o *output, s string, success bool) {
 		}
 
 		o.dynamicOutput.flush()
-		printedToStderr = true
-	}
-
-	// if tty is for content only
-	if o.ttyForContentOnly {
-		// try to find a non tty to output to
-		nonTTY := os.Stdout
-		if o.stdoutTTY != nil {
-			nonTTY = nil
+	} else {
+		// otherwise, just print to stderr
+		if color := o.stderrFailColor; !success && color != nil && o.stderrTTY != nil {
+			payload := o.stderrTTY.String(s)
+			payload = payload.Foreground(color)
+			fmt.Fprint(o.stderrTTY, payload)
+		} else {
+			fmt.Fprint(os.Stderr, s)
 		}
-		if nonTTY == nil && o.stderrTTY == nil {
-			if !printedToStderr {
-				nonTTY = os.Stderr
-			}
-		}
-		if nonTTY != nil {
-			// output info to stderr
-			tw := tabwriter.NewWriter(nonTTY, 12, 2, 2, ' ', 0)
-			fmt.Fprint(tw, s)
-			tw.Flush()
-			return
-		}
-	}
-
-	// print to stdout
-	if !o.ttyForContentOnly {
-		if o.stdoutTTY != nil {
-			fmt.Fprint(o.stdoutTTY, "\r")
-			o.stdoutTTY.ClearLineRight()
-			if color := o.stdoutFailColor; !success && color != nil {
-				s = o.stdoutTTY.String(s).Foreground(color).String()
-			}
-		}
-
-		tw := tabwriter.NewWriter(os.Stdout, 12, 2, 2, ' ', 0)
-		fmt.Fprint(tw, s)
-		tw.Flush()
 	}
 }

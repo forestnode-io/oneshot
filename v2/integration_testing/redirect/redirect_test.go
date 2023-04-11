@@ -46,7 +46,7 @@ func (suite *ts) Test_StdinTTY_StderrTTY() {
 	suite.Assert().Equal("", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_JSON() {
@@ -97,7 +97,7 @@ func (suite *ts) Test_JSON() {
 	suite.Require().Nil(report.Success.File)
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_MultipleClients() {
@@ -156,8 +156,8 @@ func (suite *ts) Test_MultipleClients() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "")
+	suite.Assert().Equal(string(stdout), "")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }

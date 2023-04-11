@@ -164,6 +164,11 @@ func BlockPrefetch(userAgentKeys ...string) Middleware {
 
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				next(w, r)
+				return
+			}
+
 			userAgent := r.Header.Get("User-Agent")
 			for _, key := range userAgentKeys {
 				if strings.Contains(userAgent, key) {

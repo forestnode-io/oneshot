@@ -81,10 +81,6 @@ func GetFormatAndOpts(ctx context.Context) (string, map[string]struct{}) {
 	return o.Format, o.FormatOpts
 }
 
-func IsTTYForContentOnly(ctx context.Context) bool {
-	return getOutput(ctx).ttyForContentOnly
-}
-
 func NoColor(ctx context.Context) {
 	o := getOutput(ctx)
 	o.stdoutFailColor = nil
@@ -110,7 +106,6 @@ func ReceivingToStdout(ctx context.Context) {
 	o := getOutput(ctx)
 
 	o.skipSummary = true
-	o.ttyForContentOnly = true
 	if o.Format == "json" {
 		if o.receivedBuf == nil {
 			o.receivedBuf = bytes.NewBuffer(nil)

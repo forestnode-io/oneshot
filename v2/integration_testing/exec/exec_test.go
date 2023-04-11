@@ -121,7 +121,7 @@ func (suite *ts) Test_JSON() {
 	suite.Assert().Equal(runtime.GOOS+"\n", string(content))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_MultipleClients() {

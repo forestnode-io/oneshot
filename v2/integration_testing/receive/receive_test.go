@@ -47,7 +47,7 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("SUCCESS\n", string(stdout))
+	suite.Assert().Equal("SUCCESS", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
 	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
@@ -73,7 +73,7 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrNONTTY() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("SUCCESS\n", string(stdout))
+	suite.Assert().Equal("SUCCESS", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
 	suite.Assert().Contains(string(stderr), "success\n")
@@ -104,10 +104,10 @@ func (suite *ts) Test_FROM_ANY_TO_File__StdoutTTY_StderrTTY() {
 	suite.Assert().Equal("SUCCESS", string(fileContents))
 
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "success\n\x1b[?25h")
+	suite.Assert().Equal(string(stdout), "")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Contains(string(stderr), "success\n\x1b[?25h")
 }
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY_DecodeBase64() {
@@ -133,7 +133,7 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY_DecodeBase64() {
 
 	oneshot.Wait()
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("SUCCESS\n", string(stdout))
+	suite.Assert().Equal("SUCCESS", string(stdout))
 }
 
 func (suite *ts) Test_FROM_ANY_TO_File_DecodeBase64() {
@@ -218,7 +218,7 @@ func (suite *ts) Test_FROM_ANY_TO_FILE__JSON() {
 	suite.Require().Empty(file.Name)
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
@@ -279,7 +279,7 @@ func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
 	suite.Require().Empty(file.Name)
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("", string(stderr))
+	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))
 }
 
 func (suite *ts) Test_MultipleClients() {
@@ -343,8 +343,8 @@ func (suite *ts) Test_MultipleClients() {
 	suite.Assert().Equal("SUCCESS", string(fileContents))
 
 	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stdout), "success\n\x1b[?25h")
+	suite.Assert().Contains(string(stdout), "")
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
-	suite.Assert().Contains(string(stderr), "")
+	suite.Assert().Contains(string(stderr), "success\n\x1b[?25h")
 }

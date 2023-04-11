@@ -20,7 +20,6 @@ func _json_handleEvent(o *output, e events.Event) {
 	_, includeFileContent := o.FormatOpts["include-file-contents"]
 	// if the user want to receive to stdout then the received content wont be saved to disk
 	// so we include it in the json report which is going to stdout
-	includeFileContent = includeFileContent || o.ttyForContentOnly
 	if _, exclude := o.FormatOpts["exclude-file-contents"]; exclude {
 		includeFileContent = false
 	}
@@ -89,7 +88,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 	}
 
 	// if serving to stdout
-	if o.ttyForContentOnly || o.includeBody {
+	if o.includeBody {
 		if o.currentClientSession != nil {
 			if o.currentClientSession.Request != nil {
 				// then read in the body since it wasnt written to disk
@@ -113,7 +112,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 
 	for _, s := range o.cls {
 		// if serving to stdout
-		if o.ttyForContentOnly || o.includeBody {
+		if o.includeBody {
 			if s.Request != nil {
 				// then read in the body since it wasnt written to disk
 				if err := s.Request.ReadBody(); err != nil {

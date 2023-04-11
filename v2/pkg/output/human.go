@@ -20,9 +20,6 @@ func runHuman(ctx context.Context, o *output) {
 			if bf, ok := o.currentClientSession.File.Content.(func() []byte); ok && bf != nil {
 				if o.cmdName == "reverse-proxy" {
 					os.Stdout.Write(bf())
-					if o.stdoutTTY != nil {
-						os.Stdout.Write([]byte("\n"))
-					}
 				}
 			}
 		case *events.HTTPRequest:
