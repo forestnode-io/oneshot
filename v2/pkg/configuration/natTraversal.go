@@ -30,13 +30,17 @@ func (c *NATTraversal) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 	c.UPnP.setFlags(cmd, fs)
 
 	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-url",
-		"discovery-server-key-path",
-		"discovery-server-key",
-		"discovery-server-insecure",
-		"discovery-server-preferred-url",
-		"discovery-server-required-url",
-	)
+		"discovery-server-url")
+	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
+		"discovery-server-key-path")
+	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
+		"discovery-server-key")
+	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
+		"discovery-server-insecure")
+	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
+		"discovery-server-preferred-url")
+	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
+		"discovery-server-required-url")
 }
 
 func (c *NATTraversal) mergeFlags() {

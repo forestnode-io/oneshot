@@ -67,14 +67,15 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
-	stat, err := os.Stat(c.Dir)
-	if err != nil {
-		return fmt.Errorf("invalid directory: %w", err)
+	if c.Dir != "" {
+		stat, err := os.Stat(c.Dir)
+		if err != nil {
+			return fmt.Errorf("invalid directory: %w", err)
+		}
+		if !stat.IsDir() {
+			return fmt.Errorf("invalid directory: %s is not a directory", c.Dir)
+		}
 	}
-	if !stat.IsDir() {
-		return fmt.Errorf("invalid directory: %s is not a directory", c.Dir)
-	}
-
 	return nil
 }
 

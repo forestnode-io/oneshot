@@ -84,7 +84,7 @@ basicAuth:
   # the status code to return when a client connects without authorization.
   #
   # equivalent flag: --unauthorized-status
-  unauthorizedStatus: 0
+  unauthorizedStatus: 401
   # if true, the server will not prompt for credentials when a client connects without authorization.
   #
   # equivalent flag: --no-dialog
@@ -101,7 +101,7 @@ cors:
   # equivalent flag: --cors-allow-private-network
   allowPrivateNetwork: false
   # equivalent flag: --cors-success-status
-  successStatus: 0
+  successStatus: 204
 # natTraversal specifies options for NAT traversal as a means of enabling
 # connections across most common private network setups.
 natTraversal:

@@ -79,7 +79,7 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
-	if t := http.StatusText(c.StatusCode); t == "" {
+	if t := http.StatusText(c.StatusCode); t == "" && c.StatusCode != 0 {
 		return fmt.Errorf("invalid status code")
 	}
 

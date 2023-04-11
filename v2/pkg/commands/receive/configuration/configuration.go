@@ -74,16 +74,18 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
-	if c.EOL != "unix" && c.EOL != "dos" {
+	if (c.EOL != "unix" && c.EOL != "dos") && c.EOL != "" {
 		return fmt.Errorf("invalid eol: %s", c.EOL)
 	}
 
-	stat, err := os.Stat(c.UI)
-	if err != nil {
-		return fmt.Errorf("invalid ui file: %w", err)
-	}
-	if stat.IsDir() {
-		return fmt.Errorf("invalid ui file: %s is a directory", c.UI)
+	if c.UI != "" {
+		stat, err := os.Stat(c.UI)
+		if err != nil {
+			return fmt.Errorf("invalid ui file: %w", err)
+		}
+		if stat.IsDir() {
+			return fmt.Errorf("invalid ui file: %s is a directory", c.UI)
+		}
 	}
 
 	if t := http.StatusText(c.StatusCode); t == "" {
