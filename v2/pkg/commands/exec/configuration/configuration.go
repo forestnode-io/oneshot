@@ -1,6 +1,9 @@
 package configuration
 
 import (
+	"fmt"
+	"os"
+
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -64,6 +67,14 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	stat, err := os.Stat(c.Dir)
+	if err != nil {
+		return fmt.Errorf("invalid directory: %w", err)
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("invalid directory: %s is not a directory", c.Dir)
+	}
+
 	return nil
 }
 

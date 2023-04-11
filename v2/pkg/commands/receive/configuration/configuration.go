@@ -1,6 +1,10 @@
 package configuration
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -70,6 +74,22 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	if c.EOL != "unix" && c.EOL != "dos" {
+		return fmt.Errorf("invalid eol: %s", c.EOL)
+	}
+
+	stat, err := os.Stat(c.UI)
+	if err != nil {
+		return fmt.Errorf("invalid ui file: %w", err)
+	}
+	if stat.IsDir() {
+		return fmt.Errorf("invalid ui file: %s is a directory", c.UI)
+	}
+
+	if t := http.StatusText(c.StatusCode); t == "" {
+		return fmt.Errorf("invalid status code")
+	}
+
 	return nil
 }
 

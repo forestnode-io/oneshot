@@ -34,8 +34,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:   "exec -- command",
-		Short: "Execute a command for each request, passing in the body to stdin and returning the stdout to the client",
+		Use:        "exec -- command",
+		Aliases:    []string{"execute", "cgi"},
+		SuggestFor: []string{"send"},
+		Short:      "Execute a command for each request, passing in the body to stdin and returning the stdout to the client",
 		Long: `Execute a command for each request, passing in the body to stdin and returning the stdout to the client.
 Commands may be CGI complaint but do not have to be. CGI compliance can be enforced with the --enforce-cgi flag.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {

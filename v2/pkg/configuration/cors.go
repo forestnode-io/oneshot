@@ -1,6 +1,9 @@
 package configuration
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -61,5 +64,8 @@ func (c *CORS) mergeFlags() {
 }
 
 func (c *CORS) validate() error {
+	if t := http.StatusText(c.SuccessStatus); t == "" {
+		return fmt.Errorf("invalid success status code")
+	}
 	return nil
 }

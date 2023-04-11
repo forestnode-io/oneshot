@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"fmt"
 	"net/http"
 
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
@@ -45,6 +46,9 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	if t := http.StatusText(c.StatusCode); t == "" {
+		return fmt.Errorf("invalid status code")
+	}
 	return nil
 }
 

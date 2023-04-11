@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"fmt"
 	"net/http"
 	"runtime"
 
@@ -81,6 +82,9 @@ func (c *Configuration) MergeFlags() {
 }
 
 func (c *Configuration) Validate() error {
+	if t := http.StatusText(c.StatusCode); t == "" {
+		return fmt.Errorf("invalid status code")
+	}
 	return nil
 }
 

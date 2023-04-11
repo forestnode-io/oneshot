@@ -113,5 +113,10 @@ func (c *Root) Hydrate() error {
 	if err := c.NATTraversal.hydrate(); err != nil {
 		return fmt.Errorf("error hydrating NAT traversal configuration: %w", err)
 	}
+
+	if err := c.BasicAuth.hydrate(); err != nil {
+		return fmt.Errorf("error hydrating basic auth configuration: %w", err)
+	}
+
 	return nil
 }

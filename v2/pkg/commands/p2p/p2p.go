@@ -24,9 +24,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use:   "p2p",
-		Short: "Peer-to-peer commands",
-		Long:  "Peer-to-peer commands",
+		Use:     "p2p",
+		Aliases: []string{"webrtc"},
+		Short:   "Peer-to-peer commands",
+		Long:    "Peer-to-peer commands",
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)

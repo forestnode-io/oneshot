@@ -35,7 +35,6 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:     "reverse-proxy host",
 		Aliases: []string{"rproxy"},
 		Short:   "Reverse proxy all requests to the specified host",
-		Long:    `Reverse proxy all requests to the specified host. The host may be a URL or a host:port combination.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			config := c.config.Subcommands.RProxy
 			config.MergeFlags()

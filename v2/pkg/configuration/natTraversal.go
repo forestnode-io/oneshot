@@ -63,6 +63,9 @@ func (c *NATTraversal) hydrate() error {
 	if err := c.P2P.hydrate(); err != nil {
 		return fmt.Errorf("failed to hydrate P2P configuration: %w", err)
 	}
+	if err := c.DiscoveryServer.hydrate(); err != nil {
+		return fmt.Errorf("failed to hydrate discovery server configuration: %w", err)
+	}
 	return nil
 }
 
@@ -131,6 +134,18 @@ func (c *DiscoveryServer) mergeFlags() {
 func (c *DiscoveryServer) validate() error {
 	if c.URL == "" {
 		return nil
+	}
+
+	return nil
+}
+
+func (c *DiscoveryServer) hydrate() error {
+	if c.KeyPath != "" {
+		key, err := os.ReadFile(c.KeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to read discovery server key file: %w", err)
+		}
+		c.Key = string(key)
 	}
 
 	return nil

@@ -1,6 +1,10 @@
 package configuration
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -88,5 +92,31 @@ func (c *BasicAuth) mergeFlags() {
 }
 
 func (c *BasicAuth) validate() error {
+	if t := http.StatusText(c.UnauthorizedStatus); t == "" {
+		return fmt.Errorf("invalid unauthorized status code")
+	}
+
+	if c.UnauthorizedPage != "" {
+		stat, err := os.Stat(c.UnauthorizedPage)
+		if err != nil {
+			return fmt.Errorf("unable to stat unauthorized page: %w", err)
+		}
+		if stat.IsDir() {
+			return fmt.Errorf("unauthorized page is a directory")
+		}
+	}
+
+	return nil
+}
+
+func (c *BasicAuth) hydrate() error {
+	if c.PasswordFile != "" {
+		data, err := os.ReadFile(c.PasswordFile)
+		if err != nil {
+			return err
+		}
+		c.Password = string(data)
+	}
+
 	return nil
 }
