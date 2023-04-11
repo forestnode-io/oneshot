@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"sync"
 	"time"
 
@@ -228,11 +229,11 @@ func (s *server) queueRequest(sessionID string, w http.ResponseWriter, r *http.R
 
 func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 	var (
-		config = s.config.Subcommands.DiscoveryServer
-		scheme = config.URLAssignment.Scheme
-		domain = config.URLAssignment.Domain + fmt.Sprintf(":%d", config.URLAssignment.Port)
-		path   = config.URLAssignment.Path
-		//TODO(raphaelreyna): handle the case where theres a path prefix
+		config   = s.config.Subcommands.DiscoveryServer
+		uaConfig = config.URLAssignment
+		scheme   = uaConfig.Scheme
+		domain   = uaConfig.Domain + fmt.Sprintf(":%d", config.URLAssignment.Port)
+		upath    = path.Join(uaConfig.PathPrefix, uaConfig.Path)
 	)
 
 	if rurl == "" {
@@ -242,7 +243,7 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 		u := url.URL{
 			Scheme: scheme,
 			Host:   domain,
-			Path:   path,
+			Path:   upath,
 		}
 		s.assignedURL = u.String()
 		return s.assignedURL, nil
@@ -254,6 +255,7 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 	}
 	u.Scheme = scheme
 	u.Host = domain
+	u.Path = path.Join(uaConfig.PathPrefix, u.Path)
 	if u.String() != rurl && required {
 		return "", nil
 	}
