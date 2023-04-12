@@ -11,10 +11,10 @@
                 tries++;
                 if (tries < 5) {
                 // Retry in 100ms
-                setTimeout(checkWebRTCClient, 100);
+                    setTimeout(checkWebRTCClient, 100);
                 } else {
                 // Tried 5 times, throw an error
-                throw new Error("window.WebRTCClient does not exist");
+                    throw new Error("window.WebRTCClient does not exist");
                 }
             }
         }

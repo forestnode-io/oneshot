@@ -169,6 +169,11 @@ func BlockPrefetch(userAgentKeys ...string) Middleware {
 				return
 			}
 
+			if r.Header.Get("X-HTTPOverWebRTC") == "true" {
+				next(w, r)
+				return
+			}
+
 			userAgent := r.Header.Get("User-Agent")
 			for _, key := range userAgentKeys {
 				if strings.Contains(userAgent, key) {

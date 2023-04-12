@@ -9,6 +9,7 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
         if (!headers.has('User-Agent')) {
             headers.append('User-Agent', navigator.userAgent);
         }
+        headers.append("X-HTTPOverWebRTC", "true");
         headers.forEach((value, key) => {
             headerString += `${key}: ${value}\n`;
         });
@@ -24,10 +25,12 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
             if (!foundUserAgent) {
                 headerString += `User-Agent: ${navigator.userAgent}\n`;
             }
+            headerString += "X-HTTPOverWebRTC: true\n"
         } else {
             if (!headers['User-Agent']) {
                 headers['User-Agent'] = navigator.userAgent;
             }
+            headers['X-HTTPOverWebRTC'] = 'true';
             for (const key in headers) {
                 headerString += `${key}: ${headers[key]}\n`;
             }

@@ -15,7 +15,6 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
 	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
-	"github.com/rs/zerolog"
 )
 
 type dataChannelEvent struct {
@@ -33,7 +32,7 @@ type dataChannel struct {
 }
 
 func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, error) {
-	log := zerolog.Ctx(ctx)
+	log := log.Logger()
 	dcChan := make(chan datachannel.ReadWriteCloser, 1)
 
 	dc, err := pc.CreateDataChannel(oneshotwebrtc.DataChannelName, nil)

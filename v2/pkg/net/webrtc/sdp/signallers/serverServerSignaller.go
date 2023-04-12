@@ -121,10 +121,13 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 		}
 
 		log.Debug().
-			Msg("go offer request from discovery server")
+			Msg("got offer request from discovery server")
 
 		// get the offer
 		if err := handler.HandleRequest(ctx, gor.SessionID, gor.Configuration, s.answerOffer); err != nil {
+			log.Error().Err(err).
+				Msg("error handling offer request")
+
 			err = signallingserver.Send(ds, &messages.FinishedSessionRequest{
 				SessionID: gor.SessionID,
 				Error:     err.Error(),

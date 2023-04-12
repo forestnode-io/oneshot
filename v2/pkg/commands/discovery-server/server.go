@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,7 @@ type server struct {
 
 	rtcConfig *webrtc.Configuration
 	config    *configuration.Root
+	scheme    string
 
 	errorPageTitle string
 
@@ -76,6 +78,14 @@ func newServer(c *configuration.Root) (*server, error) {
 		queue:     make(chan requestBundle, config.MaxClientQueueSize),
 		rtcConfig: rc,
 		config:    c,
+		scheme:    config.URLAssignment.Scheme,
+	}
+	if s.scheme == "" {
+		if c.Server.TLSCert != "" && c.Server.TLSKey != "" {
+			s.scheme = "https"
+		} else {
+			s.scheme = "http"
+		}
 	}
 
 	return &s, nil
@@ -245,7 +255,7 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 			Host:   domain,
 			Path:   upath,
 		}
-		s.assignedURL = u.String()
+		s.assignedURL = strings.TrimSuffix(u.String(), "/")
 		return s.assignedURL, nil
 	}
 
@@ -260,7 +270,7 @@ func (s *server) handleURLRequest(rurl string, required bool) (string, error) {
 		return "", nil
 	}
 
-	s.assignedURL = u.String()
+	s.assignedURL = strings.TrimSuffix(u.String(), "/")
 
 	return rurl, nil
 }

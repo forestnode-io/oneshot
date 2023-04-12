@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -22,6 +23,8 @@ type peerConnection struct {
 	peerAddresses []string
 	paMu          sync.Mutex
 
+	cancelTimer func() bool
+
 	*webrtc.PeerConnection
 }
 
@@ -30,6 +33,12 @@ func newPeerConnection(ctx context.Context, id, bat string, sao signallers.Answe
 		err  error
 		errs = make(chan error, 1)
 	)
+
+	jsonP, err := json.Marshal(c)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(jsonP))
 
 	pc := peerConnection{
 		ctx:            ctx,
@@ -65,17 +74,15 @@ func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState
 		Str("connection_state", cs.String()).
 		Msg("ICE connection state changed")
 
-	var cancelTimer func() bool
-
 	switch cs {
 	case webrtc.ICEConnectionStateChecking:
 		t := time.AfterFunc(3*time.Second, func() {
 			p.error(false, fmt.Errorf("webRTC connection timed out"))
 		})
-		cancelTimer = t.Stop
+		p.cancelTimer = t.Stop
 	case webrtc.ICEConnectionStateConnected:
-		if cancelTimer != nil {
-			cancelTimer()
+		if p.cancelTimer != nil {
+			p.cancelTimer()
 		}
 		log.Debug().
 			Msg("webRTC connection established")
@@ -104,6 +111,9 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 
 	// candidate is nil when gathering is done
 	if doneGathering := candidate == nil; doneGathering {
+		log.Debug().
+			Msg("done gathering ICE candidates, sending offer to signaling server")
+
 		pc := p.PeerConnection
 		offer := pc.LocalDescription()
 
@@ -122,6 +132,9 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 			}
 			offer.SDP = string(sdpBytes)
 		}
+
+		log.Debug().
+			Msg("sending offer to signaling server")
 		answer, err := p.answerOffer(p.ctx, p.sessionID, sdp.Offer(offer.SDP))
 		if err != nil {
 			err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)

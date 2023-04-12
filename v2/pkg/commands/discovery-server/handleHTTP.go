@@ -27,18 +27,21 @@ func (s *server) handleHTTP(w http.ResponseWriter, r *http.Request) {
 			Str("method", r.Method).
 			Str("url", r.URL.String()).
 			Str("host", r.Host).
+			Interface("headers", r.Header).
 			Logger()
 		ctx = log.WithContext(r.Context())
 	)
 	r = r.WithContext(ctx)
-	log.Info().Msg("got request")
-	defer log.Info().Msg("finished handling request")
 
-	r.URL.Scheme = "http"
+	log.Debug().
+		Msg("got request")
+	defer log.Debug().Msg("finished handling request")
+
+	r.URL.Scheme = s.scheme
 	r.URL.Host = r.Host
 
 	addrURL := url.URL{
-		Scheme: "http",
+		Scheme: s.scheme,
 		Host:   r.Host,
 		Path:   r.URL.Path,
 	}
