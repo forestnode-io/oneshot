@@ -39,7 +39,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 			config := c.config.Subcommands.RProxy
 			config.MergeFlags()
 			if err := config.Validate(); err != nil {
-				return errors.New("invalid configuration")
+				return output.UsageErrorF("invalid configuration: %w", err)
 			}
 			if err := config.Hydrate(); err != nil {
 				return errors.New("failed to hydrate configuration")
@@ -49,10 +49,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("proxy host required")
+				return output.UsageErrorF("proxy host required")
 			}
 			if 1 < len(args) {
-				return errors.New("too many arguments, only 1 host may be used")
+				return output.UsageErrorF("too many arguments, only 1 host may be used")
 			}
 			return nil
 		},
@@ -78,7 +78,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	hostURL, err := url.Parse(host)
 	if err != nil {
-		return err
+		return output.UsageErrorF("invalid host: %w", err)
 	}
 
 	var spoofedHostURL *url.URL

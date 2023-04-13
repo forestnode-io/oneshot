@@ -50,7 +50,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			config := c.config.Subcommands.P2P.Client.Receive
 			config.MergeFlags()
-			return config.Validate()
+			if err := config.Validate(); err != nil {
+				return output.UsageErrorF("invalid configuration: %w", err)
+			}
+
+			return nil
 		},
 		RunE: c.receive,
 	}

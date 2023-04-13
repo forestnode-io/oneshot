@@ -49,7 +49,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 			config := c.config.Subcommands.P2P.Client.Send
 			config.MergeFlags()
 			if err := config.Validate(); err != nil {
-				return fmt.Errorf("invalid configuration: %w", err)
+				return output.UsageErrorF("invalid configuration: %w", err)
 			}
 			return nil
 		},
@@ -77,6 +77,8 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName            = config.Name
 		webRTCSignallingDir = p2pConfig.DiscoveryDir
 		webRTCSignallingURL = dsConfig.URL
+
+		err error
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
@@ -89,12 +91,9 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	err := c.configureWebRTC()
+	c.webrtcConfig, err = c.config.NATTraversal.P2P.WebRTCConfiguration.WebRTCConfiguration()
 	if err != nil {
-		log.Error().Err(err).
-			Msg("failed to configure webrtc")
-
-		return fmt.Errorf("failed to configure webrtc: %w", err)
+		return output.UsageErrorF("unable to configure webrtc: %w", err)
 	}
 
 	var (
@@ -288,18 +287,4 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	events.Stop(ctx)
 
 	return err
-}
-
-func (c *Cmd) configureWebRTC() error {
-	var (
-		config = c.config.NATTraversal.P2P.WebRTCConfiguration
-		err    error
-	)
-
-	c.webrtcConfig, err = config.WebRTCConfiguration()
-	if err != nil {
-		return fmt.Errorf("unable to configure webrtc: %w", err)
-	}
-
-	return nil
 }

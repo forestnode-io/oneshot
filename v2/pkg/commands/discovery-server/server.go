@@ -20,6 +20,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/events"
 	"github.com/raphaelreyna/oneshot/v2/pkg/log"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/raphaelreyna/oneshot/v2/pkg/output/fmt"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -66,7 +67,7 @@ func newServer(c *configuration.Root) (*server, error) {
 	config := c.Subcommands.DiscoveryServer
 	p2pConfig := c.NATTraversal.P2P
 	if p2pConfig.WebRTCConfiguration == nil {
-		return nil, errors.New("p2p configuration is nil")
+		return nil, output.UsageErrorF("p2p configuration is nil")
 	}
 
 	rc, err := p2pConfig.WebRTCConfiguration.WebRTCConfiguration()

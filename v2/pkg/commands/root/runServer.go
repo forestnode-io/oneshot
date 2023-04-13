@@ -114,9 +114,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		ctx, err = signallingserver.WithDiscoveryServer(ctx, dsConf)
 		if err != nil {
 			log.Error().Err(err).
-				Msg("failed to create discovery server")
+				Msg("failed to connect to discovery server")
 
-			return fmt.Errorf("failed to create discovery server: %w", err)
+			return fmt.Errorf("failed to connect to discovery server: %w", err)
 		}
 	}
 
@@ -328,4 +328,14 @@ func wrappedFlagUsages(flags *pflag.FlagSet) string {
 	}
 
 	return flags.FlagUsagesWrapped(w)
+}
+
+func handleUsageErrors(outputUsage func(), next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		err := next(cmd, args)
+		if _, ok := err.(output.UsageError); ok {
+			outputUsage()
+		}
+		return err
+	}
 }

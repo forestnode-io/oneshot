@@ -40,7 +40,10 @@ This client can be used to establish a p2p connection with oneshot when not usin
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			config := c.config.Subcommands.P2P.BrowserClient
 			config.MergeFlags()
-			return config.Validate()
+			if err := config.Validate(); err != nil {
+				return output.UsageErrorF("invalid configuration: %w", err)
+			}
+			return nil
 		},
 		RunE: c.run,
 	}
@@ -57,6 +60,7 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		ctx    = cmd.Context()
 		log    = zerolog.Ctx(ctx)
 		config = c.config.Subcommands.P2P.BrowserClient
+		err    error
 	)
 
 	output.InvocationInfo(ctx, cmd, args)
@@ -65,8 +69,9 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		events.Stop(ctx)
 	}()
 
-	if err := c.configureWebRTC(); err != nil {
-		return err
+	c.webrtcConfig, err = c.config.NATTraversal.P2P.WebRTCConfiguration.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("unable to configure webrtc: %w", err)
 	}
 
 	rtcConfigJSON, err := json.Marshal(c.webrtcConfig)
@@ -96,18 +101,4 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return err
-}
-
-func (c *Cmd) configureWebRTC() error {
-	var (
-		config = c.config.NATTraversal.P2P.WebRTCConfiguration
-		err    error
-	)
-
-	c.webrtcConfig, err = config.WebRTCConfiguration()
-	if err != nil {
-		return fmt.Errorf("unable to configure webrtc: %w", err)
-	}
-
-	return nil
 }

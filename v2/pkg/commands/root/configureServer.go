@@ -32,7 +32,7 @@ func (r *rootCommand) configureServer() (string, error) {
 		if viewPath != "" {
 			unauthenticatedViewBytes, err = os.ReadFile(viewPath)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to read unauthorized page: %w", err)
 			}
 		}
 

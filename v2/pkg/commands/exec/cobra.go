@@ -1,7 +1,6 @@
 package exec
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,7 +43,7 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 			config := c.config.Subcommands.Exec
 			config.MergeFlags()
 			if err := config.Validate(); err != nil {
-				return fmt.Errorf("invalid configuration: %w", err)
+				return output.UsageErrorF("invalid configuration: %w", err)
 			}
 			if err := config.Hydrate(); err != nil {
 				return fmt.Errorf("failed to hydrate configuration: %w", err)
@@ -54,7 +53,7 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return errors.New("missing command")
+				return output.UsageErrorF("missing command")
 			}
 
 			return nil
@@ -99,7 +98,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		var err error
 		handlerConf.Stderr, err = os.Open(config.StdErr)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to open stderr file: %w", err)
 		}
 		commands.MarkForClose(ctx, handlerConf.Stderr.(io.WriteCloser))
 	} else {
@@ -108,7 +107,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 
 	handler, err := cgi.NewHandler(handlerConf)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create CGI handler: %w", err)
 	}
 
 	c.handler = handler

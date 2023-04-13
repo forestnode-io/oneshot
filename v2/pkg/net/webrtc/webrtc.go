@@ -9,6 +9,7 @@ import (
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
+	"github.com/raphaelreyna/oneshot/v2/pkg/output"
 )
 
 const DataChannelName = "oneshot"
@@ -61,11 +62,11 @@ func (c *Configuration) WebRTCConfiguration() (*webrtc.Configuration, error) {
 	}
 
 	if len(c.ICEServers) == 0 {
-		return nil, fmt.Errorf("no ICE servers configured")
+		return nil, output.UsageErrorF("no ICE servers configured")
 	}
 	for _, s := range c.ICEServers {
 		if len(s.URLs) == 0 {
-			return nil, fmt.Errorf("no URLs configured for ICE server")
+			return nil, output.UsageErrorF("no URLs configured for ICE server")
 		}
 		if s.CredentialPath != "" {
 			data, err := os.ReadFile(s.CredentialPath)
@@ -84,7 +85,7 @@ func (c *Configuration) WebRTCConfiguration() (*webrtc.Configuration, error) {
 	}
 	for _, cert := range c.Certificates {
 		if cert.PrivateKeyPath == "" {
-			return nil, fmt.Errorf("no private key path configured for certificate")
+			return nil, output.UsageErrorF("no private key path configured for certificate")
 		}
 
 		if cert.PrivateKeyPath != "" {

@@ -117,7 +117,7 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 	// The discovery server should be backwards compatible with older clients.
 	if semver.Compare(hs.VersionInfo.APIVersion, c.VersionInfo.APIVersion) < 0 {
 		ds.Close()
-		return ctx, fmt.Errorf("discovery server is running an older version of the API (%s) than this client (%s)", hs.VersionInfo.Version, c.VersionInfo.Version)
+		return ctx, fmt.Errorf("discovery server is running an older version of the API (%s) than this client (%s)", hs.VersionInfo.APIVersion, c.VersionInfo.APIVersion)
 	}
 
 	return context.WithValue(ctx, discoveryServerKey{}, &ds), nil

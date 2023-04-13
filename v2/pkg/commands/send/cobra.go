@@ -42,7 +42,7 @@ If a directory is given, it will be archived and sent to the client; oneshot doe
 			config := c.config.Subcommands.Send
 			config.MergeFlags()
 			if err := config.Validate(); err != nil {
-				return fmt.Errorf("invalid configuration: %w", err)
+				return output.UsageErrorF("invalid configuration: %w", err)
 			}
 			if err := config.Hydrate(); err != nil {
 				return fmt.Errorf("failed to hydrate configuration: %w", err)
@@ -88,7 +88,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	var err error
 	c.rtc, err = file.NewReadTransferConfig(archiveMethod, args...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create read transfer config: %w", err)
 	}
 
 	if file.IsArchive(c.rtc) {

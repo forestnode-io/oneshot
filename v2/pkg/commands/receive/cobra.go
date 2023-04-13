@@ -60,7 +60,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 			config := c.config.Subcommands.Receive
 			config.MergeFlags()
 			if err := config.Validate(); err != nil {
-				return fmt.Errorf("invalid configuration: %w", err)
+				return output.UsageErrorF("invalid configuration: %w", err)
 			}
 			if err := config.Hydrate(); err != nil {
 				return fmt.Errorf("failed to hydrate configuration: %w", err)
@@ -90,7 +90,7 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
-				return errors.New("too many arguments")
+				return output.UsageErrorF("too many arguments")
 			}
 
 			return nil

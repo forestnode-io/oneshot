@@ -23,6 +23,7 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
 	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
 	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -50,11 +51,17 @@ func ExecuteContext(ctx context.Context) error {
 		err  error
 	)
 	root.Use = "oneshot"
+	root.SilenceUsage = true
 	root.PersistentPreRunE = root.init
-	root.PersistentPostRunE = root.runServer
+	root.PersistentPostRunE = handleUsageErrors(
+		func() { cmd.SilenceUsage = false },
+		root.runServer,
+	)
 	root.config, err = configuration.ReadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to read configuration: %w", err)
+		err = fmt.Errorf("failed to read configuration: %w", err)
+		fmt.Printf("Error: %s\n", err.Error())
+		return err
 	}
 	root.config.Init()
 	root.config.SetFlags(cmd, cmd.PersistentFlags())
@@ -76,6 +83,10 @@ func ExecuteContext(ctx context.Context) error {
 	})
 
 	err = root.ExecuteContext(ctx)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).
+			Msg("failed to execute root command")
+	}
 	for _, closer := range root.closers {
 		closer.Close()
 	}

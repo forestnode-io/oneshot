@@ -18,6 +18,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type UsageError struct {
+	Err error
+}
+
+func UsageErrorF(format string, args ...interface{}) error {
+	return UsageError{Err: fmt.Errorf(format, args...)}
+}
+
+func (n UsageError) Error() string {
+	return n.Err.Error()
+}
+
 func WithOutput(ctx context.Context) (context.Context, error) {
 	o := output{
 		doneChan:   make(chan struct{}),

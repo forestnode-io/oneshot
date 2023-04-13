@@ -1,7 +1,6 @@
 package redirect
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +36,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 			config := c.config.Subcommands.Redirect
 			config.MergeFlags()
 			if err := config.Validate(); err != nil {
-				return fmt.Errorf("invalid configuration: %w", err)
+				return output.UsageErrorF("invalid configuration: %w", err)
 			}
 			if err := config.Hydrate(); err != nil {
 				return fmt.Errorf("failed to hydrate configuration: %w", err)
@@ -47,10 +46,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("redirect url required")
+				return output.UsageErrorF("redirect url required")
 			}
 			if 1 < len(args) {
-				return errors.New("too many arguments, only 1 url may be used")
+				return output.UsageErrorF("too many arguments, only 1 url may be used")
 			}
 			return nil
 		},
