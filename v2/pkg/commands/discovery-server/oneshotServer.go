@@ -3,6 +3,8 @@ package discoveryserver
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 
 	pionwebrtc "github.com/pion/webrtc/v3"
 	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
@@ -11,6 +13,8 @@ import (
 	"github.com/raphaelreyna/oneshot/v2/pkg/version"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -84,25 +88,75 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 		Msg("sent handshake")
 
 	// grab the arrival request and store it
-	arrivalRequest, err := receive[*messages.ServerArrivalRequest](stream)
+	arrival, err := receive[*messages.ServerArrivalRequest](stream)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read arrival request: %w", err)
 	}
-	o.Arrival = *arrivalRequest
+
+	if arrival.Redirect != "" {
+		// make sure the redirect url is valid
+		ru, err := url.Parse(arrival.Redirect)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing redirect url: %w", err)
+		}
+		if ru.Scheme == "" {
+			return nil, fmt.Errorf("redirect url must have a scheme")
+		}
+
+		host, port, err := net.SplitHostPort(ru.Host)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing redirect url host: %w", err)
+		}
+		if port == "" {
+			return nil, fmt.Errorf("redirect url must have a port")
+		}
+		// if the host is empty, use the peer's host address
+		if host == "" {
+			md, _ := metadata.FromIncomingContext(ctx)
+			if md != nil {
+				realIPs := md.Get("X-Real-IP")
+				if 0 < len(realIPs) {
+					host = realIPs[0]
+				}
+				forwardedFors := md.Get("X-Forwarded-For")
+				if 0 < len(forwardedFors) {
+					host = forwardedFors[0]
+				}
+			}
+			if host == "" {
+				p, found := peer.FromContext(ctx)
+				if !found {
+					return nil, fmt.Errorf("error getting peer from context")
+				}
+				peerHost, _, err := net.SplitHostPort(p.Addr.String())
+				if err != nil {
+					return nil, fmt.Errorf("error parsing peer address: %w", err)
+				}
+				if peerHost == "" {
+					return nil, fmt.Errorf("error getting peer host")
+				}
+				host = peerHost
+				ru.Host = net.JoinHostPort(host, port)
+				arrival.Redirect = ru.String()
+			}
+		}
+	}
+
+	o.Arrival = *arrival
 
 	le := log.Debug()
-	if arrivalRequest.URL != nil {
-		le = le.Str("url", arrivalRequest.URL.URL).
-			Bool("url-required", arrivalRequest.URL.Required)
+	if arrival.URL != nil {
+		le = le.Str("url", arrival.URL.URL).
+			Bool("url-required", arrival.URL.Required)
 	}
 	le.Msg("received arrival request")
 
 	resp := messages.ServerArrivalResponse{}
 	rurl := ""
 	rurlRequired := false
-	if arrivalRequest.URL != nil {
-		rurl = arrivalRequest.URL.URL
-		rurlRequired = arrivalRequest.URL.Required
+	if arrival.URL != nil {
+		rurl = arrival.URL.URL
+		rurlRequired = arrival.URL.Required
 	}
 	assignedURL, err := requestURL(rurl, rurlRequired)
 	if err != nil {

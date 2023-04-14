@@ -80,6 +80,7 @@ type DiscoveryServer struct {
 	Insecure     bool   `mapstructure:"insecure" yaml:"insecure"`
 	PreferredURL string `mapstructure:"preferredURL" yaml:"preferredURL"`
 	RequiredURL  string `mapstructure:"requiredURL" yaml:"requiredURL"`
+	OnlyRedirect bool   `mapstructure:"onlyRedirect" yaml:"onlyRedirect"`
 
 	fs *pflag.FlagSet
 }
@@ -93,6 +94,7 @@ func (c *DiscoveryServer) init() {
 	c.fs.Bool("discovery-server-insecure", false, "Allow insecure connections to the discovery server.")
 	c.fs.String("discovery-server-preferred-url", "", "URL that the discovery server should try to reserve for connecting client.")
 	c.fs.String("discovery-server-required-url", "", "URL that the discovery server must reserve for connecting client.")
+	c.fs.Bool("discovery-server-only-redirect", false, "Only redirect to this oneshot, do not use p2p.")
 
 	cobra.AddTemplateFunc("discoveryServerFlags", func() *pflag.FlagSet {
 		return c.fs
@@ -132,6 +134,9 @@ func (c *DiscoveryServer) mergeFlags() {
 	}
 	if c.fs.Changed("discovery-server-required-url") {
 		c.RequiredURL, _ = c.fs.GetString("discovery-server-required-url")
+	}
+	if c.fs.Changed("discovery-server-only-redirect") {
+		c.OnlyRedirect, _ = c.fs.GetBool("discovery-server-only-redirect")
 	}
 }
 

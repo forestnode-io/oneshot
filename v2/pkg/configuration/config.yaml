@@ -127,6 +127,12 @@ natTraversal:
     #
     # equivalent flag: --discovery-server-required-url
     requiredURL: ""
+    # only redirect connections to this oneshot.
+    # if true, p2p will not be used.
+    # if oneshot is behind NAT, this option should be used with the UPnP port mapping options.
+    #
+    # equivalent flag: --discovery-server-only-redirect
+    onlyRedirect: false
   # p2p specifies options for peer-to-peer NAT traversal via WebRTC.
   p2p:
     # if true, oneshot will attempt to use WebRTC for NAT traversal.

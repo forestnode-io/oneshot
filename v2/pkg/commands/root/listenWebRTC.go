@@ -87,11 +87,22 @@ func newServerServerSignaller(config *configuration.Root, portMapAddr string, ba
 		urlRequired = true
 	}
 
+	if portMapAddr == "" && dsConf.OnlyRedirect {
+		scheme := "http"
+		if config.Server.TLSCert != "" {
+			scheme = "https"
+		}
+		// we can omit the host, the discovery server will fill it in
+		// with the host it receives the request from
+		portMapAddr = fmt.Sprintf("%s://:%d", scheme, config.Server.Port)
+	}
+
 	conf := signallers.ServerServerSignallerConfig{
-		URL:         assignURL,
-		URLRequired: urlRequired,
-		PortMapAddr: portMapAddr,
-		BasicAuth:   ba,
+		URL:          assignURL,
+		URLRequired:  urlRequired,
+		PortMapAddr:  portMapAddr,
+		BasicAuth:    ba,
+		OnlyRedirect: dsConf.OnlyRedirect,
 	}
 
 	return signallers.NewServerServerSignaller(&conf)

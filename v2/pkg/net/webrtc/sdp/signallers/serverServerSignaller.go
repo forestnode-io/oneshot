@@ -26,10 +26,11 @@ type serverServerSignaller struct {
 }
 
 type ServerServerSignallerConfig struct {
-	URL         string
-	URLRequired bool
-	BasicAuth   *messages.BasicAuth
-	PortMapAddr string
+	URL          string
+	URLRequired  bool
+	BasicAuth    *messages.BasicAuth
+	PortMapAddr  string
+	OnlyRedirect bool
 }
 
 func NewServerServerSignaller(c *ServerServerSignallerConfig) ServerSignaller {
@@ -64,8 +65,9 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 	// send the arrival request
 	log.Debug().Msg("sending arrival request to discovery server")
 	ar := messages.ServerArrivalRequest{
-		BasicAuth: s.conf.BasicAuth,
-		Redirect:  s.conf.PortMapAddr,
+		BasicAuth:    s.conf.BasicAuth,
+		Redirect:     s.conf.PortMapAddr,
+		RedirectOnly: s.conf.OnlyRedirect,
 	}
 	if s.conf.URL != "" {
 		ar.URL = &messages.SessionURLRequest{
