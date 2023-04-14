@@ -136,9 +136,9 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 					return nil, fmt.Errorf("error getting peer host")
 				}
 				host = peerHost
-				ru.Host = net.JoinHostPort(host, port)
-				arrival.Redirect = ru.String()
 			}
+			ru.Host = net.JoinHostPort(host, port)
+			arrival.Redirect = ru.String()
 		}
 	}
 
