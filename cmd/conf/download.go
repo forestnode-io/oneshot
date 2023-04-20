@@ -9,9 +9,9 @@ import (
 
 	"math/rand"
 
-	"github.com/raphaelreyna/oneshot/internal/file"
-	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/internal/server"
+	"github.com/oneshot-uno/oneshot/internal/file"
+	"github.com/oneshot-uno/oneshot/internal/handlers"
+	"github.com/oneshot-uno/oneshot/internal/server"
 )
 
 func (c *Conf) setupDownloadRoute(args []string, srvr *server.Server) (*server.Route, error) {

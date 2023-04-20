@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/jf-tech/iohelper"
-	"github.com/raphaelreyna/oneshot/internal/file"
-	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	"github.com/oneshot-uno/oneshot/internal/file"
+	srvr "github.com/oneshot-uno/oneshot/internal/server"
 )
 
 func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken string, infoLog *log.Logger) srvr.FailableHandler {

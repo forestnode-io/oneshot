@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/server"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/server"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc/keepalive"
 )

@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands/root"
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
-	"github.com/raphaelreyna/oneshot/v2/pkg/sys"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/root"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/sys"
 )
 
 func main() {

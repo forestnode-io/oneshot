@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 )
 
 func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-chan *Device, error) {

@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/raphaelreyna/oneshot/cmd/conf"
-	"github.com/raphaelreyna/oneshot/internal/server"
+	"github.com/oneshot-uno/oneshot/cmd/conf"
+	"github.com/oneshot-uno/oneshot/internal/server"
 	"github.com/spf13/cobra"
 	"log"
 	"net"

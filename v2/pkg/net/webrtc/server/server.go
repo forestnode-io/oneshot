@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 )
 
 // Server satisfies the sdp.RequestHandler interface.

@@ -3,13 +3,13 @@ package configuration
 import (
 	"fmt"
 
-	discoveryserver "github.com/raphaelreyna/oneshot/v2/pkg/commands/discovery-server/configuration"
-	exec "github.com/raphaelreyna/oneshot/v2/pkg/commands/exec/configuration"
-	p2p "github.com/raphaelreyna/oneshot/v2/pkg/commands/p2p/configuration"
-	receive "github.com/raphaelreyna/oneshot/v2/pkg/commands/receive/configuration"
-	redirect "github.com/raphaelreyna/oneshot/v2/pkg/commands/redirect/configuration"
-	rproxy "github.com/raphaelreyna/oneshot/v2/pkg/commands/rproxy/configuration"
-	send "github.com/raphaelreyna/oneshot/v2/pkg/commands/send/configuration"
+	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server/configuration"
+	exec "github.com/oneshot-uno/oneshot/v2/pkg/commands/exec/configuration"
+	p2p "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/configuration"
+	receive "github.com/oneshot-uno/oneshot/v2/pkg/commands/receive/configuration"
+	redirect "github.com/oneshot-uno/oneshot/v2/pkg/commands/redirect/configuration"
+	rproxy "github.com/oneshot-uno/oneshot/v2/pkg/commands/rproxy/configuration"
+	send "github.com/oneshot-uno/oneshot/v2/pkg/commands/send/configuration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

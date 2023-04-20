@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )

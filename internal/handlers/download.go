@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/internal/file"
-	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	"github.com/oneshot-uno/oneshot/internal/file"
+	srvr "github.com/oneshot-uno/oneshot/internal/server"
 	"sync"
 )
 

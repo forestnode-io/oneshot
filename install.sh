@@ -8,14 +8,14 @@
 
 set -e
 
-usage() { echo "Usage: curl https://github.com/raphaelreyna/oneshot/raw/master/install.sh | sudo bash " 1>&2; exit 1; }
+usage() { echo "Usage: curl https://github.com/oneshot-uno/oneshot/raw/master/install.sh | sudo bash " 1>&2; exit 1; }
 
 #create tmp directory and move to it with macOS compatibility fallback
 tmp_dir=`mktemp -d 2>/dev/null || mktemp -d -t 'oneshot-install.XXXXXXXXXX'`; cd $tmp_dir
 
 #check installed version of oneshot to determine if update is necessary
 version=`oneshot -v 2>>errors | head -n 1 | awk '{print $4}'`
-current_version=`curl -s -L https://github.com/raphaelreyna/oneshot/raw/master/version.txt | tr -d "v"`
+current_version=`curl -s -L https://github.com/oneshot-uno/oneshot/raw/master/version.txt | tr -d "v"`
 if [ "$version" = "$current_version" ]; then
     printf "\nThe latest version of oneshot ${version} is already installed.\n\n"
     exit 3
@@ -57,7 +57,7 @@ case $ARCH_TYPE in
 esac
 
 #download and untar
-download_link="https://github.com/raphaelreyna/oneshot/releases/download/v${current_version}/oneshot_${current_version}.${OS}-${ARCH_TYPE}.tar.gz"
+download_link="https://github.com/oneshot-uno/oneshot/releases/download/v${current_version}/oneshot_${current_version}.${OS}-${ARCH_TYPE}.tar.gz"
 oneshot_tarball="oneshot_${current_version}.${OS}-${ARCH_TYPE}.tar.gz"
 
 curl -s -O -L $download_link
@@ -88,5 +88,5 @@ version=`oneshot --version 2>>errors | head -n 1 | awk '{print $4}'`
 
 printf "\noneshot v${version} has successfully installed.\n"
 printf 'You may now run "oneshot -h" for help with using oneshot.\n'
-printf 'Visit https://github.com/raphaelreyna/oneshot for more information.\n\n'
+printf 'Visit https://github.com/oneshot-uno/oneshot for more information.\n\n'
 exit 0

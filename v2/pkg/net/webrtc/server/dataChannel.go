@@ -12,9 +12,9 @@ import (
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
-	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
+	oneshotwebrtc "github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc"
 )
 
 type dataChannelEvent struct {

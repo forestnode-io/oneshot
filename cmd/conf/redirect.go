@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/raphaelreyna/oneshot/internal/handlers"
-	"github.com/raphaelreyna/oneshot/internal/server"
+	"github.com/oneshot-uno/oneshot/internal/handlers"
+	"github.com/oneshot-uno/oneshot/internal/server"
 	"net/url"
 )
 

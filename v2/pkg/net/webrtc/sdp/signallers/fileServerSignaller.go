@@ -9,7 +9,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/rs/zerolog"
 )
 

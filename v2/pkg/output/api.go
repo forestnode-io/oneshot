@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/muesli/termenv"
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )

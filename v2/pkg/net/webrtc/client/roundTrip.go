@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/pion/datachannel"
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
-	oneshotwebrtc "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	oneshotwebrtc "github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc"
 	"golang.org/x/net/http/httpguts"
 )
 

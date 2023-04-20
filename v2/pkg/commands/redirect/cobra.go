@@ -5,10 +5,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
-	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
+	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 

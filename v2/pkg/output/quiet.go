@@ -3,7 +3,7 @@ package output
 import (
 	"context"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/rs/zerolog"
 )
 

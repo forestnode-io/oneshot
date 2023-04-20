@@ -1,4 +1,4 @@
-module github.com/raphaelreyna/oneshot/v2
+module github.com/oneshot-uno/oneshot/v2
 
 go 1.20
 

@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/cgi"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
-	rootconfig "github.com/raphaelreyna/oneshot/v2/pkg/configuration"
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/cgi"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 

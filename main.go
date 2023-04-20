@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/raphaelreyna/oneshot/cmd"
+	"github.com/oneshot-uno/oneshot/cmd"
 	"log"
 	"math/rand"
 	"os"

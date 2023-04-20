@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 )
 
 type peerConnection struct {

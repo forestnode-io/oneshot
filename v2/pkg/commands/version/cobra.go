@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
-	"github.com/raphaelreyna/oneshot/v2/pkg/version"
+	"github.com/oneshot-uno/oneshot/v2/pkg/flagargs"
+	"github.com/oneshot-uno/oneshot/v2/pkg/version"
 	"github.com/spf13/cobra"
 )
 

@@ -9,7 +9,7 @@ import (
 	_ "embed"
 
 	"github.com/miracl/conflate"
-	"github.com/raphaelreyna/oneshot/v2/pkg/log"
+	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"

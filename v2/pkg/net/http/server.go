@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshotnet "github.com/raphaelreyna/oneshot/v2/pkg/net"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
 	"github.com/rs/zerolog"
 )
 

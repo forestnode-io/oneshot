@@ -11,10 +11,10 @@ import (
 	"strings"
 
 	"github.com/jf-tech/iohelper"
-	"github.com/raphaelreyna/oneshot/v2/pkg/commands"
-	"github.com/raphaelreyna/oneshot/v2/pkg/configuration"
-	"github.com/raphaelreyna/oneshot/v2/pkg/file"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
+	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/file"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )

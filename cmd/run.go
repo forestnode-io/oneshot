@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/internal/server"
+	"github.com/oneshot-uno/oneshot/internal/server"
 	"github.com/spf13/cobra"
 	"io"
 	"path/filepath"

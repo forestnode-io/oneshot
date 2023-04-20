@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
+	oneshothttp "github.com/oneshot-uno/oneshot/v2/pkg/net/http"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

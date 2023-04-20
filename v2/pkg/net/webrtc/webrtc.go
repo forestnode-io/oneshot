@@ -9,7 +9,7 @@ import (
 
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 )
 
 const DataChannelName = "oneshot"

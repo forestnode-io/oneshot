@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	oneshothttp "github.com/raphaelreyna/oneshot/v2/pkg/net/http"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	oneshothttp "github.com/oneshot-uno/oneshot/v2/pkg/net/http"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 )
 

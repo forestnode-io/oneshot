@@ -1,6 +1,6 @@
 syntax = "proto3";
 package signallingserverproto;
-option go_package = "github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto";
+option go_package = "github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto";
 
 message Envelope {
     string type = 1;

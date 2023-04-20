@@ -1,6 +1,6 @@
 APP_NAME ?= oneshot
 IMAGE_REGISTRY ?= docker.io/raphaelreyna
-GIT_REPO ?= github.com/raphaelreyna/oneshot/v2
+GIT_REPO ?= github.com/oneshot-uno/oneshot/v2
 
 VERSION=`git describe --tags --abbrev=0`
 VERSION_FLAG=$(GIT_REPO)/pkg/version.Version=$(VERSION)

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/events"
-	upnpigd "github.com/raphaelreyna/oneshot/v2/pkg/net/upnp-igd"
-	"github.com/raphaelreyna/oneshot/v2/pkg/output"
+	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	upnpigd "github.com/oneshot-uno/oneshot/v2/pkg/net/upnp-igd"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 )
 

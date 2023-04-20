@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/sdp"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver"
-	"github.com/raphaelreyna/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/rs/zerolog"
 )
 

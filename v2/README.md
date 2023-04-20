@@ -74,6 +74,6 @@ This allows us to create unix pipelines without needing to specify a different p
 In this scenario, the user would upload or type in some Go code and upon hitting the back button (refresh wont work !) or going back to the original URL, the user will receive their formatted Go code.
 
 ### Reporting Bugs, Feature Requests & Contributing
-Please report any bugs or issues [here](https://github.com/raphaelreyna/oneshot/issues).
+Please report any bugs or issues [here](https://github.com/oneshot-uno/oneshot/issues).
 
 I consider oneshot to be *nearly* feature complete; feature requests and contributions are welcome.

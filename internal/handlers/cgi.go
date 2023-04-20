@@ -2,7 +2,7 @@ package handlers
 
 import (
 	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
-	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	srvr "github.com/oneshot-uno/oneshot/internal/server"
 	"log"
 	"net/http"
 	"time"

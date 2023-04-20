@@ -1,4 +1,4 @@
-module github.com/raphaelreyna/oneshot
+module github.com/oneshot-uno/oneshot
 
 go 1.18
 

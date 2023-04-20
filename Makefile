@@ -1,4 +1,4 @@
-LOCATION=github.com/raphaelreyna/oneshot
+LOCATION=github.com/oneshot-uno/oneshot
 VERSION=`git describe --tags --abbrev=0`
 VERSION_FLAG=$(LOCATION)/cmd.version=$(VERSION)
 DATE=`date +"%d-%B-%Y"`

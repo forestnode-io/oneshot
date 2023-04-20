@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	itest "github.com/raphaelreyna/oneshot/v2/integration_testing"
+	itest "github.com/oneshot-uno/oneshot/v2/integration_testing"
 	"github.com/stretchr/testify/suite"
 )
 

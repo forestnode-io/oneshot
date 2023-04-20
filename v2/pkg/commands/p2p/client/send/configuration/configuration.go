@@ -3,7 +3,7 @@ package configuration
 import (
 	"runtime"
 
-	"github.com/raphaelreyna/oneshot/v2/pkg/flagargs"
+	"github.com/oneshot-uno/oneshot/v2/pkg/flagargs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

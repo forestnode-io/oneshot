@@ -18,8 +18,8 @@ builds:
     ldflags:
       - -s -w
       - -extldflags=-static
-      - -X github.com/raphaelreyna/oneshot/v2/pkg/version.APIVersion=v1.0.0
-      - -X github.com/raphaelreyna/oneshot/v2/pkg/version.Version={{ .Version }}
+      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
     goos:
       - linux
       - windows

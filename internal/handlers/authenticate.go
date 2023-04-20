@@ -3,7 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	srvr "github.com/oneshot-uno/oneshot/internal/server"
 )
 
 func Authenticate(username, password string, unauthenticated http.HandlerFunc, authenticated srvr.FailableHandler) srvr.FailableHandler {

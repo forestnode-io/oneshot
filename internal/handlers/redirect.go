@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	srvr "github.com/raphaelreyna/oneshot/internal/server"
+	srvr "github.com/oneshot-uno/oneshot/internal/server"
 	"log"
 	"net/http"
 	"time"

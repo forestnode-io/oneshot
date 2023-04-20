@@ -1,4 +1,4 @@
-<img src="https://github.com/raphaelreyna/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+<img src="https://github.com/oneshot-uno/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
 
 ## oneshot
 
@@ -17,11 +17,11 @@ There are multiple ways of obtaining oneshot:
 
 #### Linux / macOS
 Copy and paste any of these commands into your terminal to install oneshot.
-For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/raphaelreyna/oneshot/releases).
+For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/oneshot-uno/oneshot/releases).
 
 ##### Download binary (easiest)
 ```bash
-curl -L https://github.com/raphaelreyna/oneshot/raw/master/install.sh | sudo bash
+curl -L https://github.com/oneshot-uno/oneshot/raw/master/install.sh | sudo bash
 ```
 
 ##### Brew
@@ -32,12 +32,12 @@ brew install oneshot
 
 ##### Go get
 ```bash
-go get -u -v github.com/raphaelreyna/oneshot
+go get -u -v github.com/oneshot-uno/oneshot
 ```
 
 ##### Compiling from source
 ```bash
-git clone github.com/raphaelreyna/oneshot
+git clone github.com/oneshot-uno/oneshot
 cd oneshot
 sudo make install
 ```
@@ -49,11 +49,11 @@ sudo make install
 #### Windows
 
 ##### Download executable
-Head over to the [release page](https://github.com/raphaelreyna/oneshot/releases) and download the windows .zip file.
+Head over to the [release page](https://github.com/oneshot-uno/oneshot/releases) and download the windows .zip file.
 
 ##### Go get
 ```powershell
-go get -u -v github.com/raphaelreyna/oneshot
+go get -u -v github.com/oneshot-uno/oneshot
 ```
 
 
@@ -134,7 +134,7 @@ In this scenario, the user would upload or type in some Go code and upon hitting
 
 
 ### Reporting Bugs, Feature Requests & Contributing
-Please report any bugs or issues [here](https://github.com/raphaelreyna/oneshot/issues).
+Please report any bugs or issues [here](https://github.com/oneshot-uno/oneshot/issues).
 
 I consider oneshot to be *nearly* feature complete; feature requests and contributions are welcome.
 
