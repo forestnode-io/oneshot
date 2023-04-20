@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+project_name: oneshot
+before:
+  hooks:
+    - make webrtc-client
+    - make upload-client
+    - go mod tidy
+builds:
+  - id: oneshot
+    main: ./cmd
+    binary: oneshot
+    # hooks:
+      # post:
+      #   - upx --best --brute --no-lzma {{ .Path }}
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -extldflags=-static
+      - -X github.com/raphaelreyna/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/raphaelreyna/oneshot/v2/pkg/version.Version={{ .Version }}
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - "386"
+      - arm
+      - arm64
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarm: "6"
+archives:
+  - id: archive
+    builds: ["oneshot"]
+    format: tar.gz
+    format_overrides:
+      - format: zip
+        goos: windows
+    files:
+      - LICENSE
+      - README.md
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
