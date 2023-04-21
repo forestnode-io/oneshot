@@ -1,5 +1,7 @@
 package version
 
+import "os"
+
 var (
 	Version    string
 	APIVersion string
@@ -8,6 +10,10 @@ var (
 )
 
 func init() {
+	if os.Getenv("ONESHOT_SKIP_INIT_CHECKS") != "" {
+		return
+	}
+
 	if Version == "" {
 		panic("Version not set")
 	}

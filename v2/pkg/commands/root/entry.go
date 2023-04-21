@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
 	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/exec"
@@ -23,6 +22,7 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/flagargs"
 	oneshothttp "github.com/oneshot-uno/oneshot/v2/pkg/net/http"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -94,18 +94,28 @@ func ExecuteContext(ctx context.Context) error {
 	return err
 }
 
-func CobraCommand() *cobra.Command {
+func CobraCommand(init bool) *cobra.Command {
 	var (
 		root rootCommand
 		cmd  = root.Command
 	)
 
 	root.Use = "oneshot"
+	root.config = configuration.EmptyRoot()
 
 	root.config.Init()
 	root.config.SetFlags(&cmd, cmd.PersistentFlags())
 
 	root.setSubCommands()
+
+	root.SetHelpTemplate(helpTemplate)
+	root.SetUsageTemplate(usageTemplate)
+
+	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
+	cobra.AddTemplateFunc("indent", func(p int, s string) string {
+		padding := strings.Repeat(" ", p)
+		return padding + strings.ReplaceAll(s, "\n", "\n"+padding)
+	})
 
 	return &root.Command
 }

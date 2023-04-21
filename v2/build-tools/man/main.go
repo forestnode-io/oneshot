@@ -9,13 +9,13 @@ import (
 )
 
 func main() {
-	cmd := root.CobraCommand()
+	cmd := root.CobraCommand(false)
 	header := doc.GenManHeader{
 		Title:   "ONESHOT",
 		Section: "1",
 		Source:  "https://github.com/oneshot-uno/oneshot/v2",
 	}
-	if err := doc.GenMan(cmd, &header, os.Stdout); err != nil {
+	if err := doc.GenManTree(cmd, &header, os.Args[1]); err != nil {
 		log.Print(err)
 	}
 }

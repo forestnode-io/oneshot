@@ -10,6 +10,7 @@ import (
 
 	"github.com/miracl/conflate"
 	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	"github.com/oneshot-uno/oneshot/v2/pkg/sys"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -55,6 +56,15 @@ func setUserConfig() error {
 	} else if errors.Is(err, os.ErrNotExist) {
 		userConfigDir = ""
 		userConfigPath = ""
+		// if on unix, try /etc/oneshot/config.yaml
+		if sys.RunningOnUNIX() {
+			if _, err := os.Stat("/etc/oneshot"); err == nil {
+				userConfigPath = "/etc/oneshot/config.yaml"
+				userConfigDir = "/etc/oneshot"
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("failed to stat /etc/oneshot: %w", err)
+			}
+		}
 	} else {
 		return fmt.Errorf("failed to get user config dir: %w", err)
 	}

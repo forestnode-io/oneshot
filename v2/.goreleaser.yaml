@@ -1,18 +1,17 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 project_name: oneshot
+dist: build-output/goreleaser
 before:
   hooks:
     - make webrtc-client
     - make upload-client
     - go mod tidy
+    - sh -c "rm -rf ./build-output/man && mkdir -p ./build-output/man" && ONESHOT_SKIP_INIT_CHECKS=true go run ./build-tools/man/main.go ../build-output/man"
 builds:
   - id: oneshot
     main: ./cmd
     binary: oneshot
-    # hooks:
-      # post:
-      #   - upx --best --brute --no-lzma {{ .Path }}
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -22,24 +21,105 @@ builds:
       - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
     goos:
       - linux
+      - freebsd
+      - openbsd
+      - netbsd
+      - dragonfly
       - windows
-      - darwin
     goarch:
       - amd64
       - "386"
       - arm
       - arm64
+      - mips
+      - mips64
+      - mipsle
+      - mips64le
     goarm:
       - "6"
       - "7"
     ignore:
-      - goos: darwin
+      - goos: windows
+        goarch: mips
+      - goos: windows
+        goarch: mips64
+      - goos: windows
+        goarch: mipsle
+      - goos: windows
+        goarch: mips64le
+      - goos: dragonfly
+        goarch: mips
+      - goos: dragonfly
+        goarch: mips64
+      - goos: dragonfly
+        goarch: mipsle
+      - goos: dragonfly
+        goarch: mips64le
+      - goos: dragonfly
+        goarch: arm
+      - goos: dragonfly
+        goarch: arm64
+      - goos: dragonfly
         goarch: "386"
-      - goos: darwin
-        goarm: "6"
+      - goos: freebsd
+        goarch: mips
+      - goos: freebsd
+        goarch: mips64
+      - goos: freebsd
+        goarch: mipsle
+      - goos: freebsd
+        goarch: mips64le
+      - goos: netbsd
+        goarch: mips
+      - goos: netbsd
+        goarch: mips64
+      - goos: netbsd
+        goarch: mipsle
+      - goos: netbsd
+        goarch: mips64le
+      - goos: openbsd
+        goarch: mips
+      - goos: openbsd
+        goarch: mipsle
+      - goos: openbsd
+        goarch: mips64le
+  - id: oneshot-darwin-arm64
+    main: ./cmd
+    binary: oneshot
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -extldflags=-static
+      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    hooks:
+      post:
+        - gon .gon/arm64.hcl
+  - id: oneshot-darwin-amd64
+    main: ./cmd
+    binary: oneshot
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -extldflags=-static
+      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    hooks:
+      post:
+        - gon .gon/amd64.hcl
 archives:
   - id: archive
-    builds: ["oneshot"]
+    builds: ["oneshot", "oneshot-darwin-amd64", "oneshot-darwin-arm64"]
     format: tar.gz
     format_overrides:
       - format: zip
@@ -54,8 +134,33 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-checksum:
-  name_template: 'checksums.txt'
+nfpms:
+  - id: oneshot
+    package_name: oneshot
+    builds: ["oneshot"]
+    homepage: https://github.com/oneshot-uno/oneshot
+    maintainer: Raphael Reyna <raphaelreyna@protonmail.com>
+    description: >-
+      A first first-come-first-serve, single-fire, feature-rich HTTP server.
+      Easily transfer files to and from your terminal and any browser or HTTP client.
+    license: Apache 2.0
+    formats:
+      - apk
+      - deb
+      - rpm
+      - archlinux
+    contents:
+      - src: pkg/configuration/config.yaml
+        dst: /etc/oneshot/config.yaml
+        type:  "config|noreplace"
+release:
+  github:
+    owner: oneshot-uno
+    name: oneshot
+  draft: true
+  prerelease: auto
+  replace_existing_draft: true
+checksum: {}
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:

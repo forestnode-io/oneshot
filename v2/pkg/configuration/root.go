@@ -5,6 +5,10 @@ import (
 
 	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server/configuration"
 	exec "github.com/oneshot-uno/oneshot/v2/pkg/commands/exec/configuration"
+	browserclient "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/browser-client/configuration"
+	client "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/configuration"
+	clientreceive "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/receive/configuration"
+	clientsend "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/send/configuration"
 	p2p "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/configuration"
 	receive "github.com/oneshot-uno/oneshot/v2/pkg/commands/receive/configuration"
 	redirect "github.com/oneshot-uno/oneshot/v2/pkg/commands/redirect/configuration"
@@ -62,6 +66,26 @@ type Root struct {
 	CORS         CORS         `mapstructure:"cors" yaml:"cors"`
 	NATTraversal NATTraversal `mapstructure:"natTraversal" yaml:"natTraversal"`
 	Subcommands  *Subcommands `mapstructure:"subcommands" yaml:"subcommands"`
+}
+
+func EmptyRoot() *Root {
+	return &Root{
+		Subcommands: &Subcommands{
+			Receive:  &receive.Configuration{},
+			Send:     &send.Configuration{},
+			Exec:     &exec.Configuration{},
+			Redirect: &redirect.Configuration{},
+			RProxy:   &rproxy.Configuration{},
+			P2P: &p2p.Configuration{
+				BrowserClient: &browserclient.Configuration{},
+				Client: &client.Configuration{
+					Receive: &clientreceive.Configuration{},
+					Send:    &clientsend.Configuration{},
+				},
+			},
+			DiscoveryServer: &discoveryserver.Configuration{},
+		},
+	}
 }
 
 func (c *Root) Init() {
