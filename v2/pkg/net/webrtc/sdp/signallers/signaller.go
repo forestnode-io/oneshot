@@ -3,8 +3,8 @@ package signallers
 import (
 	"context"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/pion/webrtc/v3"
 )
 
 // ServerSignaller is an interface that allows a client to connect to a server.
@@ -13,7 +13,7 @@ import (
 // provides to the RequestHandler.
 type ServerSignaller interface {
 	// Start starts the Signaller and blocks until it is shutdown.
-	Start(context.Context, RequestHandler, chan<- string) error
+	Start(context.Context, RequestHandler) error
 	// Shutdown stops the Signaller from accepting new requests.
 	Shutdown() error
 }

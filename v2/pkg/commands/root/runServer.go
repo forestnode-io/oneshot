@@ -2,7 +2,6 @@ package root
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
@@ -12,15 +11,12 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/oneshot-uno/oneshot/v2/pkg/output/fmt"
-	"github.com/oneshot-uno/oneshot/v2/pkg/version"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/term"
 )
 
@@ -58,11 +54,6 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		err         error
 
 		webRTCError error
-
-		ntConf  = r.config.NATTraversal
-		dsConf  = ntConf.DiscoveryServer
-		p2pConf = ntConf.P2P
-		baConf  = r.config.BasicAuth
 	)
 	defer cancel()
 
@@ -92,32 +83,13 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	}
 	defer cancelPortMapping()
 
-	// connect to discovery server if one is provided
-	var (
-		discoveryServerURL   = dsConf.URL
-		usingDiscoveryServer = discoveryServerURL != ""
+	// initialize connection to discovery server
+	ctx, err = r.withDiscoveryServer(ctx)
+	if err != nil {
+		log.Error().Err(err).
+			Msg("failed to connect to discovery server")
 
-		discoveryServerKey      = dsConf.Key
-		discoveryServerInsecure = dsConf.Insecure
-	)
-	if discoveryServerURL != "" {
-		dsConf := signallingserver.DiscoveryServerConfig{
-			URL:      discoveryServerURL,
-			Key:      discoveryServerKey,
-			Insecure: discoveryServerInsecure,
-			VersionInfo: messages.VersionInfo{
-				Version:    version.Version,
-				APIVersion: version.APIVersion,
-			},
-		}
-
-		ctx, err = signallingserver.WithDiscoveryServer(ctx, dsConf)
-		if err != nil {
-			log.Error().Err(err).
-				Msg("failed to connect to discovery server")
-
-			return fmt.Errorf("failed to connect to discovery server: %w", err)
-		}
+		return fmt.Errorf("failed to connect to discovery server: %w", err)
 	}
 
 	baToken, err := r.configureServer()
@@ -128,85 +100,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to configure server: %w", err)
 	}
 
-	var (
-		useWebRTC           = p2pConf.Enabled
-		webRTCSignallingDir = p2pConf.DiscoveryDir
-		webRTCSignallingURL = dsConf.URL
-		webRTCOnly          = p2pConf.Only
-
-		usingWebRTCWithDiscoveryServer = useWebRTC || webRTCOnly || webRTCSignallingURL != "" || usingDiscoveryServer
-		usingWebRTC                    = usingWebRTCWithDiscoveryServer || webRTCSignallingDir != ""
-		redirect                       = externalAddr_UPnP != ""
-
-		discoveryServerAssignedAddress string
-	)
-
-	if usingDiscoveryServer && redirect && !usingWebRTCWithDiscoveryServer {
-		// if we're using a discovery server but not webrtc and we're redirecting
-		// then we need to still connect to the discovery server and send it the
-		// redirect address
-		ds := signallingserver.GetDiscoveryServer(ctx)
-		if ds == nil {
-			log.Error().Msg("discovery server is nil")
-
-			return errors.New("discovery server is nil")
-		}
-
-		err = signallingserver.Send(ds, &messages.ServerArrivalRequest{
-			Redirect:     externalAddr_UPnP,
-			RedirectOnly: true,
-		})
-		if err != nil {
-			log.Error().Err(err).
-				Msg("failed to send server arrival request")
-
-			return fmt.Errorf("failed to send server arrival request: %w", err)
-		}
-		resp, err := signallingserver.Receive[*messages.ServerArrivalResponse](ds)
-		if err != nil {
-			log.Error().Err(err).
-				Msg("failed to receive server arrival response")
-
-			return fmt.Errorf("failed to receive server arrival response: %w", err)
-		}
-		if resp.Error != "" {
-			log.Error().
-				Str("error", resp.Error).
-				Msg("server arrival response error")
-
-			return fmt.Errorf("server arrival response error: %s", resp.Error)
-		}
-		discoveryServerAssignedAddress = resp.AssignedURL
-	} else if usingWebRTC {
-		// if we're using webrtc then we need to listen for incoming connections
-		// and send the discovery server our listening address
-		var (
-			externalAddrChan = make(chan string, 1)
-
-			username = baConf.Username
-			password = baConf.Password
-			bam      *messages.BasicAuth
-		)
-
-		if username != "" || password != "" {
-			bam = &messages.BasicAuth{}
-			if username != "" {
-				uHash := sha256.Sum256([]byte(username))
-				bam.UsernameHash = uHash[:]
-			}
-			if password != "" {
-				pHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-				if err != nil {
-					log.Error().Err(err).
-						Msg("failed to hash password")
-
-					return fmt.Errorf("failed to hash password: %w", err)
-				}
-				bam.PasswordHash = pHash
-			}
-		}
+	if r.config.NATTraversal.IsUsingWebRTC() {
 		go func() {
-			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, externalAddrChan, bam); err != nil {
+			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken); err != nil {
 				log.Error().Err(err).
 					Msg("failed to listen for WebRTC connections")
 
@@ -214,23 +110,15 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 				cancel()
 			}
 		}()
-
-		log.Debug().Msg("waiting for WebRTC listening address")
-		select {
-		case <-ctx.Done():
-		case discoveryServerAssignedAddress = <-externalAddrChan:
-		}
-		log.Debug().
-			Str("address", discoveryServerAssignedAddress).
-			Msg("got WebRTC listening address")
-		if discoveryServerAssignedAddress == "" {
-			return errors.New("unable to establish a connection with the discovery server")
-		}
 	}
 
 	port := r.config.Server.Port
+	userFacingAddr := ""
+	ds := signallingserver.GetDiscoveryServer(ctx)
+	if ds != nil {
+		userFacingAddr = ds.AssignedURL
+	}
 
-	userFacingAddr := discoveryServerAssignedAddress
 	if userFacingAddr == "" {
 		userFacingAddr = externalAddr_UPnP
 	}

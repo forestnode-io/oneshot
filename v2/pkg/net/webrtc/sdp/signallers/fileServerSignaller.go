@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 )
 
@@ -26,7 +26,7 @@ func NewFileServerSignaller(dir string, config *webrtc.Configuration) ServerSign
 	}
 }
 
-func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler, addressChan chan<- string) error {
+func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
 	log := zerolog.Ctx(ctx)
 	stat, err := os.Stat(s.dirPath)
 	if err == nil {
@@ -150,8 +150,6 @@ func (s *fileServerSignaller) Start(ctx context.Context, handler RequestHandler,
 	if err = os.Mkdir(filepath.Join(s.dirPath, "0"), 0755); err != nil {
 		return fmt.Errorf("unable to create dir: %w", err)
 	}
-
-	close(addressChan)
 
 	<-ctx.Done()
 	return nil

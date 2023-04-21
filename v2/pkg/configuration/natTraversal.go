@@ -18,6 +18,14 @@ type NATTraversal struct {
 	UPnP            UPnP            `mapstructure:"upnp" yaml:"upnp"`
 }
 
+func (c *NATTraversal) IsUsingWebRTC() bool {
+	return c.P2P.Enabled || c.P2P.Only
+}
+
+func (c *NATTraversal) IsUsingUPnP() bool {
+	return c.UPnP.Enabled || c.UPnP.ExternalPort > 0 || c.UPnP.Duration > 0
+}
+
 func (c *NATTraversal) init() {
 	c.DiscoveryServer.init()
 	c.P2P.init()

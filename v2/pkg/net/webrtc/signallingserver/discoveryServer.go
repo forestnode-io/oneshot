@@ -9,6 +9,7 @@ import (
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -25,8 +26,9 @@ var dialTimeout = 3 * time.Second
 type discoveryServerKey struct{}
 
 type DiscoveryServer struct {
-	conn   *grpc.ClientConn
-	stream proto.SignallingServer_ConnectClient
+	conn        *grpc.ClientConn
+	stream      proto.SignallingServer_ConnectClient
+	AssignedURL string
 }
 
 type DiscoveryServerConfig struct {
@@ -39,13 +41,15 @@ type DiscoveryServerConfig struct {
 	VersionInfo messages.VersionInfo
 }
 
-func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.Context, error) {
+func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig, arrival messages.ServerArrivalRequest) (context.Context, error) {
+	log := zerolog.Ctx(ctx)
 	opts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithKeepaliveParams(kacp),
 		grpc.FailOnNonTempDialError(true),
 	}
 	if c.Insecure {
+		log.Debug().Msg("using insecure gRPC connection")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		if c.TLSCert != "" {
@@ -61,6 +65,7 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 
 		var tlsConf *tls.Config
 		if c.TLSCert != "" && c.TLSKey != "" {
+			log.Debug().Msg("using custom TLS keypair for gRPC connection")
 			cert, err := tls.LoadX509KeyPair(c.TLSCert, c.TLSKey)
 			if err != nil {
 				return ctx, fmt.Errorf("failed to load TLS keypair: %w", err)
@@ -75,6 +80,7 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
 
+	log.Debug().Msg("dialing discovery server")
 	conn, err := grpc.DialContext(dialCtx, c.URL, opts...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -85,8 +91,11 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 		}
 		return ctx, fmt.Errorf("failed to dial discovery server: %w", err)
 	}
+
+	log.Debug().Msg("opening gRPC stream to discovery server")
 	stream, err := proto.NewSignallingServerClient(conn).Connect(ctx)
 	if err != nil {
+		conn.Close()
 		return ctx, fmt.Errorf("failed to connect to discovery server: %w", err)
 	}
 
@@ -95,23 +104,30 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 		stream: stream,
 	}
 
+	log.Debug().Msg("sending handshake to discovery server")
 	err = Send(&ds, &messages.Handshake{
 		ID:          c.Key,
 		VersionInfo: c.VersionInfo,
 	})
 	if err != nil {
+		ds.Close()
 		return ctx, fmt.Errorf("failed to send handshake to discovery server: %w", err)
 	}
 
+	log.Debug().Msg("waiting for discovery server to respond to handshake")
 	hs, err := Receive[*messages.Handshake](&ds)
 	if err != nil {
+		ds.Close()
 		return ctx, fmt.Errorf("failed to receive handshake from discovery server: %w", err)
 	}
-
 	if hs.Error != "" {
 		ds.Close()
 		return ctx, fmt.Errorf("discovery server returned error: %s", hs.Error)
 	}
+	log.Debug().
+		Str("version", hs.VersionInfo.Version).
+		Str("api-version: ", hs.VersionInfo.APIVersion).
+		Msg("discovery server handshake successful")
 
 	// Check if the discovery server is running a newer version of the API than this client.
 	// The discovery server should be backwards compatible with older clients.
@@ -119,6 +135,37 @@ func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) (context.
 		ds.Close()
 		return ctx, fmt.Errorf("discovery server is running an older version of the API (%s) than this client (%s)", hs.VersionInfo.APIVersion, c.VersionInfo.APIVersion)
 	}
+
+	log.Debug().
+		Interface("arrival-request", arrival).
+		Msg("sending server arrival request")
+
+	if err = Send(&ds, &arrival); err != nil {
+		ds.Close()
+		return ctx, fmt.Errorf("failed to send server arrival request to discovery server: %w", err)
+	}
+
+	// Wait for the discovery server to acknowledge the arrival.
+	log.Debug().Msg("waiting for discovery server to acknowledge arrival")
+	sar, err := Receive[*messages.ServerArrivalResponse](&ds)
+	if err != nil {
+		ds.Close()
+		return ctx, fmt.Errorf("failed to receive server arrival response from discovery server: %w", err)
+	}
+	if sar.Error != "" {
+		ds.Close()
+		return ctx, fmt.Errorf("discovery server returned error: %s", sar.Error)
+	}
+	if sar.AssignedURL == "" {
+		ds.Close()
+		return ctx, fmt.Errorf("discovery server did not assign a URL")
+	}
+
+	ds.AssignedURL = sar.AssignedURL
+	log.Debug().Msg("discovery server acknowledged arrival")
+	log.Info().
+		Str("assigned-url", ds.AssignedURL).
+		Msg("discovery server assigned url")
 
 	return context.WithValue(ctx, discoveryServerKey{}, &ds), nil
 }

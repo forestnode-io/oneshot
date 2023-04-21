@@ -19,30 +19,19 @@ type serverServerSignaller struct {
 
 	offerChan chan string
 
-	conf *ServerServerSignallerConfig
-
 	msgChan chan messages.Message
 	errChan chan error
 }
 
-type ServerServerSignallerConfig struct {
-	URL          string
-	URLRequired  bool
-	BasicAuth    *messages.BasicAuth
-	PortMapAddr  string
-	OnlyRedirect bool
-}
-
-func NewServerServerSignaller(c *ServerServerSignallerConfig) ServerSignaller {
+func NewServerServerSignaller() ServerSignaller {
 	return &serverServerSignaller{
-		conf:      c,
 		offerChan: make(chan string),
 		msgChan:   make(chan messages.Message, 1),
 		errChan:   make(chan error, 1),
 	}
 }
 
-func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandler, addressChan chan<- string) error {
+func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 	log := zerolog.Ctx(ctx)
@@ -61,44 +50,6 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 				Msg("error closing connection to discovery server")
 		}
 	}()
-
-	// send the arrival request
-	log.Debug().Msg("sending arrival request to discovery server")
-	ar := messages.ServerArrivalRequest{
-		BasicAuth:    s.conf.BasicAuth,
-		Redirect:     s.conf.PortMapAddr,
-		RedirectOnly: s.conf.OnlyRedirect,
-	}
-	if s.conf.URL != "" {
-		ar.URL = &messages.SessionURLRequest{
-			URL:      s.conf.URL,
-			Required: s.conf.URLRequired,
-		}
-	}
-	err := signallingserver.Send(ds, &ar)
-	if err != nil {
-		return fmt.Errorf("error marshalling arrival request: %w", err)
-	}
-	log.Debug().
-		Msg("sent arrival request to discovery server, waiting for arrival response from discovery server")
-
-	// wait for the arrival response
-	sap, err := signallingserver.Receive[*messages.ServerArrivalResponse](ds)
-	if err != nil {
-		return fmt.Errorf("error receiving arrival response: %w", err)
-	}
-	if sap.Error != "" {
-		return fmt.Errorf("discovery server responded with error: %s", sap.Error)
-	}
-	log.Debug().
-		Msg("received arrival response from discovery server, waiting for discovery server to assign url")
-
-	if sap.AssignedURL == "" {
-		return fmt.Errorf("discovery server did not assign a url")
-	}
-	log.Printf("discovery server assigned url: %s", sap.AssignedURL)
-	addressChan <- sap.AssignedURL
-	close(addressChan)
 
 	for {
 		select {

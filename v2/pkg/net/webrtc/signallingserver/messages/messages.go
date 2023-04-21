@@ -37,10 +37,12 @@ type SessionURLRequest struct {
 
 // sent from the oneshot server to the signalling server after VersionInfo has been exchanged
 type ServerArrivalRequest struct {
-	BasicAuth    *BasicAuth
-	URL          *SessionURLRequest
-	Redirect     string
-	RedirectOnly bool
+	BasicAuth          *BasicAuth
+	URL                *SessionURLRequest
+	Redirect           string
+	RedirectOnly       bool
+	IsUsingPortMapping bool
+	TTL                time.Duration
 }
 
 func (a *ServerArrivalRequest) Type() string {
