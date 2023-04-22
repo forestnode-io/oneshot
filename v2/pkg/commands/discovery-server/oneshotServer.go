@@ -6,15 +6,15 @@ import (
 	"net"
 	"net/url"
 
-	pionwebrtc "github.com/pion/webrtc/v3"
+	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"github.com/oneshot-uno/oneshot/v2/pkg/version"
+	pionwebrtc "github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -34,8 +34,9 @@ type oneshotServer struct {
 
 func newOneshotServer(ctx context.Context, requiredID string, stream proto.SignallingServer_ConnectServer, resetPending func(), requestURL func(string, bool) (string, error)) (*oneshotServer, error) {
 	var (
-		log = zerolog.Ctx(ctx)
-		o   = oneshotServer{
+		log   = zerolog.Ctx(ctx)
+		md, _ = metadata.FromIncomingContext(ctx)
+		o     = oneshotServer{
 			done:         make(chan struct{}),
 			stream:       stream,
 			msgChan:      make(chan messages.Message, 1),
@@ -110,32 +111,22 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 		if port == "" {
 			return nil, fmt.Errorf("redirect url must have a port")
 		}
-		// if the host is empty, use the peer's host address
-		if host == "" {
-			md, _ := metadata.FromIncomingContext(ctx)
+
+		// if the redirect url is not reachable but the client is using port mapping, then
+		// lets assume that the client will be reachable at the ip it reached us with.
+		isReachable := oneshotnet.IsAddressReachable(ru.Host)
+		if !isReachable && arrival.IsUsingPortMapping {
 			if md != nil {
 				realIPs := md.Get("X-Real-IP")
 				if 0 < len(realIPs) {
 					host = realIPs[0]
 				}
-				forwardedFors := md.Get("X-Forwarded-For")
-				if 0 < len(forwardedFors) {
-					host = forwardedFors[0]
+				if host == "" {
+					forwardedFors := md.Get("X-Forwarded-For")
+					if 0 < len(forwardedFors) {
+						host = forwardedFors[0]
+					}
 				}
-			}
-			if host == "" {
-				p, found := peer.FromContext(ctx)
-				if !found {
-					return nil, fmt.Errorf("error getting peer from context")
-				}
-				peerHost, _, err := net.SplitHostPort(p.Addr.String())
-				if err != nil {
-					return nil, fmt.Errorf("error parsing peer address: %w", err)
-				}
-				if peerHost == "" {
-					return nil, fmt.Errorf("error getting peer host")
-				}
-				host = peerHost
 			}
 			ru.Host = net.JoinHostPort(host, port)
 			arrival.Redirect = ru.String()

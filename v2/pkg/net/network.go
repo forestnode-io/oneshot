@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/jackpal/gateway"
 	"github.com/oneshot-uno/oneshot/v2/pkg/log"
@@ -126,4 +127,21 @@ func AddressParts(add string) (string, string) {
 	}
 
 	return parts[0], ""
+}
+
+func IsAddressReachable(addr string) bool {
+	parts := strings.Split(addr, ":")
+	ip := net.ParseIP(parts[0])
+	if ip != nil {
+		if ip.IsPrivate() {
+			return false
+		}
+	}
+
+	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err == nil {
+		conn.Close()
+		return true
+	}
+	return false
 }
