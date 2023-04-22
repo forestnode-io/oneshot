@@ -21,7 +21,7 @@ type Service struct {
 	URN     string
 	LocalIP net.IP
 
-	Client    *http.Client
+	Client    *http.Client `json:"-"`
 	UserAgent string
 }
 

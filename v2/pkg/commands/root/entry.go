@@ -55,7 +55,7 @@ func ExecuteContext(ctx context.Context) error {
 	root.PersistentPreRunE = root.init
 	root.PersistentPostRunE = handleUsageErrors(
 		func() { cmd.SilenceUsage = false },
-		root.runServer,
+		root.errorSuppressor(root.runServer),
 	)
 	root.config, err = configuration.ReadConfig()
 	if err != nil {

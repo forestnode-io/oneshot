@@ -41,7 +41,7 @@ func (r *rootCommand) handlePortMap(ctx context.Context) (string, func(), error)
 	)
 
 	discoveryTimeout := pmConf.Timeout
-	devChan, err := upnpigd.Discover("oneshot", discoveryTimeout, http.DefaultClient)
+	devChan, err := upnpigd.Discover(ctx, "oneshot", discoveryTimeout, http.DefaultClient)
 	if err != nil {
 		return "", cancel, fmt.Errorf("failed to discover UPnP IGD: %w", err)
 	}

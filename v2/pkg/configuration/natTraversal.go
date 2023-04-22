@@ -280,8 +280,6 @@ func (c *UPnP) init() {
 
 func (c *UPnP) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
 	fs.AddFlagSet(c.fs)
-	cmd.MarkFlagsRequiredTogether("external-port", "port-mapping-duration")
-	cmd.MarkFlagsRequiredTogether("map-port", "port-mapping-duration")
 }
 
 func (c *UPnP) mergeFlags() {
@@ -321,6 +319,10 @@ func (c *UPnP) validate() error {
 
 	if c.Enabled && c.Duration == 0 {
 		return errors.New("port mapping duration must be specified when UPnP is enabled")
+	}
+
+	if (c.Enabled || c.ExternalPort != 0) && c.Timeout == 0 {
+		return errors.New("UPnP discovery timeout must be specified when UPnP is enabled or external port is specified")
 	}
 
 	return nil

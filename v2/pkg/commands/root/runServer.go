@@ -44,6 +44,17 @@ func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func (r *rootCommand) errorSuppressor(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		err := next(cmd, args)
+		// if the context was cancelled, then its not an error
+		if cmd.Context().Err() != nil {
+			err = nil
+		}
+		return err
+	}
+}
+
 // runServer starts the actual oneshot http server.
 // this should only be run after a subcommand since it relies on
 // a subcommand to have set r.handler.

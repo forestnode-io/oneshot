@@ -1,6 +1,7 @@
 package upnpigd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 )
 
-func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-chan *Device, error) {
+func Discover(ctx context.Context, userAgent string, timeout time.Duration, client *http.Client) (<-chan *Device, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -30,10 +31,10 @@ func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-c
 	go func() {
 		seen := make(map[string]struct{})
 		for d := range dc {
-			if _, already := seen[d.uuid]; already {
+			if _, already := seen[d.UUID]; already {
 				continue
 			}
-			seen[d.uuid] = struct{}{}
+			seen[d.UUID] = struct{}{}
 			outDC <- d
 		}
 		close(outDC)
@@ -59,7 +60,7 @@ func Discover(userAgent string, timeout time.Duration, client *http.Client) (<-c
 			wg.Add(1)
 			go func(iface net.Interface, st string) {
 				defer wg.Done()
-				if err := d.discover(iface, st); err != nil {
+				if err := d.discover(ctx, iface, st); err != nil {
 					log.Error().Err(err).
 						Msg("unable to discover device")
 				}
@@ -84,7 +85,7 @@ type discoverer struct {
 	Client    *http.Client
 }
 
-func (d *discoverer) discover(iface net.Interface, st string) error {
+func (d *discoverer) discover(ctx context.Context, iface net.Interface, st string) error {
 	log := log.Logger()
 	tmplt := `M-SEARCH * HTTP/1.1
 HOST: %s
@@ -124,9 +125,8 @@ USER-AGENT: %s
 	}
 
 	buf := make([]byte, 65535)
-
 	for {
-		n, _, err := conn.ReadFrom(buf)
+		n, _, err := readFromUDPConn(ctx, conn, buf)
 		if err != nil {
 			return fmt.Errorf("unable to read from %s: %v", iface.Name, err)
 		}
@@ -143,5 +143,29 @@ USER-AGENT: %s
 		}
 
 		d.Chan <- dev
+	}
+}
+
+func readFromUDPConn(ctx context.Context, conn *net.UDPConn, buffer []byte) (int, *net.UDPAddr, error) {
+	type readResult struct {
+		n    int
+		addr *net.UDPAddr
+		err  error
+	}
+
+	resultChan := make(chan readResult)
+
+	go func() {
+		n, addr, err := conn.ReadFromUDP(buffer)
+		resultChan <- readResult{n: n, addr: addr, err: err}
+		close(resultChan)
+	}()
+
+	select {
+	case <-ctx.Done():
+		conn.Close()
+		return 0, nil, ctx.Err()
+	case result := <-resultChan:
+		return result.n, result.addr, result.err
 	}
 }

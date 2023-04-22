@@ -15,10 +15,10 @@ import (
 )
 
 type Device struct {
-	uuid     string
-	name     string
-	services []Service
-	url      *url.URL
+	UUID     string
+	Name     string
+	Services []Service
+	URL      *url.URL
 }
 
 func (d *Device) AddPortMapping(ctx context.Context, protocol string, externalPort, internalPort int, description string, leaseDuration time.Duration) error {
@@ -30,7 +30,7 @@ func (d *Device) AddPortMapping(ctx context.Context, protocol string, externalPo
 		Duration:     leaseDuration,
 	}
 
-	for _, s := range d.services {
+	for _, s := range d.Services {
 		resp, err := s.Execute(ctx, &req)
 		if err != nil {
 			var env soapErrorResponse
@@ -55,7 +55,7 @@ func (d *Device) GetExternalIP(ctx context.Context) (net.IP, error) {
 		err       error
 	)
 
-	for _, s := range d.services {
+	for _, s := range d.Services {
 		respBytes, err = s.Execute(ctx, &GetExternalIPRequest{})
 		if err == nil {
 			break
@@ -78,7 +78,7 @@ func (d *Device) DeletePortMapping(ctx context.Context, protocol string, externa
 		ExternalPort: externalPort,
 	}
 
-	for _, s := range d.services {
+	for _, s := range d.Services {
 		_, err := s.Execute(ctx, &req)
 		if err != nil {
 			continue
@@ -144,10 +144,10 @@ func NewDevice(client *http.Client, st string, raw []byte) (*Device, error) {
 	}
 
 	return &Device{
-		uuid:     respUUID,
-		name:     r.Device.FriendlyName,
-		services: services,
-		url:      respLocationURL,
+		UUID:     respUUID,
+		Name:     r.Device.FriendlyName,
+		Services: services,
+		URL:      respLocationURL,
 	}, nil
 }
 
