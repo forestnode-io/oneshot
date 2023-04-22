@@ -81,7 +81,7 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 	if uaConf.Domain == "" {
 		uaConf.Domain = sConf.Host
 		if uaConf.Domain == "" {
-			sip, err := oneshotnet.GetSourceIP("", 0)
+			sip, err := oneshotnet.GetSourceIP("", 80)
 			if err != nil {
 				return fmt.Errorf("unable to get source ip: %w", err)
 			}

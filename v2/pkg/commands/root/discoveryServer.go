@@ -39,7 +39,7 @@ func (r *rootCommand) withDiscoveryServer(ctx context.Context) (context.Context,
 		}
 	)
 
-	ipThatCanReachDiscoveryServer, err := oneshotnet.GetSourceIP(dsConfig.URL, 80)
+	ipThatCanReachDiscoveryServer, err := oneshotnet.GetSourceIP(dsConfig.URL, 0)
 	if err != nil {
 		return ctx, fmt.Errorf("unable to reach the discovery server: %w", err)
 	}

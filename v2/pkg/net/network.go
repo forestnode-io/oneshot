@@ -53,11 +53,15 @@ func GetSourceIP(target string, port int) (string, error) {
 		target = ip.String()
 	}
 
-	if port == 0 {
-		port = 80
+	var (
+		conn net.Conn
+		err  error
+	)
+	if 0 < port {
+		conn, err = net.Dial("udp", fmt.Sprintf("%s:%d", target, port))
+	} else {
+		conn, err = net.Dial("udp", target)
 	}
-
-	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", target, port))
 	if err != nil {
 		return "", err
 	}
