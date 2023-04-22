@@ -57,6 +57,12 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	)
 	defer cancel()
 
+	subCmdName := ""
+	subCmd, _, _ := cmd.Find(args)
+	if subCmd != nil {
+		subCmdName = subCmd.Name()
+	}
+
 	defer func() {
 		log.Debug().Msg("stopping events")
 		events.Stop(ctx)
@@ -84,7 +90,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	defer cancelPortMapping()
 
 	// initialize connection to discovery server
-	ctx, err = r.withDiscoveryServer(ctx)
+	ctx, err = r.withDiscoveryServer(ctx, subCmdName)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to connect to discovery server")

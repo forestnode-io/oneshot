@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"os"
 
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
@@ -12,7 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (r *rootCommand) withDiscoveryServer(ctx context.Context) (context.Context, error) {
+func (r *rootCommand) withDiscoveryServer(ctx context.Context, cmd string) (context.Context, error) {
 	var (
 		config   = r.config
 		dsConfig = config.NATTraversal.DiscoveryServer
@@ -36,6 +37,7 @@ func (r *rootCommand) withDiscoveryServer(ctx context.Context) (context.Context,
 			IsUsingPortMapping: config.NATTraversal.IsUsingUPnP(),
 			RedirectOnly:       !config.NATTraversal.P2P.Enabled,
 			TTL:                config.Server.Timeout,
+			Cmd:                cmd,
 		}
 	)
 
@@ -97,6 +99,9 @@ func (r *rootCommand) withDiscoveryServer(ctx context.Context) (context.Context,
 
 		arrival.BasicAuth = bam
 	}
+
+	hostname, _ := os.Hostname()
+	arrival.Hostname = hostname
 
 	return signallingserver.WithDiscoveryServer(ctx, connConf, arrival)
 }

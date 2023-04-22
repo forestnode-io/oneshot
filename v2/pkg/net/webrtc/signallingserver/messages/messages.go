@@ -43,6 +43,8 @@ type ServerArrivalRequest struct {
 	RedirectOnly       bool
 	IsUsingPortMapping bool
 	TTL                time.Duration
+	Hostname           string
+	Cmd                string
 }
 
 func (a *ServerArrivalRequest) Type() string {
