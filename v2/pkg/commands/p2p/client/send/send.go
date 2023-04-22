@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/moby/moby/pkg/namesgenerator"
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/discovery"
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
@@ -21,6 +21,7 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	oneshotos "github.com/oneshot-uno/oneshot/v2/pkg/os"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -91,9 +92,11 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	c.webrtcConfig, err = c.config.NATTraversal.P2P.WebRTCConfiguration.WebRTCConfiguration()
-	if err != nil {
-		return output.UsageErrorF("unable to configure webrtc: %w", err)
+	if wrtcConfig := c.config.NATTraversal.P2P.WebRTCConfiguration; wrtcConfig != nil {
+		c.webrtcConfig, err = wrtcConfig.WebRTCConfiguration()
+		if err != nil {
+			return output.UsageErrorF("unable to configure webrtc: %w", err)
+		}
 	}
 
 	var (
@@ -155,6 +158,10 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			log.Error().Err(err).
 				Msg("failed to negotiate offer request")
+
+			if strings.Contains(err.Error(), "404") {
+				return err
+			}
 
 			return fmt.Errorf("failed to negotiate offer request: %w", err)
 		}

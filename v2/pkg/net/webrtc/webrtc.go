@@ -7,9 +7,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 )
 
 const DataChannelName = "oneshot"

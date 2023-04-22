@@ -33,7 +33,7 @@ func NegotiateOfferRequest(ctx context.Context, url, username, password string, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get token request response: %s", resp.Status)
+		return nil, fmt.Errorf("%s", resp.Status)
 	}
 
 	log.Debug().
