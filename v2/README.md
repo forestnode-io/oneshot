@@ -5,6 +5,16 @@ Send files to and from a terminal and any HTTP client including web browsers.
 Oneshot supports not only sending files locally but also offers several methods for sending files across private networks. 
 Rich JSON output is also supported, which provides stats on the file transfer and the HTTP requests received.
 
+### Features
+- Send and receive to and from stdin or stdout.
+- Use external executables to process and respond to HTTP requests.
+- Reverse proxy and redirect HTTP requests.
+- Multiple methods of NAT traversal: UPnP-IGD, STURN and TURN (ICE).
+- Support for cloud integration with built in discovery / signalling server to allow for self hosted instances.
+- Works with any HTTP client including browsers, only one person needs to have oneshot installed.
+- Support for rich, machine-readable output; easily integrate oneshot into your pipelines.
+- Highly configurable HTTP responses, custom upload clients, and more.
+
 ### Use Cases & Examples
 
 #### Send a file
