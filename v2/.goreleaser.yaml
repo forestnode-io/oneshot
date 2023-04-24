@@ -160,6 +160,25 @@ release:
   draft: true
   prerelease: auto
   replace_existing_draft: true
+brews:
+  - name: oneshot
+    ids:
+      - oneshot
+      - oneshot-darwin-amd64
+      - oneshot-darwin-arm64
+    tap:
+      owner: oneshot-uno
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    commit_author:
+          name: goreleaserbot
+          email: bot@goreleaser.com
+    homepage: "https://github.com/oneshot-uno/oneshot"
+    description: "A first first-come-first-serve, single-fire, feature-rich HTTP server. Easily transfer files to and from your terminal and any browser or HTTP client."
+    license: "Apache-2.0"
+    test: |
+      system "#{bin}/oneshot", "--version"
 checksum: {}
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
