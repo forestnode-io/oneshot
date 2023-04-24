@@ -1,4 +1,4 @@
-source = ["./dist/oneshot-darwin-arm64_darwin_arm64/oneshot"]
+source = ["./build-output/goreleaser/oneshot-darwin-arm64_darwin_arm64/oneshot"]
 bundle_id = "uno.oneshot.oneshot"
 
 apple_id {

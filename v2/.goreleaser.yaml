@@ -163,9 +163,7 @@ release:
 brews:
   - name: oneshot
     ids:
-      - oneshot
-      - oneshot-darwin-amd64
-      - oneshot-darwin-arm64
+      - archive
     tap:
       owner: oneshot-uno
       name: homebrew-tap
