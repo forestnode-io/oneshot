@@ -23,6 +23,12 @@ A single-fire first-come-first-serve HTTP server.
 ### Installation
 There are multiple ways of obtaining oneshot:
 
+
+#### Download binary (easiest)
+```shell
+curl -L https://github.com/oneshot-uno/oneshot/raw/v2/v2/install.sh | sudo sh
+```
+
 #### Linux / macOS
 Copy and paste any of these commands into your terminal to install oneshot.
 For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/oneshot-uno/oneshot/releases).

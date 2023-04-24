@@ -25,10 +25,10 @@ fi
 OS="`uname`"
 case $OS in
   Linux)
-    OS='linux'
+    OS='Linux'
     ;;
   Darwin)
-    OS='macos'
+    OS='Darwin'
     ;;
   *)
     echo 'OS not supported'
@@ -44,6 +44,9 @@ case $ARCH_TYPE in
   i?86|x86)
     ARCH_TYPE='386'
     ;;
+  arm64)
+    ARCH_TYPE='arm64'
+    ;;
   arm*)
     ARCH_TYPE='arm'
     ;;
@@ -58,22 +61,24 @@ esac
 
 #download and untar
 download_link="https://github.com/oneshot-uno/oneshot/releases/download/v${current_version}/oneshot_${OS}_${ARCH_TYPE}.tar.gz"
+echo "Downloading oneshot from $download_link"
 oneshot_tarball="oneshot_${OS}_${ARCH_TYPE}.tar.gz"
 
 curl -s -O -L $download_link
 untar_dir="oneshot_untar"
 mkdir $untar_dir
+echo "Unpacking and installing oneshot"
 tar -xzf $oneshot_tarball -C $untar_dir
 cd $untar_dir
 
 #install oneshot
 case $OS in
-  'linux')
+  'Linux')
     cp oneshot /usr/bin/oneshot
     chmod 755 /usr/bin/oneshot
     chown root:root /usr/bin/oneshot
     ;;
-  'macos')
+  'Darwin')
     mkdir -p /usr/local/bin
     cp oneshot /usr/local/bin/oneshot
     ;;
@@ -81,7 +86,6 @@ case $OS in
     echo 'OS not supported'
     exit 2
 esac
-
 
 # Let user know oneshot was installed
 version=`oneshot version 2>>errors | head -n 1 | awk '{print $2}'`
