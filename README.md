@@ -8,7 +8,7 @@ A single-fire first-come-first-serve HTTP server.
 - Send and receive to and from stdin or stdout.
 - Use external executables to process and respond to HTTP requests.
 - Reverse proxy and redirect HTTP requests.
-- Multiple methods of NAT traversal: UPnP-IGD, STURN and TURN (ICE).
+- Multiple methods of NAT traversal: UPnP-IGD, STUN and TURN (ICE).
 - Support for cloud integration with built in discovery / signalling server to allow for self hosted instances.
 - Works with any HTTP client including browsers, only one person needs to have oneshot installed.
 - Support for rich, machine-readable output; easily integrate oneshot into your pipelines.
