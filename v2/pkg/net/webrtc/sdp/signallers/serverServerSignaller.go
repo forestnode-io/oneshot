@@ -65,7 +65,9 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			Msg("waiting for offer request from discovery server")
 		gor, err := signallingserver.Receive[*messages.GetOfferRequest](ds)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, signallingserver.ErrClosedByUser) {
+				return nil
+			} else if errors.Is(err, io.EOF) {
 				log.Debug().
 					Msg("discovery server closed connection")
 				return nil

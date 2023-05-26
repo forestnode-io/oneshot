@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/headers"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/oneshot-uno/oneshot/v2/pkg/output/fmt"
 	"github.com/rs/cors"
@@ -125,6 +127,25 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 				webRTCError = err
 				cancel()
+			}
+		}()
+	} else if ds := signallingserver.GetDiscoveryServer(ctx); ds != nil {
+		go func() {
+			stream := ds.Stream()
+			if _, err := stream.Recv(); err != nil {
+				// check if the discovery server closed the connection by user request
+				if errors.Is(err, io.EOF) {
+					trailer := stream.Trailer()
+					values := trailer.Get(headers.ClosedByUser)
+					if len(values) > 0 {
+						v := values[0]
+						if v == "true" {
+							log.Info().
+								Msg("discovery server closed connection by user request")
+							cancel()
+						}
+					}
+				}
 			}
 		}()
 	}

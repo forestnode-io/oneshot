@@ -5,8 +5,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/headers"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"github.com/rs/zerolog"
@@ -16,6 +18,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
+
+var ErrClosedByUser = errors.New("closed by user")
 
 var kacp = keepalive.ClientParameters{
 	Time:    6 * time.Second, // send pings every 6 seconds if there is no activity
@@ -31,6 +35,10 @@ type DiscoveryServer struct {
 	AssignedURL string
 }
 
+func (d *DiscoveryServer) Stream() proto.SignallingServer_ConnectClient {
+	return d.stream
+}
+
 type DiscoveryServerConfig struct {
 	URL      string
 	Key      string
@@ -41,6 +49,8 @@ type DiscoveryServerConfig struct {
 	VersionInfo messages.VersionInfo
 }
 
+// WithDiscoveryServer connects to the discovery server and sends a handshake and arrival.
+// The connnection is kept open and stuffed into the context.
 func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig, arrival messages.ServerArrivalRequest) (context.Context, error) {
 	log := zerolog.Ctx(ctx)
 	opts := []grpc.DialOption{
@@ -197,6 +207,17 @@ func (d *DiscoveryServer) send(m messages.Message) error {
 func (d *DiscoveryServer) recv() (messages.Message, error) {
 	env, err := d.stream.Recv()
 	if err != nil {
+		// check if the discovery server closed the connection by user request
+		if errors.Is(err, io.EOF) {
+			trailer := d.stream.Trailer()
+			values := trailer.Get(headers.ClosedByUser)
+			if len(values) > 0 {
+				v := values[0]
+				if v == "true" {
+					return nil, ErrClosedByUser
+				}
+			}
+		}
 		return nil, fmt.Errorf("failed to receive message from discovery server: %w", err)
 	}
 	m, err := messages.FromRPCEnvelope(env)
