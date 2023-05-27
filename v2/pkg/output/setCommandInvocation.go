@@ -51,15 +51,15 @@ func (o *output) setCommandInvocation(cmd *cobra.Command, args []string) {
 	case "webrtc client receive":
 		fallthrough
 	case "receive":
-		if !o.quiet {
-			o.enableDynamicOutput()
-		}
 		switch argc {
 		case 0: // receiving to stdout
 			if o.Format == "json" {
 				includeContent()
 			}
 		default: // receiving to a file
+			if !o.quiet {
+				o.enableDynamicOutput()
+			}
 		}
 	case "reverse-proxy":
 		if o.Format == "json" {
