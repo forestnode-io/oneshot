@@ -2,6 +2,7 @@ package output
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -45,4 +46,25 @@ func _human_handleContextDone(ctx context.Context, o *output) {
 		log.Error().Err(err).
 			Msg("connection cancelled event")
 	}
+}
+
+type PrintableError struct {
+	Err error
+}
+
+func (h *PrintableError) Error() string {
+	return fmt.Sprintf("%v", h.Err)
+}
+
+func (h *PrintableError) Unwrap() error {
+	return h.Err
+}
+
+func WrapPrintable(err error) error {
+	return &PrintableError{Err: err}
+}
+
+func IsPrintable(err error) bool {
+	var e *PrintableError
+	return errors.As(err, &e)
 }

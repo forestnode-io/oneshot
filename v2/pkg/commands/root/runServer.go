@@ -51,7 +51,9 @@ func (r *rootCommand) errorSuppressor(next func(cmd *cobra.Command, args []strin
 		err := next(cmd, args)
 		// if the context was cancelled, then its not an error
 		if cmd.Context().Err() != nil {
-			err = nil
+			if !output.IsPrintable(err) {
+				err = nil
+			}
 		}
 		return err
 	}
@@ -193,7 +195,7 @@ func (r *rootCommand) listenAndServe(ctx context.Context, listeningAddr, userFac
 	if !webrtcOnly {
 		l, err = net.Listen("tcp", listeningAddr)
 		if err != nil {
-			return err
+			return output.WrapPrintable(err)
 		}
 		defer l.Close()
 	}

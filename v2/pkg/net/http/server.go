@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 )
 
@@ -186,10 +187,12 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 				Str("key", s.TLSKey).
 				Msg("serving HTTPS")
 			err = s.server.ServeTLS(l, s.TLSCert, s.TLSKey)
+			err = output.WrapPrintable(err)
 		} else {
 			log.Info().
 				Msg("serving HTTP")
 			err = s.server.Serve(l)
+			err = output.WrapPrintable(err)
 		}
 		if err = cleanServerShutdownErr(err); err != nil {
 			log.Error().Err(err).
@@ -225,7 +228,7 @@ func cleanServerShutdownErr(err error) error {
 		return nil
 	}
 
-	return err
+	return output.WrapPrintable(err)
 }
 
 type responseWriter struct {
