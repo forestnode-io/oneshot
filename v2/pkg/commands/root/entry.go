@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
+	configcmd "github.com/oneshot-uno/oneshot/v2/pkg/commands/config"
 	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/exec"
 	p2p "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p"
@@ -140,6 +141,7 @@ func (r *rootCommand) setSubCommands() {
 
 func subCommands(config *configuration.Root) []*cobra.Command {
 	return []*cobra.Command{
+		configcmd.New(config).Cobra(),
 		exec.New(config).Cobra(),
 		receive.New(config).Cobra(),
 		redirect.New(config).Cobra(),

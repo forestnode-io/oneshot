@@ -22,8 +22,8 @@ var (
 )
 
 var (
-	userConfigPath string
-	userConfigDir  string
+	ConfigPath    string
+	userConfigDir string
 )
 
 func init() {
@@ -44,7 +44,7 @@ func init() {
 func setUserConfig() error {
 	if confPath := os.Getenv("ONESHOT_CONFIG"); confPath != "" {
 		userConfigDir = filepath.Dir(confPath)
-		userConfigPath = confPath
+		ConfigPath = confPath
 		return nil
 	}
 
@@ -52,14 +52,14 @@ func setUserConfig() error {
 	ucd, err := os.UserConfigDir()
 	if err == nil {
 		userConfigDir = filepath.Join(ucd, "oneshot")
-		userConfigPath = filepath.Join(ucd, "oneshot", "config.yaml")
+		ConfigPath = filepath.Join(ucd, "oneshot", "config.yaml")
 	} else if errors.Is(err, os.ErrNotExist) {
 		userConfigDir = ""
-		userConfigPath = ""
+		ConfigPath = ""
 		// if on unix, try /etc/oneshot/config.yaml
 		if sys.RunningOnUNIX() {
 			if _, err := os.Stat("/etc/oneshot"); err == nil {
-				userConfigPath = "/etc/oneshot/config.yaml"
+				ConfigPath = "/etc/oneshot/config.yaml"
 				userConfigDir = "/etc/oneshot"
 			} else if !errors.Is(err, os.ErrNotExist) {
 				return fmt.Errorf("failed to stat /etc/oneshot: %w", err)
@@ -73,7 +73,7 @@ func setUserConfig() error {
 }
 
 func ensureConfigDir() error {
-	if userConfigPath == "" {
+	if ConfigPath == "" {
 		return nil
 	}
 
@@ -90,11 +90,11 @@ func ensureConfigDir() error {
 }
 
 func ensureConfigFile() error {
-	if userConfigPath == "" {
+	if ConfigPath == "" {
 		return nil
 	}
 
-	_, err := os.Stat(userConfigPath)
+	_, err := os.Stat(ConfigPath)
 	if err == nil {
 		return nil
 	}
@@ -102,7 +102,7 @@ func ensureConfigFile() error {
 		return fmt.Errorf("failed to stat user config file: %w", err)
 	}
 
-	file, err := os.Create(userConfigPath)
+	file, err := os.Create(ConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to create user config file: %w", err)
 	}
@@ -130,11 +130,11 @@ func ReadConfig() (*Root, error) {
 		data []byte
 		err  error
 	)
-	if userConfigPath == "" {
+	if ConfigPath == "" {
 		data = defaultConfig
 		log.Info().Msg("using built-in default config")
 	} else {
-		data, err = os.ReadFile(userConfigPath)
+		data, err = os.ReadFile(ConfigPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read user config file: %w", err)
 		}

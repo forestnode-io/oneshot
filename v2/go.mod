@@ -30,6 +30,7 @@ require (
 	github.com/aymanbagabas/go-osc52 v1.2.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -90,11 +91,13 @@ require (
 	github.com/miracl/conflate v1.3.1
 	github.com/moby/moby v20.10.22+incompatible
 	github.com/muesli/termenv v0.13.0
+	github.com/openconfig/goyang v1.4.0
 	github.com/pion/webrtc/v3 v3.1.53
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/rs/cors v1.8.3
 	github.com/rs/zerolog v1.29.0
 	github.com/spf13/pflag v1.0.5
+	github.com/vmware-labs/yaml-jsonpath v0.3.2
 	golang.org/x/mod v0.9.0
 	golang.org/x/term v0.6.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
