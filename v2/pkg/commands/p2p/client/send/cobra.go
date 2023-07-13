@@ -13,7 +13,8 @@ import (
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/discovery"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/send/configuration"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/oneshot-uno/oneshot/v2/pkg/file"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
@@ -26,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func New(config *configuration.Root) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -35,7 +36,7 @@ func New(config *configuration.Root) *Cmd {
 type Cmd struct {
 	cobraCommand *cobra.Command
 	webrtcConfig *webrtc.Configuration
-	config       *configuration.Root
+	config       *rootconfig.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -46,20 +47,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:   "send [file|dir]",
 		Short: "Send to a receiving oneshot instance over p2p",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.P2P.Client.Send
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			return nil
-		},
-		RunE: c.send,
+		RunE:  c.send,
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.P2P.Client.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }
@@ -72,12 +64,12 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 
 		config    = c.config.Subcommands.P2P.Client.Send
 		p2pConfig = c.config.NATTraversal.P2P
-		dsConfig  = c.config.NATTraversal.DiscoveryServer
+		dsConfig  = c.config.Discovery
 		baConfig  = c.config.BasicAuth
 
 		fileName            = config.Name
 		webRTCSignallingDir = p2pConfig.DiscoveryDir
-		webRTCSignallingURL = dsConfig.URL
+		webRTCSignallingURL = dsConfig.Host
 
 		err error
 	)
@@ -92,11 +84,16 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 		fileName = namesgenerator.GetRandomName(0)
 	}
 
-	if wrtcConfig := c.config.NATTraversal.P2P.WebRTCConfiguration; wrtcConfig != nil {
-		c.webrtcConfig, err = wrtcConfig.WebRTCConfiguration()
+	if 0 < len(p2pConfig.WebRTCConfiguration) {
+		iwc, err := p2pConfig.ParseConfig()
 		if err != nil {
-			return output.UsageErrorF("unable to configure webrtc: %w", err)
+			return fmt.Errorf("failed to parse p2p configuration: %w", err)
 		}
+		wc, err := iwc.WebRTCConfiguration()
+		if err != nil {
+			return fmt.Errorf("failed to get WebRTC configuration: %w", err)
+		}
+		c.webrtcConfig = wc
 	}
 
 	var (
@@ -189,7 +186,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}()
 	defer signaller.Shutdown()
 
-	rtc, err := file.NewReadTransferConfig(config.ArchiveMethod.String(), args...)
+	rtc, err := file.NewReadTransferConfig(config.ArchiveMethod, args...)
 	if err != nil {
 		log.Error().Err(err).
 			Msg("failed to create read transfer config")
@@ -198,7 +195,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	}
 
 	if file.IsArchive(rtc) {
-		fileName += "." + config.ArchiveMethod.String()
+		fileName += "." + config.ArchiveMethod
 	}
 
 	header := http.Header{}

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	oneshothttp "github.com/oneshot-uno/oneshot/v2/pkg/net/http"
 	"github.com/rs/cors"
 )
@@ -56,10 +57,15 @@ func (r *rootCommand) configureServer() (string, error) {
 		return "", fmt.Errorf("failed to create basic auth middleware: %w", err)
 	}
 
+	maxReadSize, err := configuration.ParseSizeString(sConf.MaxReadSize)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse max read size: %w", err)
+	}
+
 	r.server = oneshothttp.NewServer(r.Context(), r.handler, goneHandler, []oneshothttp.Middleware{
 		r.middleware.
 			Chain(oneshothttp.BlockPrefetch("Safari")).
-			Chain(oneshothttp.LimitReaderMiddleware(int64(sConf.MaxReadSize))).
+			Chain(oneshothttp.LimitReaderMiddleware(maxReadSize)).
 			Chain(oneshothttp.MiddlewareShim(corsMW)).
 			Chain(oneshothttp.BotsMiddleware(allowBots)).
 			Chain(baMiddleware),

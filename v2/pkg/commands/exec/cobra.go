@@ -9,6 +9,7 @@ import (
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/cgi"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/exec/configuration"
 	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
@@ -39,17 +40,6 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short:      "Execute a command for each request, passing in the body to stdin and returning the stdout to the client",
 		Long: `Execute a command for each request, passing in the body to stdin and returning the stdout to the client.
 Commands may be CGI complaint but do not have to be. CGI compliance can be enforced with the --enforce-cgi flag.`,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.Exec
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			if err := config.Hydrate(); err != nil {
-				return fmt.Errorf("failed to hydrate configuration: %w", err)
-			}
-			return nil
-		},
 		RunE: c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -61,8 +51,7 @@ Commands may be CGI complaint but do not have to be. CGI compliance can be enfor
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.Exec.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }

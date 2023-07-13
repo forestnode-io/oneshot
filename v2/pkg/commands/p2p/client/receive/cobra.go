@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/discovery"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/receive/configuration"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/oneshot-uno/oneshot/v2/pkg/file"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
@@ -22,11 +22,12 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	oneshotos "github.com/oneshot-uno/oneshot/v2/pkg/os"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-func New(config *configuration.Root) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -36,7 +37,7 @@ type Cmd struct {
 	cobraCommand       *cobra.Command
 	fileTransferConfig *file.WriteTransferConfig
 	webrtcConfig       *webrtc.Configuration
-	config             *configuration.Root
+	config             *rootconfig.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -47,21 +48,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:   "receive [file]",
 		Short: "Receive from a sending oneshot instance over p2p",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.P2P.Client.Receive
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-
-			return nil
-		},
-		RunE: c.receive,
+		RunE:  c.receive,
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.P2P.Client.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }
@@ -72,7 +63,7 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		log = zerolog.Ctx(ctx)
 
 		p2pConfig = c.config.NATTraversal.P2P
-		dsConfig  = c.config.NATTraversal.DiscoveryServer
+		dsConfig  = c.config.Discovery
 		baConfig  = c.config.BasicAuth
 	)
 
@@ -135,7 +126,7 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 
 		signaller, bat, err = signallers.NewFileClientSignaller(offerFilePath, answerFilePath)
 	} else {
-		corr, err := discovery.NegotiateOfferRequest(ctx, dsConfig.URL, baConfig.Username, baConfig.Password, http.DefaultClient)
+		corr, err := discovery.NegotiateOfferRequest(ctx, dsConfig.Host, baConfig.Username, baConfig.Password, http.DefaultClient)
 		if err != nil {
 			return fmt.Errorf("failed to negotiate offer request: %w", err)
 		}
@@ -143,7 +134,7 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create transport: %w", err)
 		}
-		signaller, bat, err = signallers.NewServerClientSignaller(dsConfig.URL, corr.SessionID, corr.RTCSessionDescription, nil)
+		signaller, bat, err = signallers.NewServerClientSignaller(dsConfig.Host, corr.SessionID, corr.RTCSessionDescription, nil)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create signaller: %w", err)
@@ -269,14 +260,20 @@ func (c *Cmd) receive(cmd *cobra.Command, args []string) error {
 }
 
 func (c *Cmd) configureWebRTC() error {
-	var (
-		config = c.config.NATTraversal.P2P.WebRTCConfiguration
-		err    error
-	)
-	c.webrtcConfig, err = config.WebRTCConfiguration()
-	if err != nil {
-		return fmt.Errorf("unable to configure webrtc: %w", err)
+	conf := c.config.NATTraversal.P2P
+	if len(conf.WebRTCConfiguration) == 0 {
+		return nil
 	}
+
+	iwc, err := conf.ParseConfig()
+	if err != nil {
+		return fmt.Errorf("failed to parse p2p configuration: %w", err)
+	}
+	wc, err := iwc.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("failed to get WebRTC configuration: %w", err)
+	}
+	c.webrtcConfig = wc
 
 	return nil
 }

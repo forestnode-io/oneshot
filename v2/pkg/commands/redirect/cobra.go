@@ -1,18 +1,18 @@
 package redirect
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/redirect/configuration"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New(config *configuration.Root) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -20,7 +20,7 @@ func New(config *configuration.Root) *Cmd {
 
 type Cmd struct {
 	cobraCommand *cobra.Command
-	config       *configuration.Root
+	config       *rootconfig.Root
 	url          string
 }
 
@@ -32,18 +32,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	c.cobraCommand = &cobra.Command{
 		Use:   "redirect url",
 		Short: "Redirect all requests to the specified url",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.Redirect
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			if err := config.Hydrate(); err != nil {
-				return fmt.Errorf("failed to hydrate configuration: %w", err)
-			}
-			return nil
-		},
-		RunE: c.setHandlerFunc,
+		RunE:  c.setHandlerFunc,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return output.UsageErrorF("redirect url required")
@@ -56,8 +45,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.Redirect.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }

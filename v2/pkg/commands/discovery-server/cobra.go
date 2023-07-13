@@ -5,7 +5,6 @@ import (
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -42,23 +41,10 @@ Web browsers will be served a JS WebRTC client that will connect back to the dis
 			"p2p client send",
 			"p2p client receive",
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.DiscoveryServer
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			if err := config.Hydrate(); err != nil {
-				return fmt.Errorf("failed to hydrate configuration: %w", err)
-			}
-			return nil
-		},
 		RunE: c.run,
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.DiscoveryServer.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
 
 	return c.cobraCommand
 }

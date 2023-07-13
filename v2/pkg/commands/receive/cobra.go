@@ -12,7 +12,8 @@ import (
 
 	"github.com/jf-tech/iohelper"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/receive/configuration"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/file"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
@@ -37,7 +38,7 @@ func init() {
 	}
 }
 
-func New(config *configuration.Root) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	c := Cmd{config: config}
 	return &c
 }
@@ -46,7 +47,7 @@ type Cmd struct {
 	fileTransferConfig *file.WriteTransferConfig
 	writeTemplate      func(io.Writer, bool) error
 	cobraCommand       *cobra.Command
-	config             *configuration.Root
+	config             *rootconfig.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -55,18 +56,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 	}
 
 	c.cobraCommand = &cobra.Command{
-		Use: "receive [file]",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.Receive
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			if err := config.Hydrate(); err != nil {
-				return fmt.Errorf("failed to hydrate configuration: %w", err)
-			}
-			return nil
-		},
+		Use:   "receive [file]",
 		RunE:  c.setHandlerFunc,
 		Short: "Receive a file from the client",
 		Long: `Receive a file from the client. If file is not specified, the content will be sent to stdout.
@@ -99,7 +89,7 @@ Values in the ` + "`X-Oneshot-Multipart-Content-Lengths`" + ` header should be o
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
 
-	c.config.Subcommands.Receive.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }

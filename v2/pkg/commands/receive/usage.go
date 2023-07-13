@@ -3,6 +3,9 @@ package receive
 const usageTemplate = `Receive options:
 {{ .LocalFlags | wrappedFlagUsages | trimTrailingWhitespaces }}
 
+Discovery options:
+{{ discoveryFlags | wrappedFlagUsages | trimTrailingWhitespaces }}
+
 Output options:
 {{ outputFlags | wrappedFlagUsages | trimTrailingWhitespaces }}
 
@@ -20,8 +23,6 @@ NAT Traversal options:
 {{ p2pFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 4 }}
 {{ "Port mapping options:" | indent 2 }}
 {{ upnpFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 4 }}
-{{ "Discovery options:" | indent 2 }}
-{{ discoveryServerFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 4 }}
 
 Usage:
   {{.UseLine}}

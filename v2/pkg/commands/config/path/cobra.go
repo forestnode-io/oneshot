@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short:   "Get the path to the oneshot configuration file being used.",
 		Long:    "Get the path to the oneshot configuration file being used.",
 		RunE:    c.run,
+		Args:    cobra.NoArgs,
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
@@ -34,6 +36,10 @@ func (c *Cmd) Cobra() *cobra.Command {
 }
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {
-	fmt.Printf("%s\n", configuration.ConfigPath)
+	if configuration.ConfigPath() != "" {
+		fmt.Printf("%s\n", configuration.ConfigPath())
+	} else {
+		return output.UsageErrorF("no configuration file found")
+	}
 	return nil
 }

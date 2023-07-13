@@ -5,25 +5,17 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type Configuration struct {
-	fs *pflag.FlagSet
-}
-
-func (c *Configuration) Init() {
-	c.fs = pflag.NewFlagSet("receive flags", pflag.ExitOnError)
-
-	cobra.AddTemplateFunc("receiveFlags", func() *pflag.FlagSet {
-		return c.fs
-	})
-}
-
-func (c *Configuration) SetFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
-	fs.AddFlagSet(c.fs)
-}
-
-func (c *Configuration) MergeFlags() {
-}
+type Configuration struct{}
 
 func (c *Configuration) Validate() error {
 	return nil
+}
+
+func SetFlags(cmd *cobra.Command) {
+	fs := pflag.NewFlagSet("redirect flags", pflag.ContinueOnError)
+	defer cmd.Flags().AddFlagSet(fs)
+
+	cobra.AddTemplateFunc("redirectFlags", func() *pflag.FlagSet {
+		return fs
+	})
 }

@@ -1,15 +1,13 @@
 package set
 
 import (
-	"fmt"
-	"os"
+	"strconv"
 	"strings"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
-	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
 
 func New(config *configuration.Root) *Cmd {
@@ -33,6 +31,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short: "Set an individual value in a oneshot configuration file.",
 		Long:  "Set an individual value in a oneshot configuration file.",
 		RunE:  c.run,
+		Args:  cobra.MinimumNArgs(2),
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
@@ -41,164 +40,55 @@ func (c *Cmd) Cobra() *cobra.Command {
 }
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {
-	var (
-		node yaml.Node
-		err  error
-	)
-
-	if len(args) < 2 {
-		return output.UsageErrorF("not enough arguments")
+	if configuration.ConfigPath() == "" {
+		return output.UsageErrorF("no configuration file found")
 	}
 
-	if configuration.ConfigPath == "" {
-		return output.UsageErrorF("no configuration file specified")
+	v := viper.Get(args[0])
+	if v == nil {
+		return output.UsageErrorF("no such key: %s", args[0])
 	}
-
-	fileBytes, err := os.ReadFile(configuration.ConfigPath)
-	if err != nil {
-		return output.UsageErrorF("failed to read configuration file: %w", err)
-	}
-
-	if err := yaml.Unmarshal(fileBytes, &node); err != nil {
-		return output.UsageErrorF("failed to unmarshal configuration file: %w", err)
-	}
-
-	path, err := yamlpath.NewPath(args[0])
-	if err != nil {
-		return output.UsageErrorF("failed to parse path: %w", err)
-	}
-
-	foundNodes, err := path.Find(&node)
-	if err != nil {
-		return output.UsageErrorF("failed to find path in configuration file: %w", err)
-	}
-	if len(foundNodes) == 0 {
-		return output.UsageErrorF("no nodes found for path")
-	}
-
-	selectedNode := foundNodes[0]
-
-	switch selectedNode.Kind {
-	case yaml.ScalarNode:
-		selectedNode.Value = args[1]
-	case yaml.SequenceNode:
-		selectedNode.Content = newScalarSequenceContent(args[1:])
-	case yaml.MappingNode:
-		nodeKey, err := getMappingContentNodeKey(&node, selectedNode)
+	switch v.(type) {
+	case string:
+		viper.Set(args[0], args[1])
+	case int:
+		x, err := strconv.Atoi(args[1])
 		if err != nil {
-			return output.UsageErrorF("failed to get node key: %w", err)
+			return output.UsageErrorF("failed to convert value to int: %w", err)
 		}
-		nodeKey = strings.ToLower(nodeKey)
-		switch {
-		case strings.HasSuffix(nodeKey, "header"):
-			selectedNode.Content, err = newScalarSequenceMappingContent(args[1:])
-		default:
-			err = fmt.Errorf("unsupported node key: %s", nodeKey)
-		}
+		viper.Set(args[0], x)
+	case bool:
+		x, err := strconv.ParseBool(args[1])
 		if err != nil {
-			return output.UsageErrorF("failed to parse mapping: %w", err)
+			return output.UsageErrorF("failed to convert value to bool: %w", err)
 		}
+		viper.Set(args[0], x)
+	case []string:
+		if 3 <= len(args) {
+			viper.Set(args[0], args[1:])
+		} else {
+			viper.Set(args[0], strings.Split(args[1], ","))
+		}
+	case []int:
+		if 3 <= len(args) {
+			ints := make([]int, len(args)-1)
+			var err error
+			for i := range args[1:] {
+				ints[i], err = strconv.Atoi(args[i+1])
+				if err != nil {
+					return output.UsageErrorF("failed to convert value to int: %w", err)
+				}
+			}
+			viper.Set(args[0], ints)
+		}
+	default:
+		return output.UsageErrorF("unsupported type: %T", v)
 	}
 
-	fileBytes, err = yaml.Marshal(&node)
+	err := viper.WriteConfig()
 	if err != nil {
-		return output.UsageErrorF("failed to marshal configuration file: %w", err)
-	}
-
-	if err := os.WriteFile(configuration.ConfigPath, fileBytes, 0644); err != nil {
 		return output.UsageErrorF("failed to write configuration file: %w", err)
 	}
 
-	return err
+	return nil
 }
-
-func newScalarSequenceContent(values []string) []*yaml.Node {
-	var content []*yaml.Node
-
-	for _, v := range values {
-		content = append(content, &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Value: v,
-		})
-	}
-
-	return content
-}
-
-func newScalarSequenceMappingContent(fields []string) ([]*yaml.Node, error) {
-	var content []*yaml.Node
-
-	for _, f := range fields {
-		parts := strings.Split(f, "=")
-		if len(parts) != 2 {
-			return nil, output.UsageErrorF("invalid field: %s", f)
-		}
-		name := parts[0]
-		value := parts[1]
-		value = strings.TrimPrefix(value, "[")
-		value = strings.TrimPrefix(value, "{")
-		value = strings.TrimSuffix(value, "]")
-		value = strings.TrimSuffix(value, "}")
-
-		content = append(content,
-			&yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: name,
-			},
-			&yaml.Node{
-				Kind:    yaml.SequenceNode,
-				Content: newScalarSequenceContent(strings.Split(value, ",")),
-			},
-		)
-	}
-
-	return content, nil
-}
-
-func getMappingContentNodeKey(parent, node *yaml.Node) (string, error) {
-	if parent.Kind != yaml.DocumentNode {
-		return "", output.UsageErrorF("parent is not a document node")
-	}
-
-	for i, n := range parent.Content {
-		if n == node {
-			return parent.Content[i-1].Value, nil
-		} else if n.Kind == yaml.MappingNode {
-			key, err := _getMappingContentNodeKey(n, node)
-			if err != nil {
-				if err == errNodeNotFound {
-					continue
-				}
-				return "", err
-			}
-			return key, nil
-		}
-	}
-
-	return "", output.UsageErrorF("node not found in parent")
-}
-
-func _getMappingContentNodeKey(parent, node *yaml.Node) (string, error) {
-	if parent.Kind != yaml.MappingNode {
-		return "", output.UsageErrorF("parent is not a mapping node")
-	}
-
-	for i, n := range parent.Content {
-		if n == node {
-			return parent.Content[i-1].Value, nil
-		} else if n.Kind == yaml.MappingNode {
-			key, err := _getMappingContentNodeKey(n, node)
-			if err != nil {
-				if err == errNodeNotFound {
-					continue
-				}
-				return "", err
-			}
-			return parent.Content[i-1].Value + "." + key, nil
-		}
-	}
-
-	return "", errNodeNotFound
-}
-
-var errNodeNotFound = fmt.Errorf("node not found")

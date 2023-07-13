@@ -16,16 +16,16 @@ import (
 func (r *rootCommand) withDiscoveryServer(ctx context.Context, cmd string) (context.Context, error) {
 	var (
 		config   = r.config
-		dsConfig = config.NATTraversal.DiscoveryServer
+		dsConfig = config.Discovery
 	)
 
-	if dsConfig.URL == "" {
+	if dsConfig.Host == "" {
 		return ctx, nil
 	}
 
 	var (
 		connConf = signallingserver.DiscoveryServerConfig{
-			URL:      dsConfig.URL,
+			URL:      dsConfig.Host,
 			Key:      dsConfig.Key,
 			Insecure: dsConfig.Insecure,
 			VersionInfo: messages.VersionInfo{
@@ -41,7 +41,7 @@ func (r *rootCommand) withDiscoveryServer(ctx context.Context, cmd string) (cont
 		}
 	)
 
-	ipThatCanReachDiscoveryServer, err := oneshotnet.GetSourceIP(dsConfig.URL, 0)
+	ipThatCanReachDiscoveryServer, err := oneshotnet.GetSourceIP(dsConfig.Host, 0)
 	if err != nil {
 		return ctx, fmt.Errorf("unable to reach the discovery server: %w", err)
 	}

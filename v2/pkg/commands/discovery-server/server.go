@@ -15,13 +15,13 @@ import (
 
 	_ "embed"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/oneshot-uno/oneshot/v2/pkg/output/fmt"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -70,9 +70,13 @@ func newServer(c *configuration.Root) (*server, error) {
 		return nil, output.UsageErrorF("p2p configuration is nil")
 	}
 
-	rc, err := p2pConfig.WebRTCConfiguration.WebRTCConfiguration()
+	iwc, err := p2pConfig.ParseConfig()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create webrtc configuration: %w", err)
+		return nil, fmt.Errorf("failed to parse p2p configuration: %w", err)
+	}
+	rc, err := iwc.WebRTCConfiguration()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get WebRTC configuration: %w", err)
 	}
 
 	s := server{

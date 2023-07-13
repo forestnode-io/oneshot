@@ -7,13 +7,14 @@ import (
 
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/send/configuration"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/file"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 )
 
-func New(config *configuration.Root) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -23,7 +24,7 @@ type Cmd struct {
 	rtc          file.ReadTransferConfig
 	cobraCommand *cobra.Command
 
-	config *configuration.Root
+	config *rootconfig.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -38,23 +39,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 When sending from stdin, requests are blocked until an EOF is received; content from stdin is buffered for subsequent requests.
 If a directory is given, it will be archived and sent to the client; oneshot does not support sending unarchived directories.
 `,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.Send
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			if err := config.Hydrate(); err != nil {
-				return fmt.Errorf("failed to hydrate configuration: %w", err)
-			}
-			return nil
-		},
 		RunE: c.setHandlerFunc,
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.Send.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }

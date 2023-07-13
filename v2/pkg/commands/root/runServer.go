@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
@@ -19,15 +20,20 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"golang.org/x/term"
 )
 
 func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
 	var ctx = cmd.Context()
 
-	r.config.MergeFlags()
+	err := viper.Unmarshal(r.config)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal configuration: %w", err)
+	}
+
 	if err := r.config.Validate(); err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
+		return output.UsageErrorF("invalid configuration: %w", err)
 	}
 	if err := r.config.Hydrate(); err != nil {
 		return fmt.Errorf("failed to hydrate configuration: %w", err)
@@ -36,8 +42,32 @@ func (r *rootCommand) init(cmd *cobra.Command, args []string) error {
 	if r.config.Output.Quiet {
 		output.Quiet(ctx)
 	} else {
-		output.SetFormat(ctx, r.config.Output.Format.Format)
-		output.SetFormatOpts(ctx, r.config.Output.Format.Opts...)
+		var (
+			format string
+			opts   = []string{}
+		)
+		if r.config.Output.Format != "" {
+			parts := strings.Split(r.config.Output.Format, "=")
+			if len(parts) == 0 || 2 < len(parts) {
+				return fmt.Errorf("invalid output format: %s", r.config.Output.Format)
+			}
+			format = parts[0]
+			if format != "json" {
+				return fmt.Errorf("invalid output format: %s", r.config.Output.Format)
+			}
+
+			if len(parts) == 2 {
+				opts = strings.Split(parts[1], ",")
+			}
+			for _, opt := range opts {
+				if opt != "compact" && opt != "include-file-contents" && opt != "exclude-file-contents" {
+					return fmt.Errorf("invalid output format option: %s", opt)
+				}
+			}
+		}
+
+		output.SetFormat(ctx, format)
+		output.SetFormatOpts(ctx, opts...)
 	}
 	if r.config.Output.NoColor {
 		output.NoColor(ctx)

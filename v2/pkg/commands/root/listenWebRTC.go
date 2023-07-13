@@ -44,9 +44,9 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string)
 
 func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr string) (signallers.ServerSignaller, error) {
 	var (
-		dsConf              = config.NATTraversal.DiscoveryServer
+		dsConf              = config.Discovery
 		p2pConf             = config.NATTraversal.P2P
-		webRTCSignallingURL = dsConf.URL
+		webRTCSignallingURL = dsConf.Host
 		webRTCSignallingDir = p2pConf.DiscoveryDir
 	)
 
@@ -54,7 +54,11 @@ func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr s
 		if config == nil {
 			return nil, fmt.Errorf("nil p2p configuration")
 		}
-		wc, err := p2pConf.WebRTCConfiguration.WebRTCConfiguration()
+		iwc, err := p2pConf.ParseConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse p2p configuration: %w", err)
+		}
+		wc, err := iwc.WebRTCConfiguration()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get WebRTC configuration: %w", err)
 		}
@@ -67,16 +71,20 @@ func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr s
 }
 
 func (r *rootCommand) configureWebRTC() error {
-	conf := r.config.NATTraversal.P2P.WebRTCConfiguration
-	if conf == nil {
+	conf := r.config.NATTraversal.P2P
+	if len(conf.WebRTCConfiguration) == 0 {
 		return nil
 	}
 
-	var err error
-	r.webrtcConfig, err = conf.WebRTCConfiguration()
+	iwc, err := conf.ParseConfig()
 	if err != nil {
-		return fmt.Errorf("unable to configure p2p: %w", err)
+		return fmt.Errorf("failed to parse p2p configuration: %w", err)
 	}
+	wc, err := iwc.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("failed to get WebRTC configuration: %w", err)
+	}
+	r.webrtcConfig = wc
 
 	return nil
 }
