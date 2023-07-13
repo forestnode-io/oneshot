@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pion/datachannel"
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
 	oneshotwebrtc "github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc"
+	"github.com/pion/datachannel"
+	"github.com/pion/webrtc/v3"
 )
 
 type dataChannelEvent struct {
@@ -109,18 +109,30 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 				buf               = make([]byte, oneshotwebrtc.DataChannelMTU)
 				headerBuf         = bytes.NewBuffer(nil)
 				doneReadingHeader = false
+				bytesRead         int
 			)
 
 			// read the HTTP request status line and header.
 			for !doneReadingHeader {
 				n, isString, err := d.ReadWriteCloser.ReadDataChannel(buf)
+				bytesRead += n
 				if err != nil {
 					d.ReadWriteCloser.Close()
 					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("unable to read data channel: %w", err)}
 					return
 				}
+
 				if !isString {
+					// if by error the client send empty binary data at the beginning of the request,
+					// we should ignore it and continue reading the header.
+					if bytesRead == 0 {
+						continue
+					}
+
 					log.Error().
+						Int("bytes_read", bytesRead).
+						Str("header", string(buf[:bytesRead])).
+						Bytes("header_bytes", buf[:bytesRead]).
 						Str("remote_addr", remoteAddr).
 						Msg("received binary data during header parsing")
 					d.ReadWriteCloser.Close()
