@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/pion/webrtc/v3"
@@ -13,18 +14,20 @@ import (
 // Server satisfies the sdp.RequestHandler interface.
 // Server acts as a factory for new peer connections when a client request comes in.
 type Server struct {
-	handler http.HandlerFunc
-	config  *webrtc.Configuration
-	wg      sync.WaitGroup
-	bat     string
+	handler          http.HandlerFunc
+	config           *webrtc.Configuration
+	wg               sync.WaitGroup
+	basicAuthToken   string
+	iceGatherTimeout time.Duration
 }
 
-func NewServer(config *webrtc.Configuration, bat string, handler http.HandlerFunc) *Server {
+func NewServer(config *webrtc.Configuration, bat string, iceGatherTimeout time.Duration, handler http.HandlerFunc) *Server {
 	return &Server{
-		handler: handler,
-		config:  config,
-		wg:      sync.WaitGroup{},
-		bat:     bat,
+		handler:          handler,
+		config:           config,
+		wg:               sync.WaitGroup{},
+		basicAuthToken:   bat,
+		iceGatherTimeout: iceGatherTimeout,
 	}
 }
 
@@ -41,7 +44,7 @@ func (s *Server) HandleRequest(ctx context.Context, id string, conf *webrtc.Conf
 	}
 	// create a new peer connection.
 	// newPeerConnection does not wait for the peer connection to be established.
-	pc, pcErrs := newPeerConnection(ctx, id, s.bat, answerOfferFunc, conf)
+	pc, pcErrs := newPeerConnection(ctx, id, s.basicAuthToken, s.iceGatherTimeout, answerOfferFunc, conf)
 	if pc == nil {
 		err := <-pcErrs
 		err = fmt.Errorf("unable to create new webRTC peer connection: %w", err)
@@ -51,7 +54,7 @@ func (s *Server) HandleRequest(ctx context.Context, id string, conf *webrtc.Conf
 
 	// create a new data channel.
 	// newDataChannel waits for the data channel to be established.
-	d, err := newDataChannel(ctx, pc)
+	d, err := newDataChannel(ctx, s.iceGatherTimeout, pc)
 	if err != nil {
 		return fmt.Errorf("unable to create new webRTC data channel: %w", err)
 	}

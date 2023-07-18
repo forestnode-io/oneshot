@@ -2,23 +2,25 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/oneshot-uno/oneshot/v2/pkg/log"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	"github.com/pion/webrtc/v3"
 )
 
 type peerConnection struct {
 	ctx            context.Context
 	errChan        chan<- error
 	answerOffer    signallers.AnswerOffer
+	answeredOffer  bool
 	sessionID      string
 	basicAuthToken string
+
+	iceGatherTimeout time.Duration
 
 	peerAddresses []string
 	paMu          sync.Mutex
@@ -28,24 +30,19 @@ type peerConnection struct {
 	*webrtc.PeerConnection
 }
 
-func newPeerConnection(ctx context.Context, id, bat string, sao signallers.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
+func newPeerConnection(ctx context.Context, id, bat string, gatherTimeout time.Duration, sao signallers.AnswerOffer, c *webrtc.Configuration) (*peerConnection, <-chan error) {
 	var (
 		err  error
 		errs = make(chan error, 1)
 	)
 
-	jsonP, err := json.Marshal(c)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(jsonP))
-
 	pc := peerConnection{
-		ctx:            ctx,
-		errChan:        errs,
-		answerOffer:    sao,
-		sessionID:      id,
-		basicAuthToken: bat,
+		ctx:              ctx,
+		errChan:          errs,
+		answerOffer:      sao,
+		sessionID:        id,
+		basicAuthToken:   bat,
+		iceGatherTimeout: gatherTimeout,
 	}
 
 	se := webrtc.SettingEngine{}
@@ -95,6 +92,64 @@ func (p *peerConnection) onICEConnectionStateChange(cs webrtc.ICEConnectionState
 	}
 }
 
+func (p *peerConnection) _answerOffer() {
+	log := log.Logger()
+	pc := p.PeerConnection
+	offer := pc.LocalDescription()
+
+	p.paMu.Lock()
+	defer p.paMu.Unlock()
+
+	if p.answeredOffer {
+		return
+	}
+
+	if offer == nil || len(p.peerAddresses) == 0 {
+		err := fmt.Errorf("unable to get local session description during webRTC negotiation")
+		p.error(true, err)
+		return
+	}
+
+	// if we have a basic auth token, add it to the session description
+	if p.basicAuthToken != "" {
+		sdp, err := offer.Unmarshal()
+		if err != nil {
+			err = fmt.Errorf("unable to unmarshal session description: %w", err)
+			p.error(true, err)
+		}
+		sdp = sdp.WithValueAttribute("BasicAuthToken", p.basicAuthToken)
+		sdpBytes, err := sdp.Marshal()
+		if err != nil {
+			err = fmt.Errorf("unable to marshal session description: %w", err)
+			p.error(true, err)
+			return
+		}
+		offer.SDP = string(sdpBytes)
+	}
+
+	log.Debug().
+		Msg("sending offer to signaling server")
+
+	answer, err := p.answerOffer(p.ctx, p.sessionID, sdp.Offer(offer.SDP))
+	if err != nil {
+		err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)
+		p.error(true, err)
+	}
+
+	answerSD, err := answer.WebRTCSessionDescription()
+	if err != nil {
+		err = fmt.Errorf("unable to convert session description to webRTC session description: %w", err)
+		p.error(true, err)
+	}
+
+	if err := pc.SetRemoteDescription(answerSD); err != nil {
+		err = fmt.Errorf("unable to set remote session description during webRTC negotiation: %w", err)
+		p.error(true, err)
+	}
+
+	p.answeredOffer = true
+}
+
 func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 	log := log.Logger()
 	if candidate != nil {
@@ -114,43 +169,8 @@ func (p *peerConnection) onICECandidate(candidate *webrtc.ICECandidate) {
 		log.Debug().
 			Msg("done gathering ICE candidates, sending offer to signaling server")
 
-		pc := p.PeerConnection
-		offer := pc.LocalDescription()
+		p._answerOffer()
 
-		// if we have a basic auth token, add it to the session description
-		if p.basicAuthToken != "" {
-			sdp, err := offer.Unmarshal()
-			if err != nil {
-				err = fmt.Errorf("unable to unmarshal session description: %w", err)
-				p.error(true, err)
-			}
-			sdp = sdp.WithValueAttribute("BasicAuthToken", p.basicAuthToken)
-			sdpBytes, err := sdp.Marshal()
-			if err != nil {
-				err = fmt.Errorf("unable to marshal session description: %w", err)
-				p.error(true, err)
-			}
-			offer.SDP = string(sdpBytes)
-		}
-
-		log.Debug().
-			Msg("sending offer to signaling server")
-		answer, err := p.answerOffer(p.ctx, p.sessionID, sdp.Offer(offer.SDP))
-		if err != nil {
-			err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)
-			p.error(true, err)
-		}
-
-		answerSD, err := answer.WebRTCSessionDescription()
-		if err != nil {
-			err = fmt.Errorf("unable to convert session description to webRTC session description: %w", err)
-			p.error(true, err)
-		}
-
-		if err := pc.SetRemoteDescription(answerSD); err != nil {
-			err = fmt.Errorf("unable to set remote session description during webRTC negotiation: %w", err)
-			p.error(true, err)
-		}
 		return
 	}
 }

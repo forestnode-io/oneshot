@@ -50,11 +50,12 @@ func (c *NATTraversal) hydrate() error {
 }
 
 type P2P struct {
-	Enabled                 bool   `mapstructure:"enabled" yaml:"enabled"`
-	Only                    bool   `mapstructure:"only" yaml:"only"`
-	WebRTCConfigurationFile string `mapstructure:"webrtcConfigurationFile" yaml:"webrtcConfigurationFile"`
-	WebRTCConfiguration     []byte `json:"webrtcConfiguration" yaml:"webrtcConfiguration"`
-	DiscoveryDir            string `mapstructure:"discoveryDir" yaml:"discoveryDir"`
+	Enabled                 bool          `mapstructure:"enabled" yaml:"enabled"`
+	Only                    bool          `mapstructure:"only" yaml:"only"`
+	WebRTCConfigurationFile string        `mapstructure:"webrtcConfigurationFile" yaml:"webrtcConfigurationFile"`
+	WebRTCConfiguration     []byte        `json:"webrtcConfiguration" yaml:"webrtcConfiguration"`
+	DiscoveryDir            string        `mapstructure:"discoveryDir" yaml:"discoveryDir"`
+	ICEGatherTimeout        time.Duration `mapstructure:"iceGatherTimeout" yaml:"iceGatherTimeout"`
 }
 
 func setP2PFlags(cmd *cobra.Command) {

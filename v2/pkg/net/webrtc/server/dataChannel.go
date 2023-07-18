@@ -31,7 +31,7 @@ type dataChannel struct {
 	cancel     func()
 }
 
-func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, error) {
+func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnection) (*dataChannel, error) {
 	log := log.Logger()
 	dcChan := make(chan datachannel.ReadWriteCloser, 1)
 
@@ -71,7 +71,7 @@ func newDataChannel(ctx context.Context, pc *peerConnection) (*dataChannel, erro
 	})
 
 	// wait for the data channel to be established and detached (or an error)
-	timedCtx, cancelTimedCtx := context.WithTimeout(ctx, 3*time.Second)
+	timedCtx, cancelTimedCtx := context.WithTimeout(ctx, timeout)
 	defer cancelTimedCtx()
 	select {
 	case <-timedCtx.Done():

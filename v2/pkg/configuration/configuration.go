@@ -112,6 +112,7 @@ func setDefault() {
 	viper.SetDefault("nattraversal.p2p.discoverydir", "")
 	viper.SetDefault("nattraversal.p2p.webrtcconfiguration", []byte{})
 	viper.SetDefault("nattraversal.p2p.webrtcconfigurationfile", "")
+	viper.SetDefault("nattraversal.p2p.icegathertimeout", 30*time.Second)
 
 	// nat traversal - upnp
 	viper.SetDefault("nattraversal.upnp.enabled", false)

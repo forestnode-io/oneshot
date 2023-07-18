@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jf-tech/iohelper"
+	"github.com/icholy/replace"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/receive/configuration"
 	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
@@ -306,7 +306,9 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 
 	var src io.Reader = strings.NewReader(r.PostForm.Get("text"))
 	if config.EOL == "unix" {
-		src = iohelper.NewBytesReplacingReader(src, crlf, lf)
+		src = replace.Chain(src,
+			replace.Bytes(crlf, lf),
+		)
 	}
 
 	return &requestBody{

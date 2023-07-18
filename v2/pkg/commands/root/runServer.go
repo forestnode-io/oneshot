@@ -153,7 +153,8 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 
 	if r.config.NATTraversal.IsUsingWebRTC() {
 		go func() {
-			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken); err != nil {
+			iceGatherTimeout := r.config.NATTraversal.P2P.ICEGatherTimeout
+			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, iceGatherTimeout); err != nil {
 				log.Error().Err(err).
 					Msg("failed to listen for WebRTC connections")
 

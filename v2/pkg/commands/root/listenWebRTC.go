@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
@@ -11,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string) error {
+func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string, iceGatherTimeout time.Duration) error {
 	r.wg.Add(1)
 	defer r.wg.Done()
 
@@ -31,7 +32,7 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string)
 	defer signaller.Shutdown()
 
 	// create a webrtc server with the same handler as the http server
-	a := server.NewServer(r.webrtcConfig, bat, http.HandlerFunc(r.server.ServeHTTP))
+	a := server.NewServer(r.webrtcConfig, bat, iceGatherTimeout, http.HandlerFunc(r.server.ServeHTTP))
 	defer a.Wait()
 
 	log.Info().Msg("starting p2p discovery mechanism")
