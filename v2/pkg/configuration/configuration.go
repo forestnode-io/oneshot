@@ -82,7 +82,7 @@ func setDefault() {
 	// server
 	viper.SetDefault("server.host", "")
 	viper.SetDefault("server.port", 8080)
-	viper.SetDefault("server.timeout", 0)
+	viper.SetDefault("server.timeout", 0*time.Second)
 	viper.SetDefault("server.allowbots", false)
 	viper.SetDefault("server.maxreadsize", "0")
 	viper.SetDefault("server.exitonfail", "0")
@@ -117,7 +117,7 @@ func setDefault() {
 	// nat traversal - upnp
 	viper.SetDefault("nattraversal.upnp.enabled", false)
 	viper.SetDefault("nattraversal.upnp.externalport", 0)
-	viper.SetDefault("nattraversal.upnp.duration", 0)
+	viper.SetDefault("nattraversal.upnp.duration", 0*time.Second)
 	viper.SetDefault("nattraversal.upnp.timeout", 60*time.Second)
 
 	// subcommands - receive
