@@ -2,13 +2,13 @@ package root
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
+	configcmd "github.com/oneshot-uno/oneshot/v2/pkg/commands/config"
 	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/exec"
 	p2p "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p"
@@ -45,6 +45,14 @@ type rootCommand struct {
 }
 
 func ExecuteContext(ctx context.Context) error {
+	// template funcs need to be added before any commands are created
+	// since they register usage templates
+	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
+	cobra.AddTemplateFunc("indent", func(p int, s string) string {
+		padding := strings.Repeat(" ", p)
+		return padding + strings.ReplaceAll(s, "\n", "\n"+padding)
+	})
+
 	var (
 		root rootCommand
 		cmd  = &root.Command
@@ -57,14 +65,8 @@ func ExecuteContext(ctx context.Context) error {
 		func() { cmd.SilenceUsage = false },
 		root.errorSuppressor(root.runServer),
 	)
-	root.config, err = configuration.ReadConfig()
-	if err != nil {
-		err = fmt.Errorf("failed to read configuration: %w", err)
-		fmt.Printf("Error: %s\n", err.Error())
-		return err
-	}
-	root.config.Init()
-	root.config.SetFlags(cmd, cmd.PersistentFlags())
+	root.config = configuration.EmptyRoot()
+	root.config.Init(cmd)
 
 	root.setSubCommands()
 
@@ -75,12 +77,6 @@ func ExecuteContext(ctx context.Context) error {
 
 	root.SetHelpTemplate(helpTemplate)
 	root.SetUsageTemplate(usageTemplate)
-
-	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
-	cobra.AddTemplateFunc("indent", func(p int, s string) string {
-		padding := strings.Repeat(" ", p)
-		return padding + strings.ReplaceAll(s, "\n", "\n"+padding)
-	})
 
 	err = root.ExecuteContext(ctx)
 	if err != nil {
@@ -103,8 +99,7 @@ func CobraCommand(init bool) *cobra.Command {
 	root.Use = "oneshot"
 	root.config = configuration.EmptyRoot()
 
-	root.config.Init()
-	root.config.SetFlags(&cmd, cmd.PersistentFlags())
+	root.config.Init(&cmd)
 
 	root.setSubCommands()
 
@@ -140,6 +135,7 @@ func (r *rootCommand) setSubCommands() {
 
 func subCommands(config *configuration.Root) []*cobra.Command {
 	return []*cobra.Command{
+		configcmd.New(config).Cobra(),
 		exec.New(config).Cobra(),
 		receive.New(config).Cobra(),
 		redirect.New(config).Cobra(),

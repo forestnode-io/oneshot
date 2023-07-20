@@ -3,6 +3,9 @@ package send
 const usageTemplate = `Send options:
 {{ .LocalFlags | wrappedFlagUsages | trimTrailingWhitespaces }}
 
+Discovery options:
+{{ discoveryFlags | wrappedFlagUsages | trimTrailingWhitespaces }}
+
 Output options:
 {{ outputClientFlags | wrappedFlagUsages | trimTrailingWhitespaces }}
 
@@ -12,6 +15,4 @@ Basic Authentication options:
 NAT Traversal options:
 {{ "P2P options:" | indent 2 }}
 {{ p2pClientFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 4 }}
-{{ "Discovery options:" | indent 2 }}
-{{ discoveryServerClientFlags | wrappedFlagUsages | trimTrailingWhitespaces | indent 4 }}
 `

@@ -4,66 +4,35 @@ import (
 	"fmt"
 	"os"
 
-	oneshothttp "github.com/oneshot-uno/oneshot/v2/pkg/net/http"
+	"github.com/oneshot-uno/oneshot/v2/pkg/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 type Configuration struct {
-	EnforceCGI     bool                `mapstructure:"enforceCGI" yaml:"enforceCGI"`
+	EnforceCGI     bool                `mapstructure:"enforcecgi" yaml:"enforcecgi"`
 	Env            []string            `mapstructure:"env" yaml:"env"`
 	Dir            string              `mapstructure:"dir" yaml:"dir"`
 	StdErr         string              `mapstructure:"stderr" yaml:"stderr"`
-	ReplaceHeaders bool                `mapstructure:"replaceHeaders" yaml:"replaceHeaders"`
+	ReplaceHeaders bool                `mapstructure:"replaceheaders" yaml:"replaceheaders"`
 	Header         map[string][]string `mapstructure:"headers" yaml:"headers"`
-
-	fs *pflag.FlagSet
 }
 
-func (c *Configuration) Init() {
-	c.fs = pflag.NewFlagSet("exec flags", pflag.ContinueOnError)
+func SetFlags(cmd *cobra.Command) {
+	fs := pflag.NewFlagSet("exec flags", pflag.ContinueOnError)
+	defer cmd.Flags().AddFlagSet(fs)
 
-	c.fs.BoolVar(&c.EnforceCGI, "enforce-cgi", false, "The exec must conform to the CGI standard.")
-	c.fs.StringSliceP("env", "e", []string{}, "Set an environment variable.")
-	c.fs.String("dir", "", "Set the working directory.")
-	c.fs.String("stderr", "", "Where to send exec stderr.")
-	c.fs.Bool("replace-headers", false, "Allow command to replace header values.")
-	c.fs.StringSliceP("header", "H", nil, `Header to send to client. Can be specified multiple times.
+	flags.Bool(fs, "cmd.exec.enforcecgi", "enforce-cgi", "The exec must conform to the CGI standard.")
+	flags.StringSliceP(fs, "cmd.exec.env", "env", "e", "Set an environment variable.")
+	flags.String(fs, "cmd.exec.dir", "dir", "Set the working directory.")
+	flags.String(fs, "cmd.exec.stderr", "stderr", "Where to send exec stderr.")
+	flags.Bool(fs, "cmd.exec.replaceheaders", "replace-headers", "Allow command to replace header values.")
+	flags.StringSliceP(fs, "cmd.exec.header", "header", "H", `Header to send to client. Can be specified multiple times.
 Format: <HEADER NAME>=<HEADER VALUE>`)
 
 	cobra.AddTemplateFunc("execFlags", func() *pflag.FlagSet {
-		return c.fs
+		return fs
 	})
-}
-
-func (c *Configuration) SetFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
-	fs.AddFlagSet(c.fs)
-}
-
-func (c *Configuration) MergeFlags() {
-	if c.fs.Changed("enforce-cgi") {
-		c.EnforceCGI, _ = c.fs.GetBool("enforce-cgi")
-	}
-	if c.fs.Changed("env") {
-		c.Env, _ = c.fs.GetStringSlice("env")
-	}
-	if c.fs.Changed("dir") {
-		c.Dir, _ = c.fs.GetString("dir")
-	}
-	if c.fs.Changed("stderr") {
-		c.StdErr, _ = c.fs.GetString("stderr")
-	}
-	if c.fs.Changed("replace-headers") {
-		c.ReplaceHeaders, _ = c.fs.GetBool("replace-headers")
-	}
-	if c.fs.Changed("header") {
-		header, _ := c.fs.GetStringSlice("header")
-		hdr, err := oneshothttp.HeaderFromStringSlice(header)
-		if err != nil {
-			panic(err)
-		}
-		c.Header = hdr
-	}
 }
 
 func (c *Configuration) Validate() error {

@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pion/webrtc/v3"
-	"github.com/pkg/browser"
 	"github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server/template"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/browser-client/configuration"
+	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
 	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/pion/webrtc/v3"
+	"github.com/pkg/browser"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-func New(config *configuration.Root) *Cmd {
+func New(config *rootconfig.Root) *Cmd {
 	return &Cmd{
 		config: config,
 	}
@@ -24,7 +25,7 @@ func New(config *configuration.Root) *Cmd {
 type Cmd struct {
 	cobraCommand *cobra.Command
 	webrtcConfig *webrtc.Configuration
-	config       *configuration.Root
+	config       *rootconfig.Root
 }
 
 func (c *Cmd) Cobra() *cobra.Command {
@@ -37,20 +38,11 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Short: "Get the p2p browser client as a single HTML file.",
 		Long: `Get the p2p browser client as a single HTML file.
 This client can be used to establish a p2p connection with oneshot when not using a discovery server.`,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			config := c.config.Subcommands.P2P.BrowserClient
-			config.MergeFlags()
-			if err := config.Validate(); err != nil {
-				return output.UsageErrorF("invalid configuration: %w", err)
-			}
-			return nil
-		},
 		RunE: c.run,
 	}
 
 	c.cobraCommand.SetUsageTemplate(usageTemplate)
-
-	c.config.Subcommands.P2P.BrowserClient.SetFlags(c.cobraCommand, c.cobraCommand.Flags())
+	configuration.SetFlags(c.cobraCommand)
 
 	return c.cobraCommand
 }
@@ -69,10 +61,17 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		events.Stop(ctx)
 	}()
 
-	c.webrtcConfig, err = c.config.NATTraversal.P2P.WebRTCConfiguration.WebRTCConfiguration()
+	p2pConfig := c.config.NATTraversal.P2P
+	iwc, err := p2pConfig.ParseConfig()
 	if err != nil {
-		return fmt.Errorf("unable to configure webrtc: %w", err)
+		return fmt.Errorf("failed to parse p2p configuration: %w", err)
 	}
+	wc, err := iwc.WebRTCConfiguration()
+	if err != nil {
+		return fmt.Errorf("failed to get WebRTC configuration: %w", err)
+	}
+
+	c.webrtcConfig = wc
 
 	rtcConfigJSON, err := json.Marshal(c.webrtcConfig)
 	if err != nil {

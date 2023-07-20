@@ -6,17 +6,6 @@ import (
 )
 
 type Configuration struct {
-	BrowserClient *browserclient.Configuration
-	Client        *client.Configuration
-}
-
-func (c *Configuration) Init() {
-	if c.BrowserClient == nil {
-		c.BrowserClient = &browserclient.Configuration{}
-	}
-	c.BrowserClient.Init()
-	if c.Client == nil {
-		c.Client = &client.Configuration{}
-	}
-	c.Client.Init()
+	BrowserClient *browserclient.Configuration `mapstructure:"browserclient" yaml:"browserclient"`
+	Client        *client.Configuration        `mapstructure:"client" yaml:"client"`
 }

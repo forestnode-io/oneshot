@@ -1,162 +1,204 @@
 package configuration
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
 
-	_ "embed"
+	"net/http"
 
-	"github.com/miracl/conflate"
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
-	"github.com/oneshot-uno/oneshot/v2/pkg/sys"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 )
 
 var (
-	//go:embed config.yaml
-	defaultConfig []byte
-)
-
-var (
-	userConfigPath string
-	userConfigDir  string
+	configPath string
 )
 
 func init() {
-	if err := setUserConfig(); err != nil {
-		panic(err)
-	}
-	if err := ensureConfigDir(); err != nil {
-		panic(err)
-	}
-	if err := ensureConfigFile(); err != nil {
-		panic(err)
-	}
-	if defaultConfig == nil {
-		panic("defaultConfig is nil")
-	}
+	setConfigPath()
+	setEnv()
+	setDefault()
+	softEnsureConfigFile()
+	readInConfig()
 }
 
-func setUserConfig() error {
-	if confPath := os.Getenv("ONESHOT_CONFIG"); confPath != "" {
-		userConfigDir = filepath.Dir(confPath)
-		userConfigPath = confPath
-		return nil
+func ConfigPath() string {
+	return configPath
+}
+
+func setConfigPath() {
+	if x := os.Getenv("ONESHOT_CONFIG"); x != "" {
+		configPath = os.Getenv("ONESHOT_CONFIG")
+		viper.SetConfigFile(configPath)
+		return
 	}
 
-	// Try to use the user config dir from the OS
-	ucd, err := os.UserConfigDir()
+	configDir, err := os.UserConfigDir()
 	if err == nil {
-		userConfigDir = filepath.Join(ucd, "oneshot")
-		userConfigPath = filepath.Join(ucd, "oneshot", "config.yaml")
-	} else if errors.Is(err, os.ErrNotExist) {
-		userConfigDir = ""
-		userConfigPath = ""
-		// if on unix, try /etc/oneshot/config.yaml
-		if sys.RunningOnUNIX() {
-			if _, err := os.Stat("/etc/oneshot"); err == nil {
-				userConfigPath = "/etc/oneshot/config.yaml"
-				userConfigDir = "/etc/oneshot"
-			} else if !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("failed to stat /etc/oneshot: %w", err)
-			}
-		}
-	} else {
-		return fmt.Errorf("failed to get user config dir: %w", err)
+		configPath = configDir + "/oneshot/config.yaml"
+		viper.SetConfigFile(configPath)
 	}
-
-	return nil
 }
 
-func ensureConfigDir() error {
-	if userConfigPath == "" {
-		return nil
+func softEnsureConfigFile() {
+	_, err := os.Stat(configPath)
+	if !os.IsNotExist(err) {
+		return
 	}
 
-	_, err := os.Stat(userConfigDir)
-	if errors.Is(err, os.ErrNotExist) {
-		if err = os.Mkdir(userConfigDir, 0700); err != nil {
-			return fmt.Errorf("failed to create user config dir: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to stat user config dir: %w", err)
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return
 	}
 
-	return nil
-}
-
-func ensureConfigFile() error {
-	if userConfigPath == "" {
-		return nil
-	}
-
-	_, err := os.Stat(userConfigPath)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to stat user config file: %w", err)
-	}
-
-	file, err := os.Create(userConfigPath)
+	file, err := os.Create(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to create user config file: %w", err)
+		return
 	}
 	defer file.Close()
 
-	if _, err = file.Write(defaultConfig); err != nil {
-		return fmt.Errorf("failed to write default config to user config file: %w", err)
-	}
-
-	return nil
+	viper.WriteConfig()
 }
 
-type Configuration interface {
-	Init()
-	SetFlags(*cobra.Command, *viper.Viper)
-	MergeFlags()
-	Validate() error
-}
-
-func ReadConfig() (*Root, error) {
-	var (
-		config Root
-		log    = log.Logger()
-
-		data []byte
-		err  error
+func setEnv() {
+	viper.SetEnvPrefix("ONESHOT")
+	viper.SetEnvKeyReplacer(
+		strings.NewReplacer(".", "_"),
 	)
-	if userConfigPath == "" {
-		data = defaultConfig
-		log.Info().Msg("using built-in default config")
-	} else {
-		data, err = os.ReadFile(userConfigPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read user config file: %w", err)
-		}
-	}
+	viper.AutomaticEnv()
+}
 
-	backgroundConfig, err := conflate.FromData(defaultConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create background config: %w", err)
-	}
+func setDefault() {
+	viper.SetTypeByDefaultValue(true)
 
-	if err = backgroundConfig.AddData(data); err != nil {
-		return nil, fmt.Errorf("failed to add user config data to background config %w", err)
-	}
+	// output
+	viper.SetDefault("output.quiet", false)
+	viper.SetDefault("output.format", "")
+	viper.SetDefault("output.qrCode", false)
+	viper.SetDefault("output.noColor", false)
 
-	confData, err := backgroundConfig.MarshalYAML()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal background config: %w", err)
-	}
+	// server
+	viper.SetDefault("server.host", "")
+	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.timeout", 0*time.Second)
+	viper.SetDefault("server.allowbots", false)
+	viper.SetDefault("server.maxreadsize", "0")
+	viper.SetDefault("server.exitonfail", "0")
+	viper.SetDefault("server.tlscert", "")
+	viper.SetDefault("server.tlskey", "")
 
-	if err = yaml.Unmarshal(confData, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal background config: %w", err)
-	}
+	// basic auth
+	viper.SetDefault("basicauth.username", "")
+	viper.SetDefault("basicauth.password", "")
+	viper.SetDefault("basicauth.passwordfile", "")
+	viper.SetDefault("basicauth.passwordprompt", false)
+	viper.SetDefault("basicauth.unauthorizedpage", "")
+	viper.SetDefault("basicauth.unauthorizedstatus", http.StatusUnauthorized)
+	viper.SetDefault("basicauth.noDialog", false)
 
-	return &config, nil
+	// cors
+	viper.SetDefault("cors.allowedorigins", []string{})
+	viper.SetDefault("cors.allowedheaders", []string{})
+	viper.SetDefault("cors.maxage", 0)
+	viper.SetDefault("cors.allowcredentials", false)
+	viper.SetDefault("cors.allowprivatenetwork", false)
+	viper.SetDefault("cors.successstatus", http.StatusNoContent)
+
+	// nat traversal - p2p
+	viper.SetDefault("nattraversal.p2p.enabled", false)
+	viper.SetDefault("nattraversal.p2p.only", false)
+	viper.SetDefault("nattraversal.p2p.discoverydir", "")
+	viper.SetDefault("nattraversal.p2p.webrtcconfiguration", []byte{})
+	viper.SetDefault("nattraversal.p2p.webrtcconfigurationfile", "")
+	viper.SetDefault("nattraversal.p2p.icegathertimeout", 30*time.Second)
+
+	// nat traversal - upnp
+	viper.SetDefault("nattraversal.upnp.enabled", false)
+	viper.SetDefault("nattraversal.upnp.externalport", 0)
+	viper.SetDefault("nattraversal.upnp.duration", 0*time.Second)
+	viper.SetDefault("nattraversal.upnp.timeout", 60*time.Second)
+
+	// subcommands - receive
+	viper.SetDefault("cmd.receive.csrftoken", "")
+	viper.SetDefault("cmd.receive.eol", "")
+	viper.SetDefault("cmd.receive.uifile", "")
+	viper.SetDefault("cmd.receive.decodeb64", false)
+	viper.SetDefault("cmd.receive.status", http.StatusOK)
+	viper.SetDefault("cmd.receive.header", map[string][]string{})
+	viper.SetDefault("cmd.receive.includebody", false)
+
+	// cmd - send
+	archiveMethod := "tar.gz"
+	if runtime.GOOS == "windows" {
+		archiveMethod = "zip"
+	}
+	viper.SetDefault("cmd.send.archivemethod", archiveMethod)
+	viper.SetDefault("cmd.send.nodownload", false)
+	viper.SetDefault("cmd.send.mime", "")
+	viper.SetDefault("cmd.send.name", "")
+	viper.SetDefault("cmd.send.status", http.StatusOK)
+	viper.SetDefault("cmd.send.header", map[string][]string{})
+
+	// cmd - exec
+	viper.SetDefault("cmd.exec.enforcecgi", false)
+	viper.SetDefault("cmd.exec.env", []string{})
+	viper.SetDefault("cmd.exec.dir", "")
+	viper.SetDefault("cmd.exec.stderr", "")
+	viper.SetDefault("cmd.exec.replaceheaders", false)
+	viper.SetDefault("cmd.exec.headers", map[string][]string{})
+
+	// cmd - redirect
+	viper.SetDefault("cmd.redirect.status", http.StatusTemporaryRedirect)
+	viper.SetDefault("cmd.redirect.header", map[string][]string{})
+
+	// cmd - rproxy
+	viper.SetDefault("cmd.rproxy.status", 0)
+	viper.SetDefault("cmd.rproxy.method", "")
+	viper.SetDefault("cmd.rproxy.matchhost", false)
+	viper.SetDefault("cmd.rproxy.tee", false)
+	viper.SetDefault("cmd.rproxy.spoofhost", "")
+	viper.SetDefault("cmd.rproxy.requestheader", map[string][]string{})
+	viper.SetDefault("cmd.rproxy.responseheader", map[string][]string{})
+
+	// cmd - p2p - browserclient
+	viper.SetDefault("cmd.p2p.browserclient.open", false)
+
+	// cmd - p2p - client - receive
+
+	// cmd - p2p - client - send
+	viper.SetDefault("cmd.p2p.client.send.name", "")
+	viper.SetDefault("cmd.p2p.client.send.archivemethod", "")
+
+	// cmd - discovery server
+	viper.SetDefault("cmd.discoveryserver.requiredkey.path", "")
+	viper.SetDefault("cmd.discoveryserver.requiredkey.value", "")
+	viper.SetDefault("cmd.discoveryserver.jwt.key", "")
+	viper.SetDefault("cmd.discoveryserver.jwt.value", "")
+	viper.SetDefault("cmd.discoveryserver.maxqueuesize", 0)
+	viper.SetDefault("cmd.discoveryserver.urlassignment.scheme", "")
+	viper.SetDefault("cmd.discoveryserver.urlassignment.domain", "")
+	viper.SetDefault("cmd.discoveryserver.urlassignment.port", "")
+	viper.SetDefault("cmd.discoveryserver.urlassignment.path", "")
+	viper.SetDefault("cmd.discoveryserver.urlassignment.pathprefix", "")
+	viper.SetDefault("cmd.discoveryserver.server.addr", "")
+	viper.SetDefault("cmd.discoveryserver.server.tlscert", "")
+	viper.SetDefault("cmd.discoveryserver.server.tlskey", "")
+
+	// discovery
+	viper.SetDefault("discovery.host", "")
+	viper.SetDefault("discovery.key", "")
+	viper.SetDefault("discovery.keypath", "")
+	viper.SetDefault("discovery.insecure", false)
+	viper.SetDefault("discovery.preferredurl", "")
+	viper.SetDefault("discovery.requiredurl", "")
+	viper.SetDefault("discovery.onlyredirect", false)
+}
+
+func readInConfig() {
+	if configPath == "" {
+		return
+	}
+	viper.ReadInConfig()
 }

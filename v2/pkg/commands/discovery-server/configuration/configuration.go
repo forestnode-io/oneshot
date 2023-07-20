@@ -3,24 +3,15 @@ package configuration
 import (
 	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 type Configuration struct {
-	RequiredKey        *Secret        `json:"requiredKey" yaml:"requiredKey"`
-	JWT                *Secret        `json:"jwt" yaml:"jwt"`
-	MaxClientQueueSize int            `json:"maxClientQueueSize" yaml:"maxClientQueueSize"`
-	URLAssignment      *URLAssignment `json:"urlAssignment" yaml:"urlAssignment"`
-	APIServer          *Server        `json:"apiServer" yaml:"apiServer"`
+	RequiredKey        *Secret        `mapstructure:"requiredkey" yaml:"requiredkey"`
+	JWT                *Secret        `mapstructure:"jwt" yaml:"jwt"`
+	MaxClientQueueSize int            `mapstructure:"maxqueuesize" yaml:"maxqueuesize"`
+	URLAssignment      *URLAssignment `mapstructure:"urlassignment" yaml:"urlassignment"`
+	APIServer          *Server        `mapstructure:"server" yaml:"server"`
 }
-
-func (c *Configuration) Init() {}
-
-func (c *Configuration) SetFlags(cmd *cobra.Command, fs *pflag.FlagSet) {}
-
-func (c *Configuration) MergeFlags() {}
 
 func (c *Configuration) Validate() error {
 	if err := c.URLAssignment.validate(); err != nil {
@@ -43,8 +34,8 @@ func (c *Configuration) Hydrate() error {
 }
 
 type Secret struct {
-	Path  string `json:"path" yaml:"path"`
-	Value string `json:"value" yaml:"value"`
+	Path  string `mapstructure:"path" yaml:"path"`
+	Value string `mapstructure:"value" yaml:"value"`
 }
 
 func (s *Secret) hydrate() error {
@@ -66,11 +57,11 @@ func (s *Secret) hydrate() error {
 }
 
 type URLAssignment struct {
-	Scheme     string `json:"scheme" yaml:"scheme"`
-	Domain     string `json:"domain" yaml:"domain"`
-	Port       int    `json:"port" yaml:"port"`
-	Path       string `json:"path" yaml:"path"`
-	PathPrefix string `json:"pathPrefix" yaml:"pathPrefix"`
+	Scheme     string `mapstructure:"scheme" yaml:"scheme"`
+	Domain     string `mapstructure:"domain" yaml:"domain"`
+	Port       int    `mapstructure:"port" yaml:"port"`
+	Path       string `mapstructure:"path" yaml:"path"`
+	PathPrefix string `mapstructure:"pathprefix" yaml:"pathprefix"`
 }
 
 func (c *URLAssignment) validate() error {
@@ -78,9 +69,9 @@ func (c *URLAssignment) validate() error {
 }
 
 type Server struct {
-	Addr    string `json:"addr" yaml:"addr"`
-	TLSCert string `json:"tlsCert" yaml:"tlsCert"`
-	TLSKey  string `json:"tlsKey" yaml:"tlsKey"`
+	Addr    string `mapstructure:"addr" yaml:"addr"`
+	TLSCert string `mapstructure:"tlscert" yaml:"tlscert"`
+	TLSKey  string `mapstructure:"tlskey" yaml:"tlskey"`
 }
 
 func (c *Server) validate() error {

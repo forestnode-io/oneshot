@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/oneshot-uno/oneshot/v2/pkg/flags"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -13,9 +14,8 @@ import (
 )
 
 type NATTraversal struct {
-	DiscoveryServer DiscoveryServer `mapstructure:"discoveryServer" yaml:"discoveryServer"`
-	P2P             P2P             `mapstructure:"p2p" yaml:"p2p"`
-	UPnP            UPnP            `mapstructure:"upnp" yaml:"upnp"`
+	P2P  P2P  `mapstructure:"p2p" yaml:"p2p"`
+	UPnP UPnP `mapstructure:"upnp" yaml:"upnp"`
 }
 
 func (c *NATTraversal) IsUsingWebRTC() bool {
@@ -26,41 +26,12 @@ func (c *NATTraversal) IsUsingUPnP() bool {
 	return c.UPnP.Enabled || c.UPnP.ExternalPort > 0 || c.UPnP.Duration > 0
 }
 
-func (c *NATTraversal) init() {
-	c.DiscoveryServer.init()
-	c.P2P.init()
-	c.UPnP.init()
-}
-
-func (c *NATTraversal) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
-	c.DiscoveryServer.setFlags(cmd, fs)
-	c.P2P.setFlags(cmd, fs)
-	c.UPnP.setFlags(cmd, fs)
-
-	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-url")
-	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-key-path")
-	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-key")
-	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-insecure")
-	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-preferred-url")
-	cmd.MarkFlagsMutuallyExclusive("p2p-discovery-dir",
-		"discovery-server-required-url")
-}
-
-func (c *NATTraversal) mergeFlags() {
-	c.DiscoveryServer.mergeFlags()
-	c.P2P.mergeFlags()
-	c.UPnP.mergeFlags()
+func setNATTraversalFlags(cmd *cobra.Command) {
+	setP2PFlags(cmd)
+	setUPnPFlags(cmd)
 }
 
 func (c *NATTraversal) validate() error {
-	if err := c.DiscoveryServer.validate(); err != nil {
-		return fmt.Errorf("invalid discovery server configuration: %w", err)
-	}
 	if err := c.P2P.validate(); err != nil {
 		return fmt.Errorf("invalid P2P configuration: %w", err)
 	}
@@ -75,123 +46,29 @@ func (c *NATTraversal) hydrate() error {
 	if err := c.P2P.hydrate(); err != nil {
 		return fmt.Errorf("failed to hydrate P2P configuration: %w", err)
 	}
-	if err := c.DiscoveryServer.hydrate(); err != nil {
-		return fmt.Errorf("failed to hydrate discovery server configuration: %w", err)
-	}
-	return nil
-}
-
-type DiscoveryServer struct {
-	URL          string `mapstructure:"url" yaml:"url"`
-	KeyPath      string `mapstructure:"keyPath" yaml:"keyPath"`
-	Key          string `mapstructure:"key" yaml:"key,omitempty"`
-	Insecure     bool   `mapstructure:"insecure" yaml:"insecure"`
-	PreferredURL string `mapstructure:"preferredURL" yaml:"preferredURL"`
-	RequiredURL  string `mapstructure:"requiredURL" yaml:"requiredURL"`
-	OnlyRedirect bool   `mapstructure:"onlyRedirect" yaml:"onlyRedirect"`
-
-	fs *pflag.FlagSet
-}
-
-func (c *DiscoveryServer) init() {
-	c.fs = pflag.NewFlagSet("Discovery Server", pflag.ExitOnError)
-
-	c.fs.String("discovery-server-url", "", "URL of the discovery server to connect to.")
-	c.fs.String("discovery-server-key-path", "", "Path to the key to present to the discovery server.")
-	c.fs.String("discovery-server-key", "", "Key to present to the discovery server.")
-	c.fs.Bool("discovery-server-insecure", false, "Allow insecure connections to the discovery server.")
-	c.fs.String("discovery-server-preferred-url", "", "URL that the discovery server should try to reserve for connecting client.")
-	c.fs.String("discovery-server-required-url", "", "URL that the discovery server must reserve for connecting client.")
-	c.fs.Bool("discovery-server-only-redirect", false, "Only redirect to this oneshot, do not use p2p.")
-
-	cobra.AddTemplateFunc("discoveryServerFlags", func() *pflag.FlagSet {
-		return c.fs
-	})
-	cobra.AddTemplateFunc("discoveryServerClientFlags", func() *pflag.FlagSet {
-		fs := pflag.NewFlagSet("Discovery Server", pflag.ExitOnError)
-		fs.String("discovery-server-url", "", "URL of the discovery server to connect to.")
-		fs.String("discovery-server-key-path", "", "Path to the key to present to the discovery server.")
-		fs.String("discovery-server-key", "", "Key to present to the discovery server.")
-		fs.Bool("discovery-server-insecure", false, "Allow insecure connections to the discovery server.")
-		return fs
-	})
-}
-
-func (c *DiscoveryServer) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
-	fs.AddFlagSet(c.fs)
-	cmd.MarkFlagFilename("discovery-server-key-path")
-	cmd.MarkFlagsMutuallyExclusive("discovery-server-preferred-url", "discovery-server-required-url")
-	cmd.MarkFlagsMutuallyExclusive("discovery-server-key-path", "discovery-server-key")
-}
-
-func (c *DiscoveryServer) mergeFlags() {
-	if c.fs.Changed("discovery-server-url") {
-		c.URL, _ = c.fs.GetString("discovery-server-url")
-	}
-	if c.fs.Changed("discovery-server-key-path") {
-		c.KeyPath, _ = c.fs.GetString("discovery-server-key-path")
-	}
-	if c.fs.Changed("discovery-server-key") {
-		c.Key, _ = c.fs.GetString("discovery-server-key")
-	}
-	if c.fs.Changed("discovery-server-insecure") {
-		c.Insecure, _ = c.fs.GetBool("discovery-server-insecure")
-	}
-	if c.fs.Changed("discovery-server-preferred-url") {
-		c.PreferredURL, _ = c.fs.GetString("discovery-server-preferred-url")
-	}
-	if c.fs.Changed("discovery-server-required-url") {
-		c.RequiredURL, _ = c.fs.GetString("discovery-server-required-url")
-	}
-	if c.fs.Changed("discovery-server-only-redirect") {
-		c.OnlyRedirect, _ = c.fs.GetBool("discovery-server-only-redirect")
-	}
-}
-
-func (c *DiscoveryServer) validate() error {
-	if c.URL == "" {
-		return nil
-	}
-
-	return nil
-}
-
-func (c *DiscoveryServer) hydrate() error {
-	if c.KeyPath != "" {
-		key, err := os.ReadFile(c.KeyPath)
-		if err != nil {
-			return fmt.Errorf("failed to read discovery server key file: %w", err)
-		}
-		c.Key = string(key)
-	}
-
 	return nil
 }
 
 type P2P struct {
-	Enabled                 bool                  `mapstructure:"enabled" yaml:"enabled"`
-	Only                    bool                  `mapstructure:"only" yaml:"only"`
-	WebRTCConfigurationFile string                `mapstructure:"webrtcConfigurationFile" yaml:"webrtcConfigurationFile"`
-	WebRTCConfiguration     *webrtc.Configuration `json:"webrtcConfiguration" yaml:"webrtcConfiguration"`
-	DiscoveryDir            string                `mapstructure:"discoveryDir" yaml:"discoveryDir"`
-
-	fs *pflag.FlagSet
+	Enabled                 bool          `mapstructure:"enabled" yaml:"enabled"`
+	Only                    bool          `mapstructure:"only" yaml:"only"`
+	WebRTCConfigurationFile string        `mapstructure:"webrtcConfigurationFile" yaml:"webrtcConfigurationFile"`
+	WebRTCConfiguration     []byte        `json:"webrtcConfiguration" yaml:"webrtcConfiguration"`
+	DiscoveryDir            string        `mapstructure:"discoveryDir" yaml:"discoveryDir"`
+	ICEGatherTimeout        time.Duration `mapstructure:"iceGatherTimeout" yaml:"iceGatherTimeout"`
 }
 
-func (c *P2P) init() {
-	c.fs = pflag.NewFlagSet("P2P", pflag.ExitOnError)
+func setP2PFlags(cmd *cobra.Command) {
+	fs := pflag.NewFlagSet("P2P", pflag.ExitOnError)
+	defer cmd.PersistentFlags().AddFlagSet(fs)
 
-	c.fs.Bool("p2p", false, `Accept incoming p2p connections.
-Requires a discovery mechanism, either a discovery server or a discovery directory.`)
-	c.fs.Bool("p2p-only", false, "Only accept incoming p2p connections.")
-	c.fs.String("p2p-webrtc-config-file", "", `Path to the configuration file for the underlying WebRTC transport.`)
-	c.fs.String("p2p-discovery-dir", "", `Path to the directory containing the discovery files.
-In this directory, each peer connection has a numerically named subdirectory containing an answer and offer file.
-The offer file contains the RTCSessionDescription JSON of the WebRTc offer
-and the answer file contains the RTCSessionDescription JSON of the WebRTC answer.`)
+	flags.Bool(fs, "nattraversal.p2p.enabled", "p2p", "Accept incoming p2p connections. Requires a discovery mechanism, either a discovery server or a discovery directory.")
+	flags.Bool(fs, "nattraversal.p2p.only", "p2p-only", "Only accept incoming p2p connections.")
+	flags.String(fs, "nattraversal.p2p.webrtcconfigurationfile", "p2p-webrtc-config-file", "Path to the configuration file for the underlying WebRTC transport.")
+	flags.String(fs, "nattraversal.p2p.discoverydir", "p2p-discovery-dir", "Path to the directory containing the discovery files. In this directory, each peer connection has a numerically named subdirectory containing an answer and offer file. The offer file contains the RTCSessionDescription JSON of the WebRTc offer and the answer file contains the RTCSessionDescription JSON of the WebRTC answer.")
 
 	cobra.AddTemplateFunc("p2pFlags", func() *pflag.FlagSet {
-		return c.fs
+		return fs
 	})
 	cobra.AddTemplateFunc("p2pClientFlags", func() *pflag.FlagSet {
 		fs := pflag.NewFlagSet("P2P Client", pflag.ExitOnError)
@@ -202,27 +79,6 @@ and the answer file contains the RTCSessionDescription JSON of the WebRTC answer
 
 		return fs
 	})
-}
-
-func (c *P2P) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
-	fs.AddFlagSet(c.fs)
-	cmd.MarkFlagFilename("p2p-config-file")
-	cmd.MarkFlagDirname("p2p-discovery-dir")
-}
-
-func (c *P2P) mergeFlags() {
-	if c.fs.Changed("p2p") {
-		c.Enabled = true
-	}
-	if c.fs.Changed("p2p-only") {
-		c.Only = true
-	}
-	if c.fs.Changed("p2p-webrtc-config-file") {
-		c.WebRTCConfigurationFile, _ = c.fs.GetString("p2p-webrtc-config-file")
-	}
-	if c.fs.Changed("p2p-discovery-dir") {
-		c.DiscoveryDir, _ = c.fs.GetString("p2p-discovery-dir")
-	}
 }
 
 func (c *P2P) validate() error {
@@ -246,14 +102,22 @@ func (c *P2P) hydrate() error {
 		return fmt.Errorf("failed to read WebRTC configuration from file: %w", err)
 	}
 
-	var wv webrtc.Configuration
-	if err = yaml.Unmarshal(data, &wv); err != nil {
-		return fmt.Errorf("failed to unmarshal WebRTC configuration: %w", err)
-	}
-
-	c.WebRTCConfiguration = &wv
+	c.WebRTCConfiguration = data
 
 	return nil
+}
+
+func (c *P2P) ParseConfig() (*webrtc.Configuration, error) {
+	if c.WebRTCConfiguration == nil {
+		return nil, nil
+	}
+
+	var wv webrtc.Configuration
+	if err := yaml.Unmarshal(c.WebRTCConfiguration, &wv); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal WebRTC configuration: %w", err)
+	}
+
+	return &wv, nil
 }
 
 type UPnP struct {
@@ -261,43 +125,20 @@ type UPnP struct {
 	Enabled      bool          `mapstructure:"mapPort" yaml:"mapPort"`
 	Duration     time.Duration `mapstructure:"duration" yaml:"duration"`
 	Timeout      time.Duration `mapstructure:"timeout" yaml:"timeout" flag:"upnp-discovery-timeout"`
-
-	fs *pflag.FlagSet
 }
 
-func (c *UPnP) init() {
-	c.fs = pflag.NewFlagSet("UPnP-IGD Flags", pflag.ExitOnError)
+func setUPnPFlags(cmd *cobra.Command) {
+	fs := pflag.NewFlagSet("UPnP-IGD Flags", pflag.ExitOnError)
+	defer cmd.Flags().AddFlagSet(fs)
 
-	c.fs.Int("external-port", 0, "External port to use for UPnP IGD port mapping.")
-	c.fs.Duration("port-mapping-duration", 0, "Duration to use for UPnP IGD port mapping.")
-	c.fs.Duration("upnp-discovery-timeout", 60*time.Second, "Timeout for UPnP IGD discovery.")
-	c.fs.Bool("map-port", false, "Map port using UPnP IGD.")
+	flags.Int(fs, "nattraversal.upnp.externalport", "external-port", "External port to use for UPnP IGD port mapping.")
+	flags.Duration(fs, "nattraversal.upnp.duration", "port-mapping-duration", "Duration to use for UPnP IGD port mapping.")
+	flags.Duration(fs, "nattraversal.upnp.timeout", "upnp-discovery-timeout", "Timeout for UPnP IGD discovery.")
+	flags.Bool(fs, "nattraversal.upnp.enabled", "map-port", "Map port using UPnP IGD.")
 
 	cobra.AddTemplateFunc("upnpFlags", func() *pflag.FlagSet {
-		return c.fs
+		return fs
 	})
-}
-
-func (c *UPnP) setFlags(cmd *cobra.Command, fs *pflag.FlagSet) {
-	fs.AddFlagSet(c.fs)
-}
-
-func (c *UPnP) mergeFlags() {
-	if c.fs.Changed("external-port") {
-		c.ExternalPort, _ = c.fs.GetInt("external-port")
-	}
-
-	if c.fs.Changed("port-mapping-duration") {
-		c.Duration, _ = c.fs.GetDuration("port-mapping-duration")
-	}
-
-	if c.fs.Changed("upnp-discovery-timeout") {
-		c.Timeout, _ = c.fs.GetDuration("upnp-discovery-timeout")
-	}
-
-	if c.fs.Changed("map-port") {
-		c.Enabled, _ = c.fs.GetBool("map-port")
-	}
 }
 
 func (c *UPnP) validate() error {
