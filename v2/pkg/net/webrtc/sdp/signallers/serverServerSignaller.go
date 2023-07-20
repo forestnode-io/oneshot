@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
@@ -65,13 +64,6 @@ func (s *serverServerSignaller) Start(ctx context.Context, handler RequestHandle
 			Msg("waiting for offer request from discovery server")
 		gor, err := signallingserver.Receive[*messages.GetOfferRequest](ds)
 		if err != nil {
-			if errors.Is(err, signallingserver.ErrClosedByUser) {
-				return nil
-			} else if errors.Is(err, io.EOF) {
-				log.Debug().
-					Msg("discovery server closed connection")
-				return nil
-			}
 			return fmt.Errorf("error receiving offer request: %w", err)
 		}
 

@@ -158,9 +158,14 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 				log.Error().Err(err).
 					Msg("failed to listen for WebRTC connections")
 
+				if errors.Is(err, signallingserver.ErrClosedByUser) {
+					log.Debug().
+						Msg("discovery server closed connection by user request")
+				}
+
 				webRTCError = err
-				cancel()
 			}
+			cancel()
 		}()
 	} else if ds := signallingserver.GetDiscoveryServer(ctx); ds != nil {
 		go func() {
