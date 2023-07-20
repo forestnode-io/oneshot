@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
@@ -155,15 +156,22 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		go func() {
 			iceGatherTimeout := r.config.NATTraversal.P2P.ICEGatherTimeout
 			if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, iceGatherTimeout); err != nil {
-				log.Error().Err(err).
-					Msg("failed to listen for WebRTC connections")
-
 				if errors.Is(err, signallingserver.ErrClosedByUser) {
 					log.Debug().
 						Msg("discovery server closed connection by user request")
-				}
+				} else {
+					log.Error().Err(err).
+						Msg("failed to listen for WebRTC connections")
 
-				webRTCError = err
+					log.Debug().Msg("reconnecting to discovery server in 2 seconds")
+					time.Sleep(2 * time.Second)
+
+					if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, iceGatherTimeout); err != nil {
+						panic(err)
+					}
+
+					webRTCError = err
+				}
 			}
 			cancel()
 		}()
