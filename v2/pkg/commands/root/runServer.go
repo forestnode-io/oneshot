@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/events"
@@ -162,13 +161,6 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 				} else {
 					log.Error().Err(err).
 						Msg("failed to listen for WebRTC connections")
-
-					log.Debug().Msg("reconnecting to discovery server in 2 seconds")
-					time.Sleep(2 * time.Second)
-
-					if err := r.listenWebRTC(ctx, externalAddr_UPnP, baToken, iceGatherTimeout); err != nil {
-						panic(err)
-					}
 
 					webRTCError = err
 				}

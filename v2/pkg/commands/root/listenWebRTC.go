@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/server"
+	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/rs/zerolog"
 )
 
@@ -36,11 +38,31 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string,
 	defer a.Wait()
 
 	log.Info().Msg("starting p2p discovery mechanism")
-	if err := signaller.Start(ctx, a); err != nil {
-		return fmt.Errorf("failed to start p2p discovery mechanism: %w", err)
-	}
 
-	return nil
+	for {
+		if err := signaller.Start(ctx, a); err != nil {
+			if errors.Is(err, signallingserver.ErrClosedByUser) {
+				log.Error().Err(err).
+					Msg("error starting p2p discovery mechanism")
+				return err
+			}
+
+			log.Warn().
+				Msg("reconnecting to discovery server")
+
+			time.Sleep(200 * time.Millisecond)
+			if err = signallingserver.ReconnectDiscoveryServer(ctx); err != nil {
+				if errors.Is(err, signallingserver.ErrHandshakeTimeout) {
+					continue
+				}
+
+				log.Error().Err(err).
+					Msg("error starting p2p discovery mechanism")
+				return fmt.Errorf("failed to reconnect to discovery server: %w", err)
+			}
+			continue
+		}
+	}
 }
 
 func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr string) (signallers.ServerSignaller, error) {

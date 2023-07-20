@@ -148,9 +148,35 @@ func (d *DiscoveryServer) negotiateArrival(ctx context.Context, arrival *message
 
 	log.Debug().
 		Msg("waiting for discovery server to respond to handshake")
-	hs, err := Receive[*messages.Handshake](d)
-	if err != nil {
-		return fmt.Errorf("failed to receive handshake from discovery server: %w", err)
+
+	// Receive the handshake response with a timeout.
+	// We probably only really need a timeout on the first message.
+
+	type hserr struct {
+		err error
+		hs  *messages.Handshake
+	}
+	hserrChan := make(chan hserr, 1)
+	go func() {
+		hs, err := Receive[*messages.Handshake](d)
+		hserrChan <- hserr{err: err, hs: hs}
+		close(hserrChan)
+	}()
+
+	var hs *messages.Handshake
+	select {
+	case <-time.After(1 * time.Second):
+		return ErrHandshakeTimeout
+	case <-ctx.Done():
+		return ctx.Err()
+	case hserr := <-hserrChan:
+		if hserr.err != nil {
+			return fmt.Errorf("failed to receive handshake from discovery server: %w", hserr.err)
+		}
+		if hserr.hs.Error != "" {
+			return fmt.Errorf("discovery server returned error: %s", hserr.hs.Error)
+		}
+		hs = hserr.hs
 	}
 
 	log.Debug().
@@ -311,3 +337,5 @@ func newDiscoveryServer(ctx context.Context, config *DiscoveryServerConfig, arri
 		arrival: arrival,
 	}, nil
 }
+
+var ErrHandshakeTimeout = errors.New("handshake timed out")
