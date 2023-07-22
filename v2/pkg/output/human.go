@@ -61,6 +61,9 @@ func (h *PrintableError) Unwrap() error {
 }
 
 func WrapPrintable(err error) error {
+	if err == nil {
+		return nil
+	}
 	return &PrintableError{Err: err}
 }
 
