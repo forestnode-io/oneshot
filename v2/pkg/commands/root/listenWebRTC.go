@@ -62,6 +62,8 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string,
 			}
 			continue
 		}
+
+		return nil
 	}
 }
 
