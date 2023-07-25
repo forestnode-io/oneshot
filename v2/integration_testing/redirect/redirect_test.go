@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	itest "github.com/oneshot-uno/oneshot/v2/integration_testing"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	itest "github.com/forestnode-io/oneshot/v2/integration_testing"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/stretchr/testify/suite"
 )
 

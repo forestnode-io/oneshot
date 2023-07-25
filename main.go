@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/oneshot-uno/oneshot/cmd"
+	"github.com/forestnode-io/oneshot/cmd"
 	"log"
 	"math/rand"
 	"os"

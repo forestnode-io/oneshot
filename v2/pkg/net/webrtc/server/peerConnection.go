@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/sdp/signallers"
 	"github.com/pion/webrtc/v3"
 )
 

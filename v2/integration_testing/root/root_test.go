@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	itest "github.com/oneshot-uno/oneshot/v2/integration_testing"
+	itest "github.com/forestnode-io/oneshot/v2/integration_testing"
 	"github.com/stretchr/testify/suite"
 )
 

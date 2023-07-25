@@ -3,17 +3,17 @@ package configuration
 import (
 	"fmt"
 
-	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server/configuration"
-	exec "github.com/oneshot-uno/oneshot/v2/pkg/commands/exec/configuration"
-	browserclient "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/browser-client/configuration"
-	client "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/configuration"
-	clientreceive "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/receive/configuration"
-	clientsend "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/send/configuration"
-	p2p "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/configuration"
-	receive "github.com/oneshot-uno/oneshot/v2/pkg/commands/receive/configuration"
-	redirect "github.com/oneshot-uno/oneshot/v2/pkg/commands/redirect/configuration"
-	rproxy "github.com/oneshot-uno/oneshot/v2/pkg/commands/rproxy/configuration"
-	send "github.com/oneshot-uno/oneshot/v2/pkg/commands/send/configuration"
+	discoveryserver "github.com/forestnode-io/oneshot/v2/pkg/commands/discovery-server/configuration"
+	exec "github.com/forestnode-io/oneshot/v2/pkg/commands/exec/configuration"
+	browserclient "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/browser-client/configuration"
+	client "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/configuration"
+	clientreceive "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/receive/configuration"
+	clientsend "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/send/configuration"
+	p2p "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/configuration"
+	receive "github.com/forestnode-io/oneshot/v2/pkg/commands/receive/configuration"
+	redirect "github.com/forestnode-io/oneshot/v2/pkg/commands/redirect/configuration"
+	rproxy "github.com/forestnode-io/oneshot/v2/pkg/commands/rproxy/configuration"
+	send "github.com/forestnode-io/oneshot/v2/pkg/commands/send/configuration"
 	"github.com/spf13/cobra"
 )
 

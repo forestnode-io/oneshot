@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
-	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
-	oneshotwebrtc "github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	oneshotnet "github.com/forestnode-io/oneshot/v2/pkg/net"
+	oneshotwebrtc "github.com/forestnode-io/oneshot/v2/pkg/net/webrtc"
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
 )

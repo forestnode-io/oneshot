@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
-	oneshothttp "github.com/oneshot-uno/oneshot/v2/pkg/net/http"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	oneshothttp "github.com/forestnode-io/oneshot/v2/pkg/net/http"
 	"github.com/rs/cors"
 )
 

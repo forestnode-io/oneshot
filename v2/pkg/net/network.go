@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackpal/gateway"
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
 )
 
 // HostAddresses returns all available ip addresses from all interfaces

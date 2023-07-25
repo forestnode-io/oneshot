@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 )
 
 var ErrInvalidRequestType = fmt.Errorf("invalid request type")

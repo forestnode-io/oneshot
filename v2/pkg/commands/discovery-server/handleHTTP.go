@@ -14,9 +14,9 @@ import (
 
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server/template"
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/discovery-server/template"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/sdp"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )

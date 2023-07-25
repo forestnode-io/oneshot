@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v3"
 )

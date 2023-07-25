@@ -17,8 +17,8 @@ builds:
     ldflags:
       - -s -w
       - -extldflags=-static
-      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.APIVersion=v1.0.0
-      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
+      - -X github.com/forestnode-io/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/forestnode-io/oneshot/v2/pkg/version.Version={{ .Version }}
     goos:
       - linux
       - freebsd
@@ -91,8 +91,8 @@ builds:
     ldflags:
       - -s -w
       - -extldflags=-static
-      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.APIVersion=v1.0.0
-      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
+      - -X github.com/forestnode-io/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/forestnode-io/oneshot/v2/pkg/version.Version={{ .Version }}
     goos:
       - darwin
     goarch:
@@ -108,8 +108,8 @@ builds:
     ldflags:
       - -s -w
       - -extldflags=-static
-      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.APIVersion=v1.0.0
-      - -X github.com/oneshot-uno/oneshot/v2/pkg/version.Version={{ .Version }}
+      - -X github.com/forestnode-io/oneshot/v2/pkg/version.APIVersion=v1.0.0
+      - -X github.com/forestnode-io/oneshot/v2/pkg/version.Version={{ .Version }}
     goos:
       - darwin
     goarch:
@@ -138,7 +138,7 @@ nfpms:
   - id: oneshot
     package_name: oneshot
     builds: ["oneshot"]
-    homepage: https://github.com/oneshot-uno/oneshot
+    homepage: https://github.com/forestnode-io/oneshot
     maintainer: Raphael Reyna <raphaelreyna@protonmail.com>
     description: >-
       A first first-come-first-serve, single-fire, feature-rich HTTP server.
@@ -155,7 +155,7 @@ nfpms:
         type:  "config|noreplace"
 release:
   github:
-    owner: oneshot-uno
+    owner: forestnode-io
     name: oneshot
   draft: true
   prerelease: auto
@@ -165,14 +165,14 @@ brews:
     ids:
       - archive
     tap:
-      owner: oneshot-uno
+      owner: forestnode-io
       name: homebrew-tap
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
     commit_author:
           name: goreleaserbot
           email: bot@goreleaser.com
-    homepage: "https://github.com/oneshot-uno/oneshot"
+    homepage: "https://github.com/forestnode-io/oneshot"
     description: "A first first-come-first-serve, single-fire, feature-rich HTTP server. Easily transfer files to and from your terminal and any browser or HTTP client."
     license: "Apache-2.0"
     test: |

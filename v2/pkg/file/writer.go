@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/events"
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 )
 
 type WriteTransferConfig struct {

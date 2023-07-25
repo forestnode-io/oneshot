@@ -1,4 +1,4 @@
-module github.com/oneshot-uno/oneshot
+module github.com/forestnode-io/oneshot
 
 go 1.18
 

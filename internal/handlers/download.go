@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/internal/file"
-	srvr "github.com/oneshot-uno/oneshot/internal/server"
+	"github.com/forestnode-io/oneshot/internal/file"
+	srvr "github.com/forestnode-io/oneshot/internal/server"
 	"sync"
 )
 

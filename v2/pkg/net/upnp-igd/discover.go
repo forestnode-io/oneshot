@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
 )
 
 func Discover(ctx context.Context, userAgent string, timeout time.Duration, client *http.Client) (<-chan *Device, error) {

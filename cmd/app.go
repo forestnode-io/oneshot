@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/oneshot-uno/oneshot/cmd/conf"
-	"github.com/oneshot-uno/oneshot/internal/server"
+	"github.com/forestnode-io/oneshot/cmd/conf"
+	"github.com/forestnode-io/oneshot/internal/server"
 	"github.com/spf13/cobra"
 	"log"
 	"net"

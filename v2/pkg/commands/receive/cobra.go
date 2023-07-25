@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/icholy/replace"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/receive/configuration"
-	rootconfig "github.com/oneshot-uno/oneshot/v2/pkg/configuration"
-	"github.com/oneshot-uno/oneshot/v2/pkg/file"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/receive/configuration"
+	rootconfig "github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/file"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )

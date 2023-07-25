@@ -4,11 +4,11 @@ There are multiple ways of obtaining oneshot:
 
 #### Linux / macOS
 Copy and paste any of these commands into your terminal to install oneshot.
-For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/oneshot-uno/oneshot/releases).
+For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/forestnode-io/oneshot/releases).
 
 ##### Download binary (easiest)
 ```bash
-curl -L https://github.com/oneshot-uno/oneshot/raw/master/install.sh | sudo bash
+curl -L https://github.com/forestnode-io/oneshot/raw/master/install.sh | sudo bash
 ```
 
 ##### Brew
@@ -19,12 +19,12 @@ brew install oneshot
 
 ##### Go get
 ```bash
-go get -u -v github.com/oneshot-uno/oneshot
+go get -u -v github.com/forestnode-io/oneshot
 ```
 
 ##### Compiling from source
 ```bash
-git clone github.com/oneshot-uno/oneshot
+git clone github.com/forestnode-io/oneshot
 cd oneshot
 sudo make install
 ```
@@ -36,9 +36,9 @@ sudo make install
 #### Windows
 
 ##### Download executable
-Head over to the [release page](https://github.com/oneshot-uno/oneshot/releases) and download the windows .zip file.
+Head over to the [release page](https://github.com/forestnode-io/oneshot/releases) and download the windows .zip file.
 
 ##### Go get
 ```powershell
-go get -u -v github.com/oneshot-uno/oneshot
+go get -u -v github.com/forestnode-io/oneshot
 ```

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pion/datachannel"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc"
 )
 
 type ResponseWriter struct {

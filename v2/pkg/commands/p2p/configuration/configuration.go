@@ -1,8 +1,8 @@
 package configuration
 
 import (
-	browserclient "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/browser-client/configuration"
-	client "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/configuration"
+	browserclient "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/browser-client/configuration"
+	client "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/configuration"
 )
 
 type Configuration struct {

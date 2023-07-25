@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/events"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 )
 
 func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {

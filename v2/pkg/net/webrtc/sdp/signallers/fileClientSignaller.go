@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/sdp"
 )
 
 type fileClientSignaller struct {

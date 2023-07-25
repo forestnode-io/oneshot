@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"github.com/oneshot-uno/oneshot/cmd"
+	"github.com/forestnode-io/oneshot/cmd"
 	"github.com/spf13/cobra/doc"
 	"io"
 	"log"
@@ -11,7 +11,7 @@ import (
 	"sort"
 )
 
-const logo = `<img src="https://github.com/oneshot-uno/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+const logo = `<img src="https://github.com/forestnode-io/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
 
 `
 

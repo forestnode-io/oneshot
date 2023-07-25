@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/events"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
 	"github.com/rs/zerolog"
 )
 

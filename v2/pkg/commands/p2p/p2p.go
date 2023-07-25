@@ -1,9 +1,9 @@
 package p2p
 
 import (
-	browserclient "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/browser-client"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	browserclient "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/browser-client"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
 	"github.com/spf13/cobra"
 )
 

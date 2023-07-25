@@ -3,8 +3,8 @@ package get
 import (
 	"os"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"

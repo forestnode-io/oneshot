@@ -10,8 +10,8 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/oneshot-uno/oneshot/cmd.version={{.Version}}
-    - -X github.com/oneshot-uno/oneshot/cmd.date={{.Date}}
+    - -X github.com/forestnode-io/oneshot/cmd.version={{.Version}}
+    - -X github.com/forestnode-io/oneshot/cmd.date={{.Date}}
   goos:
     - linux
   goarch:
@@ -24,8 +24,8 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/oneshot-uno/oneshot/cmd.version={{.Version}}
-    - -X github.com/oneshot-uno/oneshot/cmd.date={{.Date}}
+    - -X github.com/forestnode-io/oneshot/cmd.version={{.Version}}
+    - -X github.com/forestnode-io/oneshot/cmd.date={{.Date}}
   goos:
     - darwin
   goarch:
@@ -35,8 +35,8 @@ builds:
   main: main.go
   binary: oneshot
   ldflags:
-    - -X github.com/oneshot-uno/oneshot/cmd.version={{.Version}}
-    - -X github.com/oneshot-uno/oneshot/cmd.date={{.Date}}
+    - -X github.com/forestnode-io/oneshot/cmd.version={{.Version}}
+    - -X github.com/forestnode-io/oneshot/cmd.date={{.Date}}
   goos:
     - windows
   goarch:
@@ -99,7 +99,7 @@ brews:
     tap:
       owner: raphaelreyna
       name: homebrew-repo
-    homepage: "https://github.com/oneshot-uno/oneshot"
+    homepage: "https://github.com/forestnode-io/oneshot"
     description: "A single fire HTTP server."
 
 

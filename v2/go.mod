@@ -1,4 +1,4 @@
-module github.com/oneshot-uno/oneshot/v2
+module github.com/forestnode-io/oneshot/v2
 
 go 1.20
 

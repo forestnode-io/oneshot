@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp/signallers"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/server"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/sdp/signallers"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/server"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/rs/zerolog"
 )
 

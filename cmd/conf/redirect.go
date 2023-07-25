@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/oneshot-uno/oneshot/internal/handlers"
-	"github.com/oneshot-uno/oneshot/internal/server"
+	"github.com/forestnode-io/oneshot/internal/handlers"
+	"github.com/forestnode-io/oneshot/internal/server"
 	"net/url"
 )
 

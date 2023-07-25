@@ -15,12 +15,12 @@ import (
 
 	_ "embed"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
-	"github.com/oneshot-uno/oneshot/v2/pkg/events"
-	"github.com/oneshot-uno/oneshot/v2/pkg/log"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
-	oneshotfmt "github.com/oneshot-uno/oneshot/v2/pkg/output/fmt"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
+	oneshotfmt "github.com/forestnode-io/oneshot/v2/pkg/output/fmt"
 	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"

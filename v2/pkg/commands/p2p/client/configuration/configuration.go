@@ -1,8 +1,8 @@
 package configuration
 
 import (
-	receive "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/receive/configuration"
-	send "github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/send/configuration"
+	receive "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/receive/configuration"
+	send "github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/send/configuration"
 )
 
 type Configuration struct {

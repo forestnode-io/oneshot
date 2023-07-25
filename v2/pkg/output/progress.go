@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	oneshotfmt "github.com/oneshot-uno/oneshot/v2/pkg/output/fmt"
+	oneshotfmt "github.com/forestnode-io/oneshot/v2/pkg/output/fmt"
 )
 
 const progDisplayTimeFormat = "2006-01-02T15:04:05-0700"

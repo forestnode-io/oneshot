@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/flags"
+	"github.com/forestnode-io/oneshot/v2/pkg/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

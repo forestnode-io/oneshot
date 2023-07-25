@@ -3,8 +3,8 @@ package conf
 import (
 	"fmt"
 	ezcgi "github.com/raphaelreyna/ez-cgi/pkg/cgi"
-	"github.com/oneshot-uno/oneshot/internal/handlers"
-	"github.com/oneshot-uno/oneshot/internal/server"
+	"github.com/forestnode-io/oneshot/internal/handlers"
+	"github.com/forestnode-io/oneshot/internal/server"
 	"io"
 	"math/rand"
 	"net/http"

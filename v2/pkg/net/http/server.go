@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/oneshot-uno/oneshot/v2/pkg/events"
-	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
+	oneshotnet "github.com/forestnode-io/oneshot/v2/pkg/net"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 )
 

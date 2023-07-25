@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/jf-tech/iohelper"
-	"github.com/oneshot-uno/oneshot/internal/file"
-	srvr "github.com/oneshot-uno/oneshot/internal/server"
+	"github.com/forestnode-io/oneshot/internal/file"
+	srvr "github.com/forestnode-io/oneshot/internal/server"
 )
 
 func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken string, infoLog *log.Logger) srvr.FailableHandler {

@@ -2,8 +2,8 @@ package conf
 
 import (
 	"fmt"
-	"github.com/oneshot-uno/oneshot/internal/handlers"
-	"github.com/oneshot-uno/oneshot/internal/server"
+	"github.com/forestnode-io/oneshot/internal/handlers"
+	"github.com/forestnode-io/oneshot/internal/server"
 	"log"
 	"net/http"
 	"os"

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	discoveryserver "github.com/oneshot-uno/oneshot/v2/pkg/commands/discovery-server"
+	discoveryserver "github.com/forestnode-io/oneshot/v2/pkg/commands/discovery-server"
 	"github.com/rs/zerolog"
 )
 

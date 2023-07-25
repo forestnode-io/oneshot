@@ -1,5 +1,5 @@
 {
-  "name": "@oneshot-uno/http-over-webrtc",
+  "name": "@forestnode-io/http-over-webrtc",
   "version": "0.1.0",
   "author": "Raphael Reyna",
   "main": "main.ts",

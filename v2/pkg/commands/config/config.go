@@ -1,10 +1,10 @@
 package config
 
 import (
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/config/get"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/config/path"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/config/set"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/config/get"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/config/path"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/config/set"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
 	"github.com/spf13/cobra"
 )
 

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/events"
-	upnpigd "github.com/oneshot-uno/oneshot/v2/pkg/net/upnp-igd"
-	"github.com/oneshot-uno/oneshot/v2/pkg/output"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
+	upnpigd "github.com/forestnode-io/oneshot/v2/pkg/net/upnp-igd"
+	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/rs/zerolog"
 )
 

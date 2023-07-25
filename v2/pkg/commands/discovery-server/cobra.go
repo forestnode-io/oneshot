@@ -3,8 +3,8 @@ package discoveryserver
 import (
 	"fmt"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
-	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	oneshotnet "github.com/forestnode-io/oneshot/v2/pkg/net"
 	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"

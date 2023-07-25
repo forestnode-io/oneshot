@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/sdp"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/sdp"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/rs/zerolog"
 )
 

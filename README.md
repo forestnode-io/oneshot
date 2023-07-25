@@ -1,4 +1,4 @@
-<img src="https://github.com/oneshot-uno/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
+<img src="https://github.com/forestnode-io/oneshot/raw/master/oneshot_banner.png" width="744px" height="384px">
 
 ## oneshot v2
 
@@ -26,12 +26,12 @@ There are multiple ways of obtaining oneshot:
 
 #### Download binary (easiest)
 ```shell
-curl -L https://github.com/oneshot-uno/oneshot/raw/v2/v2/install.sh | sudo sh
+curl -L https://github.com/forestnode-io/oneshot/raw/v2/v2/install.sh | sudo sh
 ```
 
 #### Linux / macOS
 Copy and paste any of these commands into your terminal to install oneshot.
-For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/oneshot-uno/oneshot/releases).
+For some portion of Linux users, there are .deb and .rpm packages available in the [release page](https://github.com/forestnode-io/oneshot/releases).
 
 
 ##### Brew
@@ -42,12 +42,12 @@ brew install oneshot-uno/homebrew-tap/oneshot
 
 ##### Go get
 ```bash
-go get -u -v github.com/oneshot-uno/oneshot/v2
+go get -u -v github.com/forestnode-io/oneshot/v2
 ```
 
 ##### Compiling from source
 ```bash
-git clone github.com/oneshot-uno/oneshot
+git clone github.com/forestnode-io/oneshot
 cd oneshot/v2
 sudo make install
 ```
@@ -55,11 +55,11 @@ sudo make install
 #### Windows
 
 ##### Download executable
-Head over to the [release page](https://github.com/oneshot-uno/oneshot/releases) and download the windows .zip file.
+Head over to the [release page](https://github.com/forestnode-io/oneshot/releases) and download the windows .zip file.
 
 ##### Go get
 ```powershell
-go get -u -v github.com/oneshot-uno/oneshot/v2
+go get -u -v github.com/forestnode-io/oneshot/v2
 ```
 
 ### Use Cases & Examples
@@ -133,6 +133,6 @@ In this scenario, the user would upload or type in some Go code and upon hitting
 
 
 ### Reporting Bugs, Feature Requests & Contributing
-Please report any bugs or issues [here](https://github.com/oneshot-uno/oneshot/issues).
+Please report any bugs or issues [here](https://github.com/forestnode-io/oneshot/issues).
 
 I consider oneshot to be *nearly* feature complete; feature requests and contributions are welcome.

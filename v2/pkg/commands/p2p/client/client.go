@@ -1,9 +1,9 @@
 package client
 
 import (
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/receive"
-	"github.com/oneshot-uno/oneshot/v2/pkg/commands/p2p/client/send"
-	"github.com/oneshot-uno/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/receive"
+	"github.com/forestnode-io/oneshot/v2/pkg/commands/p2p/client/send"
+	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
 	"github.com/spf13/cobra"
 )
 

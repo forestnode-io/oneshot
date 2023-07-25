@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	oneshotnet "github.com/oneshot-uno/oneshot/v2/pkg/net"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/oneshot-uno/oneshot/v2/pkg/version"
+	oneshotnet "github.com/forestnode-io/oneshot/v2/pkg/net"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/forestnode-io/oneshot/v2/pkg/version"
 	"golang.org/x/crypto/bcrypt"
 )
 

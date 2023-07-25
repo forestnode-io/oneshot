@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/headers"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/oneshot-uno/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/headers"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/proto"
 	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc"

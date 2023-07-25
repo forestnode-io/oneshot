@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/oneshot-uno/oneshot/cmd"
+	"github.com/forestnode-io/oneshot/cmd"
 	"github.com/spf13/cobra/doc"
 	"log"
 	"os"
@@ -17,7 +17,7 @@ func main() {
 	header := doc.GenManHeader{
 		Title:   "ONESHOT",
 		Section: "1",
-		Source:  "https://github.com/oneshot-uno/oneshot",
+		Source:  "https://github.com/forestnode-io/oneshot",
 	}
 	err = doc.GenMan(app.Cmd(), &header, os.Stdout)
 	if err != nil {
