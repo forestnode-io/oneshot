@@ -1,5 +1,5 @@
 source = ["./build-output/goreleaser/oneshot-darwin-amd64_darwin_amd64_v1/oneshot"]
-bundle_id = "uno.oneshot.oneshot"
+bundle_id = "io.forestnode.oneshot"
 
 apple_id {
     username = "raphaelreyna@protonmail.com"
