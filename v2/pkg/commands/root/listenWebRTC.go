@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
@@ -47,7 +48,12 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string,
 				return err
 			}
 
+			if strings.Contains(err.Error(), "context canceled") {
+				return nil
+			}
+
 			log.Warn().
+				Err(err).
 				Msg("reconnecting to discovery server")
 
 			time.Sleep(200 * time.Millisecond)

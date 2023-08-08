@@ -12,6 +12,7 @@ import (
 	"github.com/forestnode-io/oneshot/v2/pkg/commands/root"
 	"github.com/forestnode-io/oneshot/v2/pkg/events"
 	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	"github.com/forestnode-io/oneshot/v2/pkg/sys"
 )
@@ -30,6 +31,8 @@ func main() {
 		panic(err)
 	}
 	defer cleanupLogging()
+
+	ctx = signallingserver.WithDiscoveryServer(ctx)
 
 	ctx = events.WithEvents(ctx)
 	ctx, err = output.WithOutput(ctx)

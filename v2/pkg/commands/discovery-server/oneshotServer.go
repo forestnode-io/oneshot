@@ -142,25 +142,28 @@ func newOneshotServer(ctx context.Context, requiredID string, stream proto.Signa
 	}
 	le.Msg("received arrival request")
 
-	resp := messages.ServerArrivalResponse{}
-	rurl := ""
-	rurlRequired := false
-	if arrival.URL != nil {
-		rurl = arrival.URL.URL
-		rurlRequired = arrival.URL.Required
+	resp := messages.ServerArrivalResponse{
+		AssignedURL: arrival.PreviouslyAssignedURL,
 	}
-	assignedURL, err := requestURL(rurl, rurlRequired)
-	if err != nil {
-		return nil, fmt.Errorf("unable to assign requested url: %w", err)
+	if resp.AssignedURL == "" {
+		rurl := ""
+		rurlRequired := false
+		if arrival.URL != nil {
+			rurl = arrival.URL.URL
+			rurlRequired = arrival.URL.Required
+		}
+		resp.AssignedURL, err = requestURL(rurl, rurlRequired)
+		if err != nil {
+			return nil, fmt.Errorf("unable to assign requested url: %w", err)
+		}
 	}
-	resp.AssignedURL = assignedURL
 
 	if err = send(stream, &resp); err != nil {
 		return nil, fmt.Errorf("unable to write arrival response: %w", err)
 	}
 
 	log.Info().
-		Str("assigned-url", assignedURL).
+		Str("assigned-url", resp.AssignedURL).
 		Msg("assigned URL")
 
 	return &o, nil
@@ -201,7 +204,8 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer
 
 	go func() {
 		log := zerolog.Ctx(ctx)
-		fsr, err := receive[*messages.FinishedSessionRequest](o.stream)
+
+		env, err := o.stream.Recv()
 		if err != nil {
 			statErr, ok := status.FromError(err)
 			if !ok || (ok && statErr.Code() != codes.Canceled) {
@@ -211,9 +215,33 @@ func (o *oneshotServer) SendAnswer(ctx context.Context, sessionID string, answer
 			return
 		}
 
-		if fsr.Error != "" {
-			log.Warn().Err(err).
-				Msg("session failed")
+		switch env.Type {
+		case "FinishedSessionRequest":
+			msg, err := messages.FromRPCEnvelope(env)
+			if err != nil {
+				log.Error().Err(err).
+					Msg("error receiving message")
+				return
+			}
+			if fsr, ok := msg.(*messages.FinishedSessionRequest); ok {
+				if fsr.Error != "" {
+					log.Warn().Err(err).
+						Msg("session failed")
+				}
+			}
+		case "Report":
+			msg, err := messages.FromRPCEnvelope(env)
+			if err != nil {
+				log.Error().Err(err).
+					Msg("error receiving message")
+				return
+			}
+			r, ok := msg.(*messages.Report)
+			if ok {
+				log.Info().
+					Interface("report", r).
+					Msg("received report")
+			}
 		}
 
 		o.resetPending()

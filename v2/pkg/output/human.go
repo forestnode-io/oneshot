@@ -14,7 +14,7 @@ func runHuman(ctx context.Context, o *output) {
 	for event := range o.events {
 		switch event := event.(type) {
 		case *events.ClientDisconnected:
-			o.cls = append(o.cls, o.currentClientSession)
+			o.disconnectedClients = append(o.disconnectedClients, o.currentClientSession)
 			o.currentClientSession = nil
 		case *events.File:
 			o.currentClientSession.File = event
@@ -24,7 +24,7 @@ func runHuman(ctx context.Context, o *output) {
 				}
 			}
 		case *events.HTTPRequest:
-			o.currentClientSession = &clientSession{
+			o.currentClientSession = &ClientSession{
 				Request: event,
 			}
 		case events.HTTPRequestBody:

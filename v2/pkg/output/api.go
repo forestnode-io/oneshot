@@ -11,9 +11,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/muesli/termenv"
 	"github.com/forestnode-io/oneshot/v2/pkg/events"
 	"github.com/forestnode-io/oneshot/v2/pkg/log"
+	"github.com/muesli/termenv"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -32,9 +32,9 @@ func (n UsageError) Error() string {
 
 func WithOutput(ctx context.Context) (context.Context, error) {
 	o := output{
-		doneChan:   make(chan struct{}),
-		cls:        make([]*clientSession, 0),
-		FormatOpts: map[string]struct{}{},
+		doneChan:            make(chan struct{}),
+		disconnectedClients: make([]*ClientSession, 0),
+		FormatOpts:          map[string]struct{}{},
 	}
 
 	if err := o.ttyCheck(); err != nil {

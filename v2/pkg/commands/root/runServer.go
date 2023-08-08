@@ -14,8 +14,10 @@ import (
 	oneshotnet "github.com/forestnode-io/oneshot/v2/pkg/net"
 	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/headers"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/forestnode-io/oneshot/v2/pkg/output"
 	oneshotfmt "github.com/forestnode-io/oneshot/v2/pkg/output/fmt"
+	"github.com/forestnode-io/oneshot/v2/pkg/version"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -134,13 +136,28 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	}
 	defer cancelPortMapping()
 
-	// initialize connection to discovery server
-	ctx, err = r.withDiscoveryServer(ctx, subCmdName)
-	if err != nil {
+	// finalize connection to discovery server
+	dsConfig := r.config.Discovery
+	connConf := signallingserver.DiscoveryServerConfig{
+		URL:      dsConfig.Host,
+		Key:      dsConfig.Key,
+		Insecure: dsConfig.Insecure,
+		VersionInfo: messages.VersionInfo{
+			Version:    version.Version,
+			APIVersion: version.APIVersion,
+		},
+	}
+	if err := signallingserver.ConnectToDiscoveryServer(ctx, connConf); err != nil {
 		log.Error().Err(err).
 			Msg("failed to connect to discovery server")
+	} else {
+		err = r.sendArrivalToDiscoveryServer(ctx, subCmdName)
+		if err != nil {
+			log.Error().Err(err).
+				Msg("failed to connect to discovery server")
 
-		return fmt.Errorf("failed to connect to discovery server: %w", err)
+			return fmt.Errorf("failed to connect to discovery server: %w", err)
+		}
 	}
 
 	baToken, err := r.configureServer()
@@ -209,6 +226,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			userFacingAddr = fmt.Sprintf("%s://%s:%d", "http", "localhost", port)
 		}
 	}
+
 	listeningAddr := oneshotfmt.Address(r.config.Server.Host, port)
 	err = r.listenAndServe(ctx, listeningAddr, userFacingAddr)
 	if err != nil {

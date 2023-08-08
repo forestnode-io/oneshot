@@ -7,9 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
+	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
 	"github.com/mdp/qrterminal/v3"
 	"github.com/muesli/termenv"
-	"github.com/forestnode-io/oneshot/v2/pkg/events"
 	"github.com/rs/zerolog"
 )
 
@@ -39,8 +40,8 @@ type output struct {
 	includeBody bool
 	receivedBuf *bytes.Buffer
 
-	cls                  []*clientSession
-	currentClientSession *clientSession
+	disconnectedClients  []*ClientSession
+	currentClientSession *ClientSession
 
 	quiet bool
 
@@ -61,23 +62,10 @@ type output struct {
 func (o *output) run(ctx context.Context) error {
 	log := zerolog.Ctx(ctx)
 
-	if o.quiet {
-		log.Debug().
-			Msg("output running in quiet mode")
-		runQuiet(ctx, o)
-	} else {
-		switch o.Format {
-		case "":
-			log.Debug().
-				Msg("output running in human mode")
-			runHuman(ctx, o)
-		case "json":
-			log.Debug().
-				Msg("output running in json mode")
-			NewHTTPRequest = events.NewHTTPRequest_WithBody
-			runJSON(ctx, o)
-		}
-	}
+	log.Debug().
+		Msg("output running in json mode")
+	NewHTTPRequest = events.NewHTTPRequest_WithBody
+	runJSON(ctx, o)
 
 	log.Debug().
 		Msg("output system shutting down")
@@ -182,16 +170,38 @@ func (o *output) enableDynamicOutput() {
 	})
 }
 
-type clientSession struct {
+type ClientSession struct {
 	Request  *events.HTTPRequest  `json:",omitempty"`
 	File     *events.File         `json:",omitempty"`
 	Response *events.HTTPResponse `json:",omitempty"`
 	Error    string               `json:",omitempty"`
 }
 
+func newClientSessionMessage(s *ClientSession, headerFilter []string) *messages.ClientSession {
+	return &messages.ClientSession{
+		Request:  messages.HTTPRequestFromEvent(s.Request, headerFilter),
+		File:     messages.FileFromEvent(s.File),
+		Response: messages.HTTPResponseFromEvent(s.Response, headerFilter),
+		Error:    s.Error,
+	}
+}
+
 type Report struct {
-	Success  *clientSession   `json:",omitempty"`
-	Attempts []*clientSession `json:",omitempty"`
+	Success  *ClientSession   `json:",omitempty"`
+	Attempts []*ClientSession `json:",omitempty"`
+}
+
+func newReportMessage(report *Report, headerFilter []string) *messages.Report {
+	r := messages.Report{
+		Success:  newClientSessionMessage(report.Success, headerFilter),
+		Attempts: make([]*messages.ClientSession, len(report.Attempts)),
+	}
+
+	for i, s := range report.Attempts {
+		r.Attempts[i] = newClientSessionMessage(s, headerFilter)
+	}
+
+	return &r
 }
 
 func bytesPerSecond(bytes int64, dt time.Duration) float64 {

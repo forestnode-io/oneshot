@@ -9,41 +9,29 @@ import (
 	oneshotnet "github.com/forestnode-io/oneshot/v2/pkg/net"
 	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver"
 	"github.com/forestnode-io/oneshot/v2/pkg/net/webrtc/signallingserver/messages"
-	"github.com/forestnode-io/oneshot/v2/pkg/version"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (r *rootCommand) withDiscoveryServer(ctx context.Context, cmd string) (context.Context, error) {
+func (r *rootCommand) sendArrivalToDiscoveryServer(ctx context.Context, cmd string) error {
 	var (
 		config   = r.config
 		dsConfig = config.Discovery
 	)
 
 	if dsConfig.Host == "" {
-		return ctx, nil
+		return nil
 	}
 
-	var (
-		connConf = signallingserver.DiscoveryServerConfig{
-			URL:      dsConfig.Host,
-			Key:      dsConfig.Key,
-			Insecure: dsConfig.Insecure,
-			VersionInfo: messages.VersionInfo{
-				Version:    version.Version,
-				APIVersion: version.APIVersion,
-			},
-		}
-		arrival = messages.ServerArrivalRequest{
-			IsUsingPortMapping: config.NATTraversal.IsUsingUPnP(),
-			RedirectOnly:       !config.NATTraversal.P2P.Enabled,
-			TTL:                config.Server.Timeout,
-			Cmd:                cmd,
-		}
-	)
+	arrival := messages.ServerArrivalRequest{
+		IsUsingPortMapping: config.NATTraversal.IsUsingUPnP(),
+		RedirectOnly:       !config.NATTraversal.P2P.Enabled,
+		TTL:                config.Server.Timeout,
+		Cmd:                cmd,
+	}
 
 	ipThatCanReachDiscoveryServer, err := oneshotnet.GetSourceIP(dsConfig.Host, 0)
 	if err != nil {
-		return ctx, fmt.Errorf("unable to reach the discovery server: %w", err)
+		return fmt.Errorf("unable to reach the discovery server: %w", err)
 	}
 	arrival.Redirect = ipThatCanReachDiscoveryServer
 
@@ -91,7 +79,7 @@ func (r *rootCommand) withDiscoveryServer(ctx context.Context, cmd string) (cont
 			if password != "" {
 				pHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 				if err != nil {
-					return ctx, fmt.Errorf("failed to hash password: %w", err)
+					return fmt.Errorf("failed to hash password: %w", err)
 				}
 				bam.PasswordHash = pHash
 			}
@@ -103,5 +91,5 @@ func (r *rootCommand) withDiscoveryServer(ctx context.Context, cmd string) (cont
 	hostname, _ := os.Hostname()
 	arrival.Hostname = hostname
 
-	return signallingserver.WithDiscoveryServer(ctx, connConf, arrival)
+	return signallingserver.SendArrivalToDiscoveryServer(ctx, &arrival)
 }

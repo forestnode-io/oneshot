@@ -30,6 +30,7 @@ var dialTimeout = 3 * time.Second
 type discoveryServerKey struct{}
 
 type DiscoveryServer struct {
+	ctx         context.Context
 	conn        *grpc.ClientConn
 	stream      proto.SignallingServer_ConnectClient
 	AssignedURL string
@@ -51,37 +52,77 @@ type DiscoveryServerConfig struct {
 	VersionInfo messages.VersionInfo
 }
 
-// WithDiscoveryServer connects to the discovery server and sends a handshake and arrival.
+func WithDiscoveryServer(ctx context.Context) context.Context {
+	ds := &DiscoveryServer{ctx: ctx}
+	return context.WithValue(ctx, discoveryServerKey{}, &ds)
+}
+
+// ConnectToDiscoveryServer connects to the discovery server and sends a handshake.
 // The connnection is kept open and stuffed into the context.
-func WithDiscoveryServer(ctx context.Context, c DiscoveryServerConfig, arrival messages.ServerArrivalRequest) (context.Context, error) {
+func ConnectToDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) error {
+	dds, ok := ctx.Value(discoveryServerKey{}).(**DiscoveryServer)
+	if !ok || dds == nil {
+		return nil
+	}
+
+	ctx = (*dds).ctx
 	log := zerolog.Ctx(ctx)
 
 	log.Debug().Msg("connecting to discovery server")
 	conn, err := getConnectionToDiscoveryServer(ctx, &c)
 	if err != nil {
-		return ctx, fmt.Errorf("failed to connect to discovery server: %w", err)
+		return fmt.Errorf("failed to connect to discovery server: %w", err)
 	}
 
 	log.Debug().Msg("opening bidirectional stream to discovery server")
-	ds, err := newDiscoveryServer(ctx, &c, &arrival, conn)
+	ds, err := newDiscoveryServer(ctx, &c, conn)
 	if err != nil {
-		return ctx, fmt.Errorf("failed to create discovery server: %w", err)
+		return fmt.Errorf("failed to create discovery server: %w", err)
 	}
+	ds.ctx = ctx
+
+	*dds = ds
+	return nil
+}
+
+func SendArrivalToDiscoveryServer(ctx context.Context, arrival *messages.ServerArrivalRequest) error {
+	ds := GetDiscoveryServer(ctx)
+	if ds == nil {
+		return nil
+	}
+
+	ctx = ds.ctx
+	log := zerolog.Ctx(ctx)
 
 	log.Debug().Msg("negotiating arrival with discovery server")
-	if err := ds.negotiateArrival(ctx, &arrival); err != nil {
-		return ctx, fmt.Errorf("failed to negotiate arrival with discovery server: %w", err)
-	}
 
-	return context.WithValue(ctx, discoveryServerKey{}, ds), nil
+	ds.arrival = arrival
+
+	return ds.negotiateArrival(ctx, arrival)
 }
 
 func GetDiscoveryServer(ctx context.Context) *DiscoveryServer {
-	ds, ok := ctx.Value(discoveryServerKey{}).(*DiscoveryServer)
+	dds, ok := ctx.Value(discoveryServerKey{}).(**DiscoveryServer)
 	if !ok {
 		return nil
 	}
-	return ds
+	return *dds
+}
+
+func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
+	ds := GetDiscoveryServer(ctx)
+	if ds == nil {
+		return
+	}
+
+	ctx = ds.ctx
+	log := zerolog.Ctx(ctx)
+	if err := Send(ds, report); err != nil {
+		log.Error().Err(err).
+			Msg("failed to send report to discovery server")
+	} else {
+		log.Debug().Msg("sent report to discovery server")
+	}
 }
 
 func CloseDiscoveryServer(ctx context.Context) error {
@@ -257,6 +298,7 @@ func ReconnectDiscoveryServer(ctx context.Context) error {
 	}
 	ds.conn.Close()
 
+	ctx = ds.ctx
 	log := zerolog.Ctx(ctx)
 	config := ds.config
 	arrival := ds.arrival
@@ -269,10 +311,11 @@ func ReconnectDiscoveryServer(ctx context.Context) error {
 	}
 
 	log.Debug().Msg("opening bidirectional stream to discovery server")
-	newDS, err := newDiscoveryServer(ctx, config, arrival, conn)
+	newDS, err := newDiscoveryServer(ctx, config, conn)
 	if err != nil {
 		return fmt.Errorf("failed to create discovery server: %w", err)
 	}
+	newDS.arrival = arrival
 
 	log.Debug().Msg("negotiating arrival with discovery server")
 	if err := newDS.negotiateArrival(ctx, arrival); err != nil {
@@ -324,17 +367,16 @@ func getConnectionToDiscoveryServer(ctx context.Context, config *DiscoveryServer
 	return grpc.DialContext(dialCtx, config.URL, opts...)
 }
 
-func newDiscoveryServer(ctx context.Context, config *DiscoveryServerConfig, arrival *messages.ServerArrivalRequest, conn *grpc.ClientConn) (*DiscoveryServer, error) {
+func newDiscoveryServer(ctx context.Context, config *DiscoveryServerConfig, conn *grpc.ClientConn) (*DiscoveryServer, error) {
 	stream, err := proto.NewSignallingServerClient(conn).Connect(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to discovery server: %w", err)
 	}
 
 	return &DiscoveryServer{
-		conn:    conn,
-		stream:  stream,
-		config:  config,
-		arrival: arrival,
+		conn:   conn,
+		stream: stream,
+		config: config,
 	}, nil
 }
 
