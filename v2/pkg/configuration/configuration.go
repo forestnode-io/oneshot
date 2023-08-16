@@ -194,6 +194,10 @@ func setDefault() {
 	viper.SetDefault("discovery.preferredurl", "")
 	viper.SetDefault("discovery.requiredurl", "")
 	viper.SetDefault("discovery.onlyredirect", false)
+	viper.SetDefault("discovery.reports.enabled", true)
+	viper.SetDefault("discovery.reports.headerfilter.usedefaults", true)
+	viper.SetDefault("discovery.reports.headerfilter.allow", []string{})
+	viper.SetDefault("discovery.reports.headerfilter.block", []string{})
 }
 
 func readInConfig() {

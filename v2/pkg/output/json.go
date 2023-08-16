@@ -196,7 +196,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		Attempts: o.disconnectedClients,
 	}
 
-	signallingserver.SendReportToDiscoveryServer(ctx, newReportMessage(&report, nil))
+	signallingserver.SendReportToDiscoveryServer(ctx, newReportMessage(&report))
 
 	if o.Format == "json" && !o.quiet {
 		enc := json.NewEncoder(os.Stdout)

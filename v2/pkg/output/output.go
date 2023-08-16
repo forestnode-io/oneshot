@@ -177,11 +177,11 @@ type ClientSession struct {
 	Error    string               `json:",omitempty"`
 }
 
-func newClientSessionMessage(s *ClientSession, headerFilter []string) *messages.ClientSession {
+func newClientSessionMessage(s *ClientSession) *messages.ClientSession {
 	return &messages.ClientSession{
-		Request:  messages.HTTPRequestFromEvent(s.Request, headerFilter),
+		Request:  messages.HTTPRequestFromEvent(s.Request),
 		File:     messages.FileFromEvent(s.File),
-		Response: messages.HTTPResponseFromEvent(s.Response, headerFilter),
+		Response: messages.HTTPResponseFromEvent(s.Response),
 		Error:    s.Error,
 	}
 }
@@ -191,14 +191,14 @@ type Report struct {
 	Attempts []*ClientSession `json:",omitempty"`
 }
 
-func newReportMessage(report *Report, headerFilter []string) *messages.Report {
+func newReportMessage(report *Report) *messages.Report {
 	r := messages.Report{
-		Success:  newClientSessionMessage(report.Success, headerFilter),
+		Success:  newClientSessionMessage(report.Success),
 		Attempts: make([]*messages.ClientSession, len(report.Attempts)),
 	}
 
 	for i, s := range report.Attempts {
-		r.Attempts[i] = newClientSessionMessage(s, headerFilter)
+		r.Attempts[i] = newClientSessionMessage(s)
 	}
 
 	return &r

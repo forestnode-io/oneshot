@@ -139,9 +139,13 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	// finalize connection to discovery server
 	dsConfig := r.config.Discovery
 	connConf := signallingserver.DiscoveryServerConfig{
-		URL:      dsConfig.Host,
-		Key:      dsConfig.Key,
-		Insecure: dsConfig.Insecure,
+		URL:                       dsConfig.Host,
+		Key:                       dsConfig.Key,
+		Insecure:                  dsConfig.Insecure,
+		SendReports:               dsConfig.Reports.Enabled,
+		UseDefaultHeaderBlockList: dsConfig.Reports.HeaderFilter.UseDefaults,
+		HeaderBlockList:           dsConfig.Reports.HeaderFilter.Block,
+		HeaderAllowList:           dsConfig.Reports.HeaderFilter.Allow,
 		VersionInfo: messages.VersionInfo{
 			Version:    version.Version,
 			APIVersion: version.APIVersion,

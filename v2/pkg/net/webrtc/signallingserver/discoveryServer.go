@@ -30,12 +30,13 @@ var dialTimeout = 3 * time.Second
 type discoveryServerKey struct{}
 
 type DiscoveryServer struct {
-	ctx         context.Context
-	conn        *grpc.ClientConn
-	stream      proto.SignallingServer_ConnectClient
-	AssignedURL string
-	config      *DiscoveryServerConfig
-	arrival     *messages.ServerArrivalRequest
+	ctx           context.Context
+	conn          *grpc.ClientConn
+	stream        proto.SignallingServer_ConnectClient
+	AssignedURL   string
+	config        *DiscoveryServerConfig
+	arrival       *messages.ServerArrivalRequest
+	AcceptsReport bool
 }
 
 func (d *DiscoveryServer) Stream() proto.SignallingServer_ConnectClient {
@@ -43,11 +44,15 @@ func (d *DiscoveryServer) Stream() proto.SignallingServer_ConnectClient {
 }
 
 type DiscoveryServerConfig struct {
-	URL      string
-	Key      string
-	Insecure bool
-	TLSCert  string
-	TLSKey   string
+	URL                       string
+	Key                       string
+	Insecure                  bool
+	TLSCert                   string
+	TLSKey                    string
+	SendReports               bool
+	HeaderBlockList           []string
+	HeaderAllowList           []string
+	UseDefaultHeaderBlockList bool
 
 	VersionInfo messages.VersionInfo
 }
@@ -90,6 +95,9 @@ func SendArrivalToDiscoveryServer(ctx context.Context, arrival *messages.ServerA
 	if ds == nil {
 		return nil
 	}
+	if !ds.AcceptsReport || !ds.config.SendReports {
+		return nil
+	}
 
 	ctx = ds.ctx
 	log := zerolog.Ctx(ctx)
@@ -113,6 +121,45 @@ func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
 	ds := GetDiscoveryServer(ctx)
 	if ds == nil {
 		return
+	}
+
+	filter := defaultBlockHeaders
+	if !ds.config.UseDefaultHeaderBlockList {
+		filter = nil
+	}
+	filter = mergeBlockList(filter, ds.config.HeaderAllowList, ds.config.HeaderBlockList)
+
+	if report.Success != nil {
+		if report.Success.Request != nil {
+			if report.Success.Request.Header != nil {
+				for _, header := range filter {
+					delete(report.Success.Request.Header, header)
+				}
+			}
+		}
+		if report.Success.Response != nil {
+			if report.Success.Response.Header != nil {
+				for _, header := range filter {
+					delete(report.Success.Response.Header, header)
+				}
+			}
+		}
+	}
+	for _, attmpt := range report.Attempts {
+		if attmpt.Request != nil {
+			if attmpt.Request.Header != nil {
+				for _, header := range filter {
+					delete(attmpt.Request.Header, header)
+				}
+			}
+		}
+		if attmpt.Response != nil {
+			if attmpt.Response.Header != nil {
+				for _, header := range filter {
+					delete(attmpt.Response.Header, header)
+				}
+			}
+		}
 	}
 
 	ctx = ds.ctx
@@ -254,6 +301,7 @@ func (d *DiscoveryServer) negotiateArrival(ctx context.Context, arrival *message
 
 	closeConn = false
 	d.AssignedURL = sar.AssignedURL
+	d.AcceptsReport = sar.AcceptsReport
 	log.Debug().Msg("discovery server acknowledged arrival")
 	log.Info().
 		Str("assigned-url", d.AssignedURL).
@@ -381,3 +429,52 @@ func newDiscoveryServer(ctx context.Context, config *DiscoveryServerConfig, conn
 }
 
 var ErrHandshakeTimeout = errors.New("handshake timed out")
+
+var defaultBlockHeaders = []string{
+	"Authorization",
+	"Cookie",
+	"Set-Cookie",
+	"WWW-Authenticate",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"X-Api-Key",
+	"X-Auth-Token",
+	"Bearer",
+	"X-Csrf-Token",
+	"X-XSRF-TOKEN",
+	"X-Access-Token",
+	"X-Refresh-Token",
+	"X-User-ID",
+	"X-User-Name",
+	"X-Identity-Provider",
+	"X-SSH-Key",
+	"Sec-Token-Binding",
+	"Digest",
+	"X-Alt-Referer",
+	"X-Password",
+}
+
+func mergeBlockList(defaults []string, allow, block []string) []string {
+	headerMap := make(map[string]struct{})
+
+	for _, header := range defaults {
+		headerMap[header] = struct{}{}
+	}
+
+	for _, header := range block {
+		headerMap[header] = struct{}{}
+	}
+
+	// Remove headers from the allowlist
+	for _, header := range allow {
+		delete(headerMap, header)
+	}
+
+	// Convert map keys to a slice
+	finalList := make([]string, 0, len(headerMap))
+	for header := range headerMap {
+		finalList = append(finalList, header)
+	}
+
+	return finalList
+}

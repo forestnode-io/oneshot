@@ -55,8 +55,9 @@ func (a *ServerArrivalRequest) Type() string {
 
 // sent from the signalling server to the oneshot server when it first connects in response to an ArrivalRequest
 type ServerArrivalResponse struct {
-	AssignedURL string
-	Error       string
+	AssignedURL   string
+	AcceptsReport bool
+	Error         string
 }
 
 func (a *ServerArrivalResponse) Type() string {
@@ -167,7 +168,7 @@ type HTTPRequest struct {
 	RemoteAddr string              `json:",omitempty"`
 }
 
-func HTTPRequestFromEvent(r *events.HTTPRequest, headerFilter []string) *HTTPRequest {
+func HTTPRequestFromEvent(r *events.HTTPRequest) *HTTPRequest {
 	if r == nil {
 		return nil
 	}
@@ -184,10 +185,6 @@ func HTTPRequestFromEvent(r *events.HTTPRequest, headerFilter []string) *HTTPReq
 		RemoteAddr: r.RemoteAddr,
 	}
 
-	for _, k := range headerFilter {
-		delete(httpr.Header, k)
-	}
-
 	return &httpr
 }
 
@@ -196,7 +193,7 @@ type HTTPResponse struct {
 	Header     map[string][]string `json:",omitempty"`
 }
 
-func HTTPResponseFromEvent(r *events.HTTPResponse, headerFilter []string) *HTTPResponse {
+func HTTPResponseFromEvent(r *events.HTTPResponse) *HTTPResponse {
 	if r == nil {
 		return nil
 	}
@@ -204,10 +201,6 @@ func HTTPResponseFromEvent(r *events.HTTPResponse, headerFilter []string) *HTTPR
 	httpr := HTTPResponse{
 		StatusCode: r.StatusCode,
 		Header:     r.Header,
-	}
-
-	for _, k := range headerFilter {
-		delete(httpr.Header, k)
 	}
 
 	return &httpr
