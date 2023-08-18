@@ -21,6 +21,7 @@ type Reports struct {
 }
 
 type Discovery struct {
+	Enabled      bool    `mapstructure:"enabled" yaml:"enabled"`
 	Host         string  `mapstructure:"host" yaml:"host"`
 	Key          string  `mapstructure:"key" yaml:"key" json:"-"`
 	KeyPath      string  `mapstructure:"keyPath" yaml:"keyPath"`
@@ -35,6 +36,7 @@ func setDiscoveryFlags(cmd *cobra.Command) {
 	fs := pflag.NewFlagSet("Discovery Flags", pflag.ExitOnError)
 	defer cmd.PersistentFlags().AddFlagSet(fs)
 
+	flags.Bool(fs, "discovery.enabled", "discovery-enabled", "Enable discovery server.")
 	flags.String(fs, "discovery.url", "discovery-url", "URL of the discovery server to connect to.")
 	flags.String(fs, "discovery.keypath", "discovery-key-path", "Path to the key to present to the discovery server.")
 	flags.String(fs, "discovery.key", "discovery-key", "Key to present to the discovery server.")
@@ -60,6 +62,10 @@ func (c *Discovery) hydrate() error {
 			return fmt.Errorf("failed to read discovery server key file: %w", err)
 		}
 		c.Key = string(key)
+	}
+
+	if c.Key == "" {
+		c.Enabled = false
 	}
 
 	return nil

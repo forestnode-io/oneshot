@@ -28,11 +28,15 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string,
 		return fmt.Errorf("failed to configure p2p: %w", err)
 	}
 
-	signaller, err := getSignaller(ctx, r.config, portMapAddr)
+	signaller, local, err := getSignaller(ctx, r.config, portMapAddr)
 	if err != nil {
 		return fmt.Errorf("failed to get p2p signaller: %w", err)
 	}
 	defer signaller.Shutdown()
+
+	if !local && !r.config.Discovery.Enabled {
+		return errors.New("discovery is not enabled")
+	}
 
 	// create a webrtc server with the same handler as the http server
 	a := server.NewServer(r.webrtcConfig, bat, iceGatherTimeout, http.HandlerFunc(r.server.ServeHTTP))
@@ -56,6 +60,10 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string,
 				Err(err).
 				Msg("reconnecting to discovery server")
 
+			if local {
+				continue
+			}
+
 			time.Sleep(200 * time.Millisecond)
 			if err = signallingserver.ReconnectDiscoveryServer(ctx); err != nil {
 				if errors.Is(err, signallingserver.ErrHandshakeTimeout) {
@@ -73,7 +81,7 @@ func (r *rootCommand) listenWebRTC(ctx context.Context, bat, portMapAddr string,
 	}
 }
 
-func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr string) (signallers.ServerSignaller, error) {
+func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr string) (signallers.ServerSignaller, bool, error) {
 	var (
 		dsConf              = config.Discovery
 		p2pConf             = config.NATTraversal.P2P
@@ -83,22 +91,22 @@ func getSignaller(ctx context.Context, config *configuration.Root, portMapAddr s
 
 	if webRTCSignallingDir != "" {
 		if config == nil {
-			return nil, fmt.Errorf("nil p2p configuration")
+			return nil, false, fmt.Errorf("nil p2p configuration")
 		}
 		iwc, err := p2pConf.ParseConfig()
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse p2p configuration: %w", err)
+			return nil, false, fmt.Errorf("failed to parse p2p configuration: %w", err)
 		}
 		wc, err := iwc.WebRTCConfiguration()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get WebRTC configuration: %w", err)
+			return nil, false, fmt.Errorf("failed to get WebRTC configuration: %w", err)
 		}
-		return signallers.NewFileServerSignaller(webRTCSignallingDir, wc), nil
+		return signallers.NewFileServerSignaller(webRTCSignallingDir, wc), true, nil
 	} else if webRTCSignallingURL != "" {
-		return signallers.NewServerServerSignaller(), nil
+		return signallers.NewServerServerSignaller(), false, nil
 	}
 
-	return nil, fmt.Errorf("no p2p discovery mechanism specified")
+	return nil, false, fmt.Errorf("no p2p discovery mechanism specified")
 }
 
 func (r *rootCommand) configureWebRTC() error {

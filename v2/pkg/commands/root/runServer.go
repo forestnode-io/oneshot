@@ -139,6 +139,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	// finalize connection to discovery server
 	dsConfig := r.config.Discovery
 	connConf := signallingserver.DiscoveryServerConfig{
+		Enabled:                   dsConfig.Enabled,
 		URL:                       dsConfig.Host,
 		Key:                       dsConfig.Key,
 		Insecure:                  dsConfig.Insecure,
@@ -188,7 +189,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			}
 			cancel()
 		}()
-	} else if ds := signallingserver.GetDiscoveryServer(ctx); ds != nil {
+	} else if ds := signallingserver.GetDiscoveryServer(ctx); ds != nil && dsConfig.Enabled {
 		go func() {
 			stream := ds.Stream()
 			if _, err := stream.Recv(); err != nil {

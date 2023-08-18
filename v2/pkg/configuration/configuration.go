@@ -187,6 +187,7 @@ func setDefault() {
 	viper.SetDefault("cmd.discoveryserver.server.tlskey", "")
 
 	// discovery
+	viper.SetDefault("discovery.enabled", true)
 	viper.SetDefault("discovery.host", "")
 	viper.SetDefault("discovery.key", "")
 	viper.SetDefault("discovery.keypath", "")

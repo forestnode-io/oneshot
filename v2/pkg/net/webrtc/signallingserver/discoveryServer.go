@@ -44,6 +44,7 @@ func (d *DiscoveryServer) Stream() proto.SignallingServer_ConnectClient {
 }
 
 type DiscoveryServerConfig struct {
+	Enabled                   bool
 	URL                       string
 	Key                       string
 	Insecure                  bool
@@ -75,6 +76,11 @@ func ConnectToDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) erro
 		return nil
 	}
 
+	if !c.Enabled {
+		(*dds).config = &c
+		return nil
+	}
+
 	ctx = context.WithoutCancel(ctx)
 	log := zerolog.Ctx(ctx)
 
@@ -100,6 +106,9 @@ func SendArrivalToDiscoveryServer(ctx context.Context, arrival *messages.ServerA
 	if ds == nil {
 		return nil
 	}
+	if !ds.config.Enabled {
+		return nil
+	}
 
 	ctx = context.WithoutCancel(ctx)
 	log := zerolog.Ctx(ctx)
@@ -122,6 +131,10 @@ func GetDiscoveryServer(ctx context.Context) *DiscoveryServer {
 func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
 	ds := GetDiscoveryServer(ctx)
 	if ds == nil {
+		return
+	}
+
+	if !ds.config.Enabled {
 		return
 	}
 
@@ -181,6 +194,9 @@ func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
 func CloseDiscoveryServer(ctx context.Context) error {
 	ds := GetDiscoveryServer(ctx)
 	if ds == nil {
+		return nil
+	}
+	if !ds.config.Enabled {
 		return nil
 	}
 	return ds.Close()
@@ -317,6 +333,9 @@ func (d *DiscoveryServer) negotiateArrival(ctx context.Context, arrival *message
 }
 
 func (d *DiscoveryServer) Close() error {
+	if !d.config.Enabled {
+		return nil
+	}
 	d.stream.CloseSend()
 	return d.conn.Close()
 }
@@ -348,6 +367,9 @@ func Receive[M messages.Message](d *DiscoveryServer) (M, error) {
 func ReconnectDiscoveryServer(ctx context.Context) error {
 	ds := GetDiscoveryServer(ctx)
 	if ds == nil {
+		return nil
+	}
+	if !ds.config.Enabled {
 		return nil
 	}
 	ds.conn.Close()
