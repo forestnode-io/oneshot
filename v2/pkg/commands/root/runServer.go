@@ -132,7 +132,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		log.Error().Err(err).
 			Msg("failed to negotiate port mapping")
 
-		return fmt.Errorf("failed to negotiate port mapping: %w", err)
+		return output.WrapPrintable(fmt.Errorf("failed to negotiate port mapping: %w", err))
 	}
 	defer cancelPortMapping()
 
@@ -161,7 +161,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 			log.Error().Err(err).
 				Msg("failed to connect to discovery server")
 
-			return fmt.Errorf("failed to connect to discovery server: %w", err)
+			return output.WrapPrintable(fmt.Errorf("failed to connect to discovery server: %w", err))
 		}
 	}
 
@@ -170,7 +170,7 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 		log.Error().Err(err).
 			Msg("failed to configure server")
 
-		return fmt.Errorf("failed to configure server: %w", err)
+		return output.WrapPrintable(fmt.Errorf("failed to configure server: %w", err))
 	}
 
 	if r.config.NATTraversal.IsUsingWebRTC() {
