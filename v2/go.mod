@@ -1,6 +1,6 @@
 module github.com/forestnode-io/oneshot/v2
 
-go 1.20
+go 1.21
 
 require (
 	github.com/google/uuid v1.3.0
