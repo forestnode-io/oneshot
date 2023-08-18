@@ -30,12 +30,12 @@ var dialTimeout = 3 * time.Second
 type discoveryServerKey struct{}
 
 type DiscoveryServer struct {
-	ctx           context.Context
 	conn          *grpc.ClientConn
 	stream        proto.SignallingServer_ConnectClient
 	AssignedURL   string
 	config        *DiscoveryServerConfig
 	arrival       *messages.ServerArrivalRequest
+	doneFunc      func()
 	AcceptsReport bool
 }
 
@@ -57,9 +57,14 @@ type DiscoveryServerConfig struct {
 	VersionInfo messages.VersionInfo
 }
 
-func WithDiscoveryServer(ctx context.Context) context.Context {
-	ds := &DiscoveryServer{ctx: ctx}
-	return context.WithValue(ctx, discoveryServerKey{}, &ds)
+func WithDiscoveryServer(ctx context.Context) (context.Context, <-chan struct{}) {
+	doneChan := make(chan struct{})
+	ds := &DiscoveryServer{
+		doneFunc: func() {
+			close(doneChan)
+		},
+	}
+	return context.WithValue(ctx, discoveryServerKey{}, &ds), doneChan
 }
 
 // ConnectToDiscoveryServer connects to the discovery server and sends a handshake.
@@ -70,7 +75,7 @@ func ConnectToDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) erro
 		return nil
 	}
 
-	ctx = (*dds).ctx
+	ctx = context.WithoutCancel(ctx)
 	log := zerolog.Ctx(ctx)
 
 	log.Debug().Msg("connecting to discovery server")
@@ -84,8 +89,8 @@ func ConnectToDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) erro
 	if err != nil {
 		return fmt.Errorf("failed to create discovery server: %w", err)
 	}
-	ds.ctx = ctx
-
+	ds.config = &c
+	ds.doneFunc = (*dds).doneFunc
 	*dds = ds
 	return nil
 }
@@ -95,11 +100,8 @@ func SendArrivalToDiscoveryServer(ctx context.Context, arrival *messages.ServerA
 	if ds == nil {
 		return nil
 	}
-	if !ds.AcceptsReport || !ds.config.SendReports {
-		return nil
-	}
 
-	ctx = ds.ctx
+	ctx = context.WithoutCancel(ctx)
 	log := zerolog.Ctx(ctx)
 
 	log.Debug().Msg("negotiating arrival with discovery server")
@@ -120,6 +122,10 @@ func GetDiscoveryServer(ctx context.Context) *DiscoveryServer {
 func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
 	ds := GetDiscoveryServer(ctx)
 	if ds == nil {
+		return
+	}
+
+	if !ds.AcceptsReport || !ds.config.SendReports {
 		return
 	}
 
@@ -162,7 +168,7 @@ func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
 		}
 	}
 
-	ctx = ds.ctx
+	ctx = context.WithoutCancel(ctx)
 	log := zerolog.Ctx(ctx)
 	if err := Send(ds, report); err != nil {
 		log.Error().Err(err).
@@ -346,7 +352,7 @@ func ReconnectDiscoveryServer(ctx context.Context) error {
 	}
 	ds.conn.Close()
 
-	ctx = ds.ctx
+	ctx = context.WithoutCancel(ctx)
 	log := zerolog.Ctx(ctx)
 	config := ds.config
 	arrival := ds.arrival

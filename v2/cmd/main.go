@@ -32,8 +32,6 @@ func main() {
 	}
 	defer cleanupLogging()
 
-	ctx = signallingserver.WithDiscoveryServer(ctx)
-
 	ctx = events.WithEvents(ctx)
 	ctx, err = output.WithOutput(ctx)
 	if err != nil {
@@ -50,6 +48,19 @@ func main() {
 				status = ec
 			}
 			os.Exit(status)
+		}
+	}()
+
+	var discoveryServerConnDoneChan <-chan struct{}
+	ctx, discoveryServerConnDoneChan = signallingserver.WithDiscoveryServer(ctx)
+	// wait for the discovery server to connection to be done
+	// or timeout after 1 second
+	defer func() {
+		timeout := time.NewTimer(time.Second)
+		select {
+		case <-discoveryServerConnDoneChan:
+			timeout.Stop()
+		case <-timeout.C:
 		}
 	}()
 
