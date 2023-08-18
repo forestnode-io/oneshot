@@ -47,7 +47,7 @@ go get -u -v github.com/forestnode-io/oneshot/v2
 
 ##### Compiling from source
 ```bash
-git clone github.com/forestnode-io/oneshot
+git clone https://github.com/forestnode-io/oneshot
 cd oneshot/v2
 sudo make install
 ```
