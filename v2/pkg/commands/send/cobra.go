@@ -5,12 +5,12 @@ import (
 	"mime"
 	"path/filepath"
 
-	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/forestnode-io/oneshot/v2/pkg/commands"
 	"github.com/forestnode-io/oneshot/v2/pkg/commands/send/configuration"
 	rootconfig "github.com/forestnode-io/oneshot/v2/pkg/configuration"
 	"github.com/forestnode-io/oneshot/v2/pkg/file"
 	"github.com/forestnode-io/oneshot/v2/pkg/output"
+	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/spf13/cobra"
 )
 

@@ -21,7 +21,7 @@ func setOutputFlags(cmd *cobra.Command) {
 	defer cmd.PersistentFlags().AddFlagSet(fs)
 
 	flags.BoolP(fs, "output.quiet", "quiet", "q", "Disable all output except for received data")
-	flags.StringP(fs, "output.format", "o", "", `Set output format. Valid formats are: json[=opts].
+	flags.StringP(fs, "output.format", "output", "o", `Set output format. Valid formats are: json[=opts].
 Valid json opts are:
 	- compact
 		Disables tabbed, pretty printed json.

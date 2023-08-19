@@ -192,6 +192,9 @@ func (r *rootCommand) runServer(cmd *cobra.Command, args []string) error {
 	} else if ds := signallingserver.GetDiscoveryServer(ctx); ds != nil && dsConfig.Enabled {
 		go func() {
 			stream := ds.Stream()
+			if stream == nil {
+				return
+			}
 			if _, err := stream.Recv(); err != nil {
 				// check if the discovery server closed the connection by user request
 				if errors.Is(err, io.EOF) {
