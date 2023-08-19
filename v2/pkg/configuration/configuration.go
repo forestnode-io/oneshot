@@ -138,7 +138,7 @@ func setDefault() {
 	viper.SetDefault("cmd.send.nodownload", false)
 	viper.SetDefault("cmd.send.mime", "")
 	viper.SetDefault("cmd.send.name", "")
-	viper.SetDefault("cmd.send.status", http.StatusOK)
+	viper.SetDefault("cmd.send.statuscode", http.StatusOK)
 	viper.SetDefault("cmd.send.header", map[string][]string{})
 
 	// cmd - exec

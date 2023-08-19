@@ -14,7 +14,7 @@ type Configuration struct {
 	NoDownload    bool                `mapstructure:"nodownload" yaml:"nodownload"`
 	MIME          string              `mapstructure:"mime" yaml:"mime"`
 	Name          string              `mapstructure:"name" yaml:"name"`
-	StatusCode    int                 `mapstructure:"status" yaml:"status"`
+	StatusCode    int                 `mapstructure:"statuscode" yaml:"statuscode"`
 	Header        map[string][]string `mapstructure:"header" yaml:"header"`
 }
 
@@ -26,7 +26,7 @@ func SetFlags(cmd *cobra.Command) {
 	flags.BoolP(fs, "cmd.send.nodownload", "no-download", "D", "Do not allow the client to download the file.")
 	flags.StringP(fs, "cmd.send.mime", "mime", "m", `MIME type of file presented to client.`)
 	flags.StringP(fs, "cmd.send.name", "name", "n", `Name of file presented to client if downloading.`)
-	flags.Int(fs, "cmd.send.status", "status-code", "HTTP status code to send to client.")
+	flags.Int(fs, "cmd.send.statuscode", "status-code", "HTTP status code to send to client.")
 	flags.StringSliceP(fs, "cmd.send.header", "header", "H", `Header to send to client. Can be specified multiple times.
 Format: <HEADER NAME>=<HEADER VALUE>`)
 
