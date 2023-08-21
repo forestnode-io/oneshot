@@ -70,7 +70,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	doneReadingBody := make(chan struct{})
 	events.Raise(ctx, output.NewHTTPRequest(r))
 
-	var header = http.Header(config.Header)
+	var header = http.Header(config.Header.Inflate())
 	for key := range header {
 		w.Header().Set(key, header.Get(key))
 	}

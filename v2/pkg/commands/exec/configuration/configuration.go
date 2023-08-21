@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/forestnode-io/oneshot/v2/pkg/flagargs"
 	"github.com/forestnode-io/oneshot/v2/pkg/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -15,7 +16,7 @@ type Configuration struct {
 	Dir            string              `mapstructure:"dir" yaml:"dir"`
 	StdErr         string              `mapstructure:"stderr" yaml:"stderr"`
 	ReplaceHeaders bool                `mapstructure:"replaceheaders" yaml:"replaceheaders"`
-	Header         map[string][]string `mapstructure:"headers" yaml:"headers"`
+	Header         flagargs.HTTPHeader `mapstructure:"headers" yaml:"headers"`
 }
 
 func SetFlags(cmd *cobra.Command) {

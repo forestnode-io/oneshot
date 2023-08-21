@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/forestnode-io/oneshot/v2/pkg/flagargs"
 	"github.com/forestnode-io/oneshot/v2/pkg/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -11,7 +12,7 @@ import (
 
 type Configuration struct {
 	StatusCode int                 `mapstructure:"status" yaml:"status"`
-	Header     map[string][]string `mapstructure:"header" yaml:"header"`
+	Header     flagargs.HTTPHeader `mapstructure:"header" yaml:"header"`
 }
 
 func (c *Configuration) Validate() error {

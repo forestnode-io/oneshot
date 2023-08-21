@@ -87,10 +87,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 	c.host = host
 
 	if spoofedHostURL != nil {
-		if len(config.RequestHeader) == 0 {
-			config.RequestHeader = make(map[string][]string)
-		}
-		config.RequestHeader["Host"] = []string{spoofedHostURL.Host}
+		config.RequestHeader.SetValue("Host", spoofedHostURL.Host)
 	}
 
 	rp := httputil.NewSingleHostReverseProxy(hostURL)
@@ -104,7 +101,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		})
 
 		if 0 < len(config.ResponseHeader) {
-			for k, v := range config.ResponseHeader {
+			for k, v := range config.ResponseHeader.Inflate() {
 				resp.Header[k] = v
 			}
 		}
@@ -119,7 +116,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		events.Raise(ctx, output.NewHTTPRequest(r))
 
 		if 0 < len(config.RequestHeader) {
-			for k, v := range config.RequestHeader {
+			for k, v := range config.RequestHeader.Inflate() {
 				r.Header[k] = v
 			}
 		}

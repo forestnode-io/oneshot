@@ -84,15 +84,13 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		fileName += "." + archiveMethod
 	}
 
-	if _, ok := config.Header["Content-Type"]; !ok {
-		config.Header["Content-Type"] = []string{fileMime}
+	if _, ok := config.Header.GetValue("Content-Type"); !ok {
+		config.Header.SetValue("Content-Type", fileMime)
 	}
 	// Are we triggering a file download on the users browser?
 	if !config.NoDownload {
-		if _, ok := config.Header["Content-Disposition"]; !ok {
-			config.Header["Content-Disposition"] = []string{
-				fmt.Sprintf("attachment;filename=%s", fileName),
-			}
+		if _, ok := config.Header.GetValue("Content-Disposition"); !ok {
+			config.Header.SetValue("Content-Disposition", fmt.Sprintf("attachment;filename=%s", fileName))
 		}
 	}
 

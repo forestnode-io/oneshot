@@ -15,7 +15,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx    = c.Cobra().Context()
 		cmd    = c.cobraCommand
 		config = c.config.Subcommands.Send
-		header = http.Header(config.Header)
+		header = http.Header(config.Header.Inflate())
 
 		doneReadingBody = make(chan struct{})
 	)

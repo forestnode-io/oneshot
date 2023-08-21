@@ -70,7 +70,7 @@ func (c *Cmd) setHandlerFunc(cmd *cobra.Command, args []string) error {
 		WorkingDir:    config.Dir,
 		InheritEnvs:   nil,
 		BaseEnv:       config.Env,
-		Header:        header,
+		Header:        header.Inflate(),
 		OutputHandler: cgi.DefaultOutputHandler,
 		Stderr:        cmd.ErrOrStderr(),
 	}

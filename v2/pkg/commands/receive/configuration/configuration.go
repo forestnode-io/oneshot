@@ -11,13 +11,12 @@ import (
 )
 
 type Configuration struct {
-	CSRFToken    string              `mapstructure:"csrftoken" yaml:"csrftoken"`
-	EOL          string              `mapstructure:"eol" yaml:"eol"`
-	UI           string              `mapstructure:"uifile" yaml:"uifile"`
-	DecodeBase64 bool                `mapstructure:"decodeb64" yaml:"decodeb64"`
-	StatusCode   int                 `mapstructure:"status" yaml:"status"`
-	Header       map[string][]string `mapstructure:"header" yaml:"header"`
-	IncludeBody  bool                `mapstructure:"includebody" yaml:"includebody"`
+	CSRFToken    string `mapstructure:"csrftoken" yaml:"csrftoken"`
+	EOL          string `mapstructure:"eol" yaml:"eol"`
+	UI           string `mapstructure:"uifile" yaml:"uifile"`
+	DecodeBase64 bool   `mapstructure:"decodeb64" yaml:"decodeb64"`
+	StatusCode   int    `mapstructure:"status" yaml:"status"`
+	IncludeBody  bool   `mapstructure:"includebody" yaml:"includebody"`
 }
 
 func (c *Configuration) Validate() error {
@@ -56,8 +55,6 @@ Acceptable values are 'unix' and 'dos'; 'unix': '\n', 'dos': '\r\n'.`)
 	flags.StringP(fs, "cmd.receive.uifile", "ui", "U", "Name of ui file to use.")
 	flags.Bool(fs, "cmd.receive.decodeb64", "decode-b64", "Decode base-64.")
 	flags.Int(fs, "cmd.receive.status", "status-code", "HTTP status code sent to client.")
-	flags.StringSlice(fs, "cmd.receive.header", "header", `Header to send to client. Can be specified multiple times.
-Format: <HEADER NAME>=<HEADER VALUE>`)
 	flags.Bool(fs, "cmd.receive.includebody", "include-body", "Include the request body in the report. If not using json output, this will be ignored.")
 
 	cobra.AddTemplateFunc("receiveFlags", func() *pflag.FlagSet {

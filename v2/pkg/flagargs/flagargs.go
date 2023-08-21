@@ -155,3 +155,93 @@ func parseSize(s string) (int64, error) {
 
 	return mult * n, nil
 }
+
+type HTTPHeader []string
+
+func (h *HTTPHeader) SetValue(key, value string) {
+	escapedKey := strings.ReplaceAll(key, ",", "\\,")
+	escapedKey = strings.ReplaceAll(escapedKey, "=", "\\=")
+	escapedValue := strings.ReplaceAll(value, ",", "\\,")
+	escapedValue = strings.ReplaceAll(escapedValue, "=", "\\=")
+
+	*h = append(*h, fmt.Sprintf("%s=%s", escapedKey, escapedValue))
+}
+
+func (h *HTTPHeader) GetValue(key string) ([]string, bool) {
+	var values []string
+	found := false
+
+	for _, pair := range *h {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+
+		decodedKey := strings.ReplaceAll(kv[0], "\\,", ",")
+		decodedKey = strings.ReplaceAll(decodedKey, "\\=", "=")
+
+		if decodedKey == key {
+			decodedValue := strings.ReplaceAll(kv[1], "\\,", ",")
+			decodedValue = strings.ReplaceAll(decodedValue, "\\=", "=")
+			values = append(values, decodedValue)
+			found = true
+		}
+	}
+
+	return values, found
+}
+
+func (h *HTTPHeader) Inflate() map[string][]string {
+	return unflatten(*h)
+}
+
+func (h *HTTPHeader) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var header map[string][]string
+	if err := unmarshal(&header); err != nil {
+		return err
+	}
+
+	*h = flatten(header)
+	return nil
+}
+
+func (h *HTTPHeader) MarshalYAML() (interface{}, error) {
+	return unflatten(*h), nil
+}
+
+func flatten(header map[string][]string) []string {
+	var flattened []string
+
+	for key, values := range header {
+		for _, value := range values {
+			escapedKey := strings.ReplaceAll(key, ",", "\\,")
+			escapedKey = strings.ReplaceAll(escapedKey, "=", "\\=")
+			escapedValue := strings.ReplaceAll(value, ",", "\\,")
+			escapedValue = strings.ReplaceAll(escapedValue, "=", "\\=")
+
+			flattened = append(flattened, fmt.Sprintf("%s=%s", escapedKey, escapedValue))
+		}
+	}
+
+	return flattened
+}
+
+func unflatten(flattened []string) map[string][]string {
+	header := make(map[string][]string)
+
+	for _, pair := range flattened {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+
+		key := strings.ReplaceAll(kv[0], "\\,", ",")
+		key = strings.ReplaceAll(key, "\\=", "=")
+		value := strings.ReplaceAll(kv[1], "\\,", ",")
+		value = strings.ReplaceAll(value, "\\=", "=")
+
+		header[key] = append(header[key], value)
+	}
+
+	return header
+}
