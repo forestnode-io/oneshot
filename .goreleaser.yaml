@@ -97,8 +97,8 @@ brews:
     ids:
       - brew
     tap:
-      owner: raphaelreyna
-      name: homebrew-repo
+      owner: forestnode-io
+      name: brew
     homepage: "https://github.com/forestnode-io/oneshot"
     description: "A single fire HTTP server."
 
@@ -123,7 +123,7 @@ release:
     - brew
     - windows-zip
   github:
-    owner: raphaelreyna
+    owner: forestnode-io
     name: oneshot
   
 
