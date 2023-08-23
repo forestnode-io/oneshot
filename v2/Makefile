@@ -17,6 +17,7 @@ UPLOAD_CLIENT_DIR=./browser/upload-client
 $(APP_NAME): webrtc-client upload-client
 	mkdir -p ./build-output
 	go build -o $(APP_LOCATION) \
+		-trimpath \
 		-ldflags "${STATIC_FLAG} -X ${VERSION_FLAG} -X ${API_VERSION_FLAG} -s -w" \
 		./cmd/...
 
