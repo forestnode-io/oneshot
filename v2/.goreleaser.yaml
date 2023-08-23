@@ -163,7 +163,7 @@ brews:
       - archive
     tap:
       owner: forestnode-io
-      name: brew
+      name: homebrew-brew
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
     commit_author:
