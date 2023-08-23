@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
-	"github.com/forestnode-io/oneshot/v2/pkg/flagargs"
 	"github.com/forestnode-io/oneshot/v2/pkg/version"
 	"github.com/spf13/cobra"
 )
@@ -27,8 +27,13 @@ func (c *Cmd) Cobra() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			ofa := cmd.Flags().Lookup("output").Value.(*flagargs.OutputFormat)
-			if ofa.Format == "json" {
+			ofa := cmd.Flags().Lookup("output").Value.String()
+			ofaParts := strings.Split(ofa, "=")
+			format := ""
+			if 0 < len(ofa) {
+				format = ofaParts[0]
+			}
+			if format == "json" {
 				payload := map[string]string{}
 				if ver := version.Version; ver != "" {
 					payload["version"] = ver
@@ -44,17 +49,7 @@ func (c *Cmd) Cobra() *cobra.Command {
 				}
 
 				enc := json.NewEncoder(os.Stdout)
-
-				ugly := false
-				for _, opt := range ofa.Opts {
-					if opt == "ugly" {
-						ugly = true
-					}
-				}
-
-				if !ugly {
-					enc.SetIndent("", "  ")
-				}
+				enc.SetIndent("", "  ")
 
 				if err := enc.Encode(payload); err != nil {
 					log.Printf("error encoding json: %v", err)
