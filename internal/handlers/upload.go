@@ -279,7 +279,7 @@ func HandleUpload(file *file.FileWriter, unixEOLNormalization bool, csrfToken st
 				return err
 			}
 
-			// If we havent found the CSRF token yet, look for it in the parsed form data
+			// If we haven't found the CSRF token yet, look for it in the parsed form data
 			if !foundCSRFToken && r.PostFormValue("csrf-token") != csrfToken {
 				err := errors.New("invalid CSRF token")
 				http.Error(w, err.Error(), http.StatusUnauthorized)

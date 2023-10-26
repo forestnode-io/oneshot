@@ -16,7 +16,7 @@ func NegotiateOfferRequest(ctx context.Context, url, username, password string, 
 	// perform the first request which saves our spot in the queue.
 	// we're going to use the same pathways as browser clients to we
 	// set the accept header to text/http and the user agent to oneshot.
-	// the server will respond differently based on the user agent, it wont send html.
+	// the server will respond differently based on the user agent, it won't send html.
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token request: %w", err)

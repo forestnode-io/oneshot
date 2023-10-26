@@ -199,7 +199,7 @@ func (s *server) handleAcceptJSON_GET(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// verify the token algorithm hasnt been changed
+	// verify the token algorithm hasn't been changed
 	if token.Method != jwt.SigningMethodHS256 {
 		log.Warn().
 			Str("alg", fmt.Sprintf("%v", token.Header["alg"])).

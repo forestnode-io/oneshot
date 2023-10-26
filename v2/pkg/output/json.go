@@ -22,7 +22,7 @@ func _json_handleEvent(o *output, e events.Event) {
 	humanOutput := o.Format == ""
 
 	_, includeFileContent := o.FormatOpts["include-file-contents"]
-	// if the user want to receive to stdout then the received content wont be saved to disk
+	// if the user want to receive to stdout then the received content won't be saved to disk
 	// so we include it in the json report which is going to stdout
 	if _, exclude := o.FormatOpts["exclude-file-contents"]; exclude {
 		includeFileContent = false
@@ -30,7 +30,7 @@ func _json_handleEvent(o *output, e events.Event) {
 
 	switch event := e.(type) {
 	case events.ClientDisconnected:
-		// if an error occured, then set the error message
+		// if an error occurred, then set the error message
 		if err := event.Err; err != nil {
 			o.currentClientSession.Error = err.Error()
 		}
@@ -130,7 +130,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		if o.currentClientSession != nil {
 			// and the client session has already reported a request
 			if o.currentClientSession.Request != nil {
-				// then read in the body since it wasnt written to disk
+				// then read in the body since it wasn't written to disk
 				if err := o.currentClientSession.Request.ReadBody(); err != nil {
 					log.Error().Err(err).
 						Msg("error reading request body buffer")
@@ -139,7 +139,7 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		}
 	} else if o.currentClientSession != nil {
 		if o.currentClientSession.Request != nil {
-			// otherwise, theres no point in showing the content again in stdout
+			// otherwise, there's no point in showing the content again in stdout
 			o.currentClientSession.Request.Body = nil
 		}
 	}
@@ -162,14 +162,14 @@ func _json_handleContextDone(ctx context.Context, o *output) {
 		// if serving to stdout
 		if o.includeBody {
 			if s.Request != nil {
-				// then read in the body since it wasnt written to disk
+				// then read in the body since it wasn't written to disk
 				if err := s.Request.ReadBody(); err != nil {
 					log.Error().Err(err).
 						Msg("error reading request body buffer")
 				}
 			}
 		} else {
-			// otherwise, theres no point in showing the content again in stdout
+			// otherwise, there's no point in showing the content again in stdout
 			s.Request.Body = nil
 		}
 

@@ -81,7 +81,7 @@ $ oneshot -u | gofmt | oneshot -J
 ```
 The `-J` flag we are using here tells oneshot to only start serving HTTP once it has received an EOF from its stdin.
 This allows us to create unix pipelines without needing to specify a different port for each instance of oneshot.
-In this scenario, the user would upload or type in some Go code and upon hitting the back button (refresh wont work !) or going back to the original URL, the user will receive their formatted Go code.
+In this scenario, the user would upload or type in some Go code and upon hitting the back button (refresh won't work !) or going back to the original URL, the user will receive their formatted Go code.
 
 ### Reporting Bugs, Feature Requests & Contributing
 Please report any bugs or issues [here](https://github.com/forestnode-io/oneshot/issues).

@@ -16,7 +16,7 @@ make oneshot.1
 git add oneshot.1
 
 function updateVersion {
-	read -p "new version (curently at ${CURRENT_VERSION}): " NEW_VERSION
+	read -p "new version (currently at ${CURRENT_VERSION}): " NEW_VERSION
 	## Make sure new version has valid format
 	if [[ $NEW_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
 	then

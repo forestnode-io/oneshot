@@ -29,7 +29,7 @@ func NewWriteTransferConfig(ctx context.Context, location string) (*WriteTransfe
 		// and are outputting json
 		if format, _ := output.GetFormatAndOpts(ctx); format == "json" {
 			// send the contents into the ether.
-			// theres a buffer elsewhere that will provide the contents in the json object.
+			// there's a buffer elsewhere that will provide the contents in the json object.
 			wtc.w = null{}
 		} else {
 			// otherwise write the content to stdout
@@ -46,14 +46,14 @@ func NewWriteTransferConfig(ctx context.Context, location string) (*WriteTransfe
 
 	// get info on user provided location
 	stat, err := os.Stat(location)
-	// if location doesnt exist
+	// if location doesn't exist
 	if err != nil {
-		// then the user wants to receive to a file that doesnt exist yet and has given
+		// then the user wants to receive to a file that doesn't exist yet and has given
 		// us the file and directory names all in 1 string
 		wtc.dir, wtc.userProvidedName = filepath.Split(location)
 	} else {
 		// otherwise, the user either wants to receive to an existing directory and
-		// hasnt given us the name of the file they want to receive to
+		// hasn't given us the name of the file they want to receive to
 		if stat.IsDir() {
 			// so we can only set the directory name
 			wtc.dir = location
