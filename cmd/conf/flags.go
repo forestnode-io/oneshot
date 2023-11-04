@@ -11,7 +11,7 @@ func (c *Conf) SetFlags(cmd *cobra.Command) {
 
 	flags.BoolVarP(&versionFlag, "version", "v", false, `Version and other info.`)
 
-	flags.BoolVarP(&c.ExitOnFail, "exit-on-fail", "F", false, `Exit as soon as client disconnects regardless if file was transferred succesfully.
+	flags.BoolVarP(&c.ExitOnFail, "exit-on-fail", "F", false, `Exit as soon as client disconnects regardless if file was transferred successfully.
 By default, oneshot will exit once the client has downloaded the entire file.
 If using authentication, setting this flag will cause oneshot to exit if client provides wrong / no credentials.
 If set, once the first client connects, all others will receive a 410 Gone status immediately;
@@ -218,7 +218,7 @@ See also: -u, --upload; --upload-input; --no-csrf-token`,
 	)
 
 	flags.StringVar(&c.UploadHTML, "upload-html", "", `Path to html file to present to clients attempting to upload.
-The file may be a Go HTML temlate. Two boolean values '.FileSection' and '.InputSection' and a string value ' .CSRFToken ' are made available to the template.
+The file may be a Go HTML template. Two boolean values '.FileSection' and '.InputSection' and a string value ' .CSRFToken ' are made available to the template.
 The boolean values ' .FileSection ' and ' .InputSection ' reflect the usage of the -u, --upload; --upload-input and --upload-file flags.
 The string value ' .CSRFToken ' reflects the usage of the --no-csrf-token and --custom-csrf-token flags.
 This flag does nothing if none of the -u, --upload, --upload-input or --upload-file flags are set.

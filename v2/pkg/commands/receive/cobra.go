@@ -246,7 +246,7 @@ func (c *Cmd) readCloserFromMultipartFormData(r *http.Request) (*requestBody, er
 	clientProvidedName := fileName(cd)
 
 	contentLength, _ := strconv.ParseInt(part.Header.Get("Content-Length"), 10, 64)
-	// if we couldnt get the content length from a Content-Length header
+	// if we couldn't get the content length from a Content-Length header
 	if contentLength == 0 {
 		// try to get it from our own injected header
 		if mpLengthsString := r.Header.Get("X-Oneshot-Multipart-Content-Lengths"); mpLengthsString != "" {
@@ -296,7 +296,7 @@ func (c *Cmd) readCloserFromApplicationWWWForm(r *http.Request) (*requestBody, e
 		}
 	}
 
-	// If we havent found the CSRF token yet, look for it in the parsed form data
+	// If we haven't found the CSRF token yet, look for it in the parsed form data
 	if !foundCSRFToken && r.PostFormValue("csrf-token") != csrfToken {
 		return nil, &httpError{
 			error: errors.New("invalid CSRF token"),

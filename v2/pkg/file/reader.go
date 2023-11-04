@@ -129,7 +129,7 @@ func NewReadTransferConfig(archiveFormat string, locations ...string) (ReadTrans
 			}
 		}
 	default: // transferring multiple paths
-		// doesnt matter if each one is a file or a dir, archive them all into a single file
+		// doesn't matter if each one is a file or a dir, archive them all into a single file
 		for _, location := range locations {
 			if err := isReadable(location); err != nil {
 				return nil, err

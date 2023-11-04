@@ -236,7 +236,7 @@ func (c *Cmd) send(cmd *cobra.Command, args []string) error {
 	preferredAddress, preferredPort := oneshotnet.PreferNonPrivateIP(transport.PeerAddresses())
 
 	// We need to provide a host header to the request but
-	// it doesnt influence anything in this case since the custom webrtc transport ignores it.
+	// it doesn't influence anything in this case since the custom webrtc transport ignores it.
 	host := "http://localhost:8080"
 	if preferredAddress != "" {
 		host = net.JoinHostPort(preferredAddress, preferredPort)

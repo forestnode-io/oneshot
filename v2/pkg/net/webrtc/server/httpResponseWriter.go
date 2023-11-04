@@ -89,7 +89,7 @@ func (w *ResponseWriter) Flush() error {
 	}
 
 	if w.wroteCount == 0 {
-		// if we havent written anything, send an empty binary message before the EOF
+		// if we haven't written anything, send an empty binary message before the EOF
 		_, err = w.channel.WriteDataChannel([]byte(""), false)
 		if err != nil {
 			return fmt.Errorf("unable to send empty binary message: %w", err)

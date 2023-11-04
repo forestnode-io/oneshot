@@ -19,7 +19,7 @@ type File struct {
 	Size int64 `json:",omitempty"`
 
 	// TransferSize is the total size oneshot has read in / out.
-	// For a succesfull file transfer, this will be equal to the size of the file.
+	// For a successful file transfer, this will be equal to the size of the file.
 	TransferSize      int64         `json:",omitempty"`
 	TransferStartTime time.Time     `json:",omitempty"`
 	TransferEndTime   time.Time     `json:",omitempty"`
@@ -31,7 +31,7 @@ type File struct {
 }
 
 // ComputeTransferFields handles calculating field values that could not be
-// obtained until after the transfer (succesfull or not), such as the duration.
+// obtained until after the transfer (successful or not), such as the duration.
 func (f *File) ComputeTransferFields() {
 	if f == nil {
 		return

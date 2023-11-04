@@ -69,7 +69,7 @@ func WithDiscoveryServer(ctx context.Context) (context.Context, <-chan struct{})
 }
 
 // ConnectToDiscoveryServer connects to the discovery server and sends a handshake.
-// The connnection is kept open and stuffed into the context.
+// The connection is kept open and stuffed into the context.
 func ConnectToDiscoveryServer(ctx context.Context, c DiscoveryServerConfig) error {
 	dds, ok := ctx.Value(discoveryServerKey{}).(**DiscoveryServer)
 	if !ok || dds == nil {
@@ -164,18 +164,18 @@ func SendReportToDiscoveryServer(ctx context.Context, report *messages.Report) {
 			}
 		}
 	}
-	for _, attmpt := range report.Attempts {
-		if attmpt.Request != nil {
-			if attmpt.Request.Header != nil {
+	for _, attempt := range report.Attempts {
+		if attempt.Request != nil {
+			if attempt.Request.Header != nil {
 				for _, header := range filter {
-					delete(attmpt.Request.Header, header)
+					delete(attempt.Request.Header, header)
 				}
 			}
 		}
-		if attmpt.Response != nil {
-			if attmpt.Response.Header != nil {
+		if attempt.Response != nil {
+			if attempt.Response.Header != nil {
 				for _, header := range filter {
-					delete(attmpt.Response.Header, header)
+					delete(attempt.Response.Header, header)
 				}
 			}
 		}

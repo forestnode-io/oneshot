@@ -124,7 +124,7 @@ func MiddlewareShim(mw func(http.Handler) http.Handler) Middleware {
 }
 
 // BlockPrefetch blocks prefetching of the page by reloading the page with a short-lived cookie
-// thats only set if the page is visible. This is to prevent browsers and bots from prefetching.
+// that's only set if the page is visible. This is to prevent browsers and bots from prefetching.
 // Some have recently started not marking the request as a prefetch, so this is a last resort.
 func BlockPrefetch(userAgentKeys ...string) Middleware {
 	bpCookieName := "block-prefetch"

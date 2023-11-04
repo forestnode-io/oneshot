@@ -45,7 +45,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.Contains(rct, "multipart/form-data"): // User uploaded a file
 		rb, err = c.readCloserFromMultipartFormData(r)
-	case r.Header.Get("Content-Length") != "0": // this usually means theres a non-empty body, lets grab it
+	case r.Header.Get("Content-Length") != "0": // this usually means there's a non-empty body, lets grab it
 		rb, err = c.readCloserFromRawBody(r)
 	case strings.Contains(rct, "application/x-www-form-urlencoded"): // User uploaded text from HTML text box
 		rb, err = c.readCloserFromApplicationWWWForm(r)

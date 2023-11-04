@@ -24,7 +24,7 @@ func (c *Cmd) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		// Read body into the void since this will trigger a
-		// a buffer on the body which can then be inlcuded in the
+		// a buffer on the body which can then be included in the
 		// json report
 		defer close(doneReadingBody)
 		defer r.Body.Close()
