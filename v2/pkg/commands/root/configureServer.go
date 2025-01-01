@@ -79,7 +79,7 @@ func (r *rootCommand) configureServer() (string, error) {
 	}
 	tc, err := ssl.GetTLSConfig(sConf.TLS)
 	if err != nil {
-		return "", fmt.Errorf("failed to get cert and key: %w", err)
+		return "", fmt.Errorf("failed configuring TLS: %w", err)
 	}
 	serverConfig.TLSConfig = tc
 

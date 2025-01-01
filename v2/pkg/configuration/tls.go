@@ -30,6 +30,7 @@ func (pn PKIXName) ToStdLib() pkix.Name {
 }
 
 type GeneratedCertificate struct {
+	Enabled                 *bool       `mapstructure:"enabled" yaml:"enabled"`
 	Subject                 *PKIXName   `mapstructure:"subject" yaml:"subject"`
 	NotBefore               string      `mapstructure:"notBefore" yaml:"notBefore"`
 	NotAfter                string      `mapstructure:"notAfter" yaml:"notAfter"`
@@ -98,7 +99,11 @@ func (t *TLS) IsEnabled() bool {
 	if t == nil {
 		return false
 	}
-	return t.Certificate != nil && (t.Certificate.Certificate != nil || t.Certificate.GeneratedCertificate != nil)
+	x := t.Certificate != nil && (t.Certificate.Certificate != nil || t.Certificate.GeneratedCertificate != nil)
+	if t.Certificate != nil && t.Certificate.GeneratedCertificate != nil && t.Certificate.GeneratedCertificate.Enabled != nil {
+		x = *t.Certificate.GeneratedCertificate.Enabled
+	}
+	return x
 }
 
 func (t *TLS) UnmarshalYAML(unmarshal func(interface{}) error) error {

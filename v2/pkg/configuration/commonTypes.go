@@ -55,6 +55,10 @@ func (poc *PathOrContent) GetContent() ([]byte, error) {
 	return os.ReadFile(poc.Path)
 }
 
+func (poc *PathOrContent) IsZero() bool {
+	return poc.Path == "" && poc.Content == ""
+}
+
 type FileExport struct {
 	Path string `mapstructure:"path" yaml:"path"`
 	Mode string `mapstructure:"mode" yaml:"mode"`

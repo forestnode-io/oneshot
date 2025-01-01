@@ -77,15 +77,15 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 
 	// If we are using static certificates, we need to load the certificate and key
 	// and set the cert in the tls.Config.
-	if config.Certificate.Certificate != nil {
+	if !config.Certificate.Certificate.IsZero() {
 		cert, err := config.Certificate.Certificate.GetContent()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get cert: %w", err)
 		}
 
 		key, err := config.PrivateKey.GetContent()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get private key: %w", err)
 		}
 
 		x509KP, err := tls.X509KeyPair(cert, key)
@@ -97,12 +97,12 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 	} else if config.Certificate.GeneratedCertificate.GenerateAtStartup {
 		rootCert, rootPrivKey, err := generateRootCertAndKey(config.Certificate.GeneratedCertificate)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to generate root cert and key: %w", err)
 		}
 
 		leafCert, leafKey, err := generateLeafCertAndKey(config.Certificate.GeneratedCertificate, rootCert, rootPrivKey, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to generate leaf cert and key: %w", err)
 		}
 
 		x509KP, err := tls.X509KeyPair(leafCert, leafKey)
@@ -114,13 +114,13 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 	} else {
 		rootCert, rootPrivKey, err := generateRootCertAndKey(config.Certificate.GeneratedCertificate)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to generate root cert and key: %w", err)
 		}
 
 		tc.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			leafCert, leafKey, err := generateLeafCertAndKey(config.Certificate.GeneratedCertificate, rootCert, rootPrivKey, hello)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to generate leaf cert and key: %w", err)
 			}
 
 			x509KP, err := tls.X509KeyPair(leafCert, leafKey)

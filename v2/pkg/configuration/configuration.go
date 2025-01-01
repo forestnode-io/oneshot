@@ -87,6 +87,7 @@ func setDefault() {
 	viper.SetDefault("server.maxreadsize", "0")
 	viper.SetDefault("server.exitonfail", "0")
 	viper.SetDefault("server.tls", (*TLS)(nil))
+	viper.SetDefault("server.tls.certificate.generatedCertificate.enabled", false)
 
 	// basic auth
 	viper.SetDefault("basicauth.username", "")

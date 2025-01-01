@@ -44,8 +44,9 @@ A value of 0 will cause oneshot to wait indefinitely.`)
 		Tb, TB, TiB
 	Example: 1.5GB`)
 	flags.Bool(fs, "server.exitonfail", "exit-on-fail", "Exit after a failed transfer, without waiting for a new connection")
-	flags.String(fs, "server.tlscert", "tls-cert", "Path to TLS certificate")
-	flags.String(fs, "server.tlskey", "tls-key", "Path to TLS key")
+	flags.String(fs, "server.tls.certificate.certificate.path", "tls-cert", "Path to TLS certificate")
+	flags.String(fs, "server.tls.privatekey.path", "tls-key", "Path to TLS private key")
+	flags.Bool(fs, "server.tls.certificate.generatedCertificate.enabled", "self-signed", "Generate a self-signed certificate")
 
 	cobra.AddTemplateFunc("serverFlags", func() *pflag.FlagSet {
 		return fs
