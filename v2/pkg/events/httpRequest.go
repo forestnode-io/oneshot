@@ -16,6 +16,7 @@ type HTTPRequest struct {
 	Host       string              `json:",omitempty"`
 	Trailer    map[string][]string `json:",omitempty"`
 	RemoteAddr string              `json:",omitempty"`
+	TLS        *TLS                `json:",omitempty"`
 
 	Body any `json:",omitempty"`
 
@@ -71,6 +72,20 @@ func NewHTTPRequest(r *http.Request, wrapper func(io.Reader) io.Reader) *HTTPReq
 			return io.ReadAll(wrapper(buf))
 		} else {
 			return buf.Bytes(), nil
+		}
+	}
+
+	if r.TLS != nil {
+		ht.TLS = &TLS{
+			ClientHello:        getClientHello(r.Context()),
+			Resumed:            r.TLS.DidResume,
+			CipherSuite:        cipherSuiteNames[r.TLS.CipherSuite],
+			NegotiatedProtocol: r.TLS.NegotiatedProtocol,
+			Version:            versionNames[r.TLS.Version],
+		}
+
+		for _, cert := range r.TLS.PeerCertificates {
+			ht.TLS.PeerCertificates = append(ht.TLS.PeerCertificates, certificateFromStdLib(cert))
 		}
 	}
 

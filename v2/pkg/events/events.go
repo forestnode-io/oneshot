@@ -47,6 +47,7 @@ func WithEvents(ctx context.Context) context.Context {
 		close(b.eventsChan)
 	}()
 	ctx = context.WithValue(ctx, bundleKey{}, &b)
+	ctx = withClientHelloRecorder(ctx)
 
 	return ctx
 }

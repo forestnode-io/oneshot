@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/events"
 	"github.com/forestnode-io/oneshot/v2/pkg/log"
 )
 
@@ -247,6 +248,9 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 		leafKeyPEM := pem.EncodeToMemory(&pem.Block{Type: KeyType(pkeyAlgorithm).toPEMBlockType(), Bytes: leafKeyBytes})
 
 		tc.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			ctx := hello.Context()
+			events.SetClientHello(ctx, hello)
+
 			log := log.Logger()
 			log.Debug().
 				Interface("client_hello", hello).
