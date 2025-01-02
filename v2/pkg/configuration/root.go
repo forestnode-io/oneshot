@@ -14,6 +14,7 @@ import (
 	redirect "github.com/forestnode-io/oneshot/v2/pkg/commands/redirect/configuration"
 	rproxy "github.com/forestnode-io/oneshot/v2/pkg/commands/rproxy/configuration"
 	send "github.com/forestnode-io/oneshot/v2/pkg/commands/send/configuration"
+	"github.com/mitchellh/reflectwalk"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +28,7 @@ type Subcommands struct {
 	DiscoveryServer *discoveryserver.Configuration `mapstructure:"discoveryServer" yaml:"discoveryServer"`
 }
 
-func (c *Subcommands) init(cmd *cobra.Command) {
+func (c *Subcommands) init(_ *cobra.Command) {
 	if c.Receive == nil {
 		c.Receive = &receive.Configuration{}
 	}
@@ -55,29 +56,6 @@ func (c *Subcommands) init(cmd *cobra.Command) {
 	if c.DiscoveryServer == nil {
 		c.DiscoveryServer = &discoveryserver.Configuration{}
 	}
-}
-
-func (s *Subcommands) validate() error {
-	if err := s.Receive.Validate(); err != nil {
-		return fmt.Errorf("error validating receive configuration: %w", err)
-	}
-	if err := s.Send.Validate(); err != nil {
-		return fmt.Errorf("error validating send configuration: %w", err)
-	}
-	if err := s.Exec.Validate(); err != nil {
-		return fmt.Errorf("error validating exec configuration: %w", err)
-	}
-	if err := s.Redirect.Validate(); err != nil {
-		return fmt.Errorf("error validating redirect configuration: %w", err)
-	}
-	if err := s.RProxy.Validate(); err != nil {
-		return fmt.Errorf("error validating rproxy configuration: %w", err)
-	}
-	if err := s.DiscoveryServer.Validate(); err != nil {
-		return fmt.Errorf("error validating discovery server configuration: %w", err)
-	}
-
-	return nil
 }
 
 func (s *Subcommands) hydrate() error {
@@ -145,31 +123,7 @@ func (c *Root) Init(cmd *cobra.Command) {
 }
 
 func (c *Root) Validate() error {
-	if err := c.Subcommands.validate(); err != nil {
-		return fmt.Errorf("error validating subcommands: %w", err)
-	}
-
-	if err := c.Output.validate(); err != nil {
-		return fmt.Errorf("error validating output configuration: %w", err)
-	}
-
-	if err := c.Server.validate(); err != nil {
-		return fmt.Errorf("error validating server configuration: %w", err)
-	}
-
-	if err := c.BasicAuth.validate(); err != nil {
-		return fmt.Errorf("error validating basic auth configuration: %w", err)
-	}
-
-	if err := c.CORS.validate(); err != nil {
-		return fmt.Errorf("error validating CORS configuration: %w", err)
-	}
-
-	if err := c.NATTraversal.validate(); err != nil {
-		return fmt.Errorf("error validating NAT traversal configuration: %w", err)
-	}
-
-	return nil
+	return reflectwalk.Walk(c, validationWalker{})
 }
 
 func (c *Root) Hydrate() error {

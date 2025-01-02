@@ -30,8 +30,8 @@ func ConfigPath() string {
 
 func setConfigPath() {
 	if x := os.Getenv("ONESHOT_CONFIG"); x != "" {
-		configPath = os.Getenv("ONESHOT_CONFIG")
-		viper.SetConfigFile(configPath)
+		configPath = x
+		viper.SetConfigFile(x)
 		return
 	}
 

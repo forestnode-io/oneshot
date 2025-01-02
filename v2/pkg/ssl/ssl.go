@@ -1,6 +1,8 @@
 package ssl
 
 import (
+	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -10,6 +12,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -17,7 +20,67 @@ import (
 	"time"
 
 	"github.com/forestnode-io/oneshot/v2/pkg/configuration"
+	"github.com/forestnode-io/oneshot/v2/pkg/log"
 )
+
+type PrivateKey interface {
+	Public() crypto.PublicKey
+}
+
+type KeyType string
+
+const (
+	KeyTypeRSA2048  KeyType = "rsa-2048"
+	KeyTypeRSA3072  KeyType = "rsa-3072"
+	KeyTypeRSA7680  KeyType = "rsa-7680"
+	KeyTypeECDSA224 KeyType = "ecdsa-p224"
+	KeyTypeECDSA256 KeyType = "ecdsa-p256"
+	KeyTypeECDSA384 KeyType = "ecdsa-p384"
+	KeyTypeECDSA521 KeyType = "ecdsa-p521"
+)
+
+func (kt KeyType) generateKey(randReader io.Reader) (PrivateKey, error) {
+	switch kt {
+	case KeyTypeRSA2048:
+		return rsa.GenerateKey(randReader, 2048)
+	case KeyTypeRSA3072:
+		return rsa.GenerateKey(randReader, 3072)
+	case KeyTypeRSA7680:
+		return rsa.GenerateKey(randReader, 7680)
+	case KeyTypeECDSA224:
+		return ecdsa.GenerateKey(elliptic.P224(), randReader)
+	case KeyTypeECDSA256:
+		return ecdsa.GenerateKey(elliptic.P256(), randReader)
+	case KeyTypeECDSA384:
+		return ecdsa.GenerateKey(elliptic.P384(), randReader)
+	case KeyTypeECDSA521:
+		return ecdsa.GenerateKey(elliptic.P521(), randReader)
+	default:
+		return nil, fmt.Errorf("unsupported key type: %s", kt)
+	}
+}
+
+func (kt KeyType) toSignatureAlgorithm() x509.SignatureAlgorithm {
+	switch kt {
+	case KeyTypeRSA2048, KeyTypeRSA3072, KeyTypeRSA7680:
+		return x509.SHA256WithRSA
+	case KeyTypeECDSA224, KeyTypeECDSA256, KeyTypeECDSA384, KeyTypeECDSA521:
+		return x509.ECDSAWithSHA256
+	default:
+		return x509.UnknownSignatureAlgorithm
+	}
+}
+
+func (kt KeyType) toPEMBlockType() string {
+	switch kt {
+	case KeyTypeRSA2048, KeyTypeRSA3072, KeyTypeRSA7680:
+		return "RSA PRIVATE KEY"
+	case KeyTypeECDSA224, KeyTypeECDSA256, KeyTypeECDSA384, KeyTypeECDSA521:
+		return "EC PRIVATE KEY"
+	default:
+		return ""
+	}
+}
 
 func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 	if !config.IsEnabled() {
@@ -77,8 +140,8 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 
 	// If we are using static certificates, we need to load the certificate and key
 	// and set the cert in the tls.Config.
-	if !config.Certificate.Certificate.IsZero() {
-		cert, err := config.Certificate.Certificate.GetContent()
+	if certConf := config.Certificate.Certificate; !certConf.IsZero() {
+		cert, err := certConf.GetContent()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cert: %w", err)
 		}
@@ -94,37 +157,116 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 		}
 
 		tc.Certificates = []tls.Certificate{x509KP}
-	} else if config.Certificate.GeneratedCertificate.GenerateAtStartup {
-		rootCert, rootPrivKey, err := generateRootCertAndKey(config.Certificate.GeneratedCertificate)
+	} else if certConf := config.Certificate.GeneratedCertificate; certConf.GenerateAtStartup {
+		rootCert, rootPrivKey, err := generateRootCertAndKey(certConf)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate root cert and key: %w", err)
 		}
 
-		leafCert, leafKey, err := generateLeafCertAndKey(config.Certificate.GeneratedCertificate, rootCert, rootPrivKey, nil)
+		certPEMBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})
+		keyDERBytes, err := x509.MarshalPKCS8PrivateKey(rootPrivKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate leaf cert and key: %w", err)
+			return nil, fmt.Errorf("failed to marshal private key: %w", err)
 		}
+		keyPEMBYtes := pem.EncodeToMemory(&pem.Block{Type: KeyType(certConf.GetPrivateKeyAlgorithm()).toPEMBlockType(), Bytes: keyDERBytes})
 
-		x509KP, err := tls.X509KeyPair(leafCert, leafKey)
+		x509KP, err := tls.X509KeyPair(certPEMBytes, keyPEMBYtes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get x509 key pair: %w", err)
 		}
 
 		tc.Certificates = []tls.Certificate{x509KP}
-	} else {
-		rootCert, rootPrivKey, err := generateRootCertAndKey(config.Certificate.GeneratedCertificate)
+	} else if certConf := config.Certificate.GeneratedCertificate; !certConf.GenerateAtStartup {
+		var (
+			rootCert    *x509.Certificate
+			rootPrivKey any
+		)
+
+		leafCertTemplate, err := CertFromConfig(config.Certificate.GeneratedCertificate, true)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate root cert and key: %w", err)
+			return nil, fmt.Errorf("failed to create certificate template: %w", err)
 		}
 
-		tc.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			leafCert, leafKey, err := generateLeafCertAndKey(config.Certificate.GeneratedCertificate, rootCert, rootPrivKey, hello)
+		// Only use a root CA if we are exporting it, otherwise we can just generate a leaf cert on the fly.
+		if certConf.ExportCA != nil {
+			rootCert, rootPrivKey, err = generateRootCertAndKey(config.Certificate.GeneratedCertificate)
 			if err != nil {
+				return nil, fmt.Errorf("failed to generate root cert and key: %w", err)
+			}
+		} else if sgnMtrl := certConf.SigningMaterial; sgnMtrl != nil {
+			rootCertBytes, err := sgnMtrl.Certificate.GetContent()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get root cert: %w", err)
+			}
+			rootCertBytes = bytes.TrimSpace(rootCertBytes)
+			rootCertPEM, _ := pem.Decode(rootCertBytes)
+			rootCert, err = x509.ParseCertificate(rootCertPEM.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse root cert: %w\n%s", err, string(rootCertBytes))
+			}
+
+			if !rootCert.IsCA {
+				return nil, fmt.Errorf("root certificate is not a CA")
+			}
+
+			rootPrivKeyBytes, err := sgnMtrl.PrivateKey.GetContent()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get root private key: %w", err)
+			}
+			privKeyPEM, _ := pem.Decode(rootPrivKeyBytes)
+			rootPrivKey, err = x509.ParsePKCS8PrivateKey(privKeyPEM.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse root private key: %w", err)
+			}
+
+			rootSigner, ok := rootPrivKey.(crypto.Signer)
+			if !ok {
+				return nil, fmt.Errorf("root private key is not a signer")
+			}
+
+			switch pt := rootSigner.Public().(type) {
+			case *rsa.PublicKey:
+				leafCertTemplate.SignatureAlgorithm = x509.SHA256WithRSA
+			case *ecdsa.PublicKey:
+				leafCertTemplate.SignatureAlgorithm = x509.ECDSAWithSHA256
+			default:
+				return nil, fmt.Errorf("unsupported public key type for root CA: %T", pt)
+			}
+		}
+
+		certGenConfig := config.Certificate.GeneratedCertificate
+		pkeyAlgorithm := certGenConfig.GetPrivateKeyAlgorithm()
+		leafPrivKey, err := KeyType(pkeyAlgorithm).generateKey(rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate private key: %w", err)
+		}
+		leafKeyBytes, err := x509.MarshalPKCS8PrivateKey(leafPrivKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal private key: %w", err)
+		}
+		leafKeyPEM := pem.EncodeToMemory(&pem.Block{Type: KeyType(pkeyAlgorithm).toPEMBlockType(), Bytes: leafKeyBytes})
+
+		tc.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			log := log.Logger()
+			log.Debug().
+				Interface("client_hello", hello).
+				Msg("Generating leaf cert")
+
+			leafCert, err := generateLeafCertAndKey(leafCertTemplate, leafPrivKey, rootCert, rootPrivKey, hello)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to generate leaf cert and key")
+
 				return nil, fmt.Errorf("failed to generate leaf cert and key: %w", err)
 			}
 
-			x509KP, err := tls.X509KeyPair(leafCert, leafKey)
+			x509KP, err := tls.X509KeyPair(leafCert, leafKeyPEM)
 			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to parse generated leaf and cert as x509 key pair")
+
 				return nil, fmt.Errorf("failed to get x509 key pair: %w", err)
 			}
 
@@ -132,13 +274,23 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 		}
 	}
 
+	tc.NextProtos = append(tc.NextProtos, "h2")
+	tc.MinVersion, err = config.GetMinVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get min version: %w", err)
+	}
+	tc.MaxVersion, err = config.GetMaxVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get max version: %w", err)
+	}
+
 	return &tc, nil
 }
 
-func generateRootCertAndKey(config *configuration.GeneratedCertificate) (*x509.Certificate, any, error) {
+func generateRootCertAndKey(config *configuration.GeneratedCertificate) (*x509.Certificate, PrivateKey, error) {
 	pkeyAlgorithm := config.GetPrivateKeyAlgorithm()
 
-	rootPrivKey, rootPubKey, err := GeneratePrivateKey(pkeyAlgorithm)
+	rootPrivKey, err := KeyType(pkeyAlgorithm).generateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -146,12 +298,8 @@ func generateRootCertAndKey(config *configuration.GeneratedCertificate) (*x509.C
 	if err != nil {
 		return nil, nil, err
 	}
-	rootCertTemplate.IsCA = true
-	rootCertTemplate.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
-	rootCertTemplate.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
-	rootCertTemplate.Subject.CommonName = "oneshot-local-ca"
 
-	rootCertBytes, err := x509.CreateCertificate(rand.Reader, rootCertTemplate, rootCertTemplate, rootPubKey, rootPrivKey)
+	rootCertBytes, err := x509.CreateCertificate(rand.Reader, rootCertTemplate, rootCertTemplate, rootPrivKey.Public(), rootPrivKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create certificate: %w", err)
 	}
@@ -177,99 +325,39 @@ func generateRootCertAndKey(config *configuration.GeneratedCertificate) (*x509.C
 	return rootCert, rootPrivKey, nil
 }
 
-func generateLeafCertAndKey(config *configuration.GeneratedCertificate, rootCert *x509.Certificate, rootPrivKey any, hello *tls.ClientHelloInfo) ([]byte, []byte, error) {
-	pkeyAlgorithm := config.GetPrivateKeyAlgorithm()
-
-	leafPrivKey, leafPubKey, err := GeneratePrivateKey(pkeyAlgorithm)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate private key: %w", err)
-	}
-	leafCertTemplate, err := CertFromConfig(config, true)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate template: %w", err)
-	}
-	leafCertTemplate.KeyUsage = x509.KeyUsageDigitalSignature
-	leafCertTemplate.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
-
+func generateLeafCertAndKey(leafCertTemplate *x509.Certificate, leafPrivKey PrivateKey, rootCert *x509.Certificate, rootPrivKey any, hello *tls.ClientHelloInfo) ([]byte, error) {
+	// If we have a client hello, we can add the server name and local address to the leaf cert.
 	if hello != nil {
 		leafCertTemplate.DNSNames = append(leafCertTemplate.DNSNames, hello.ServerName)
 		localAddr := hello.Conn.LocalAddr().String()
 		localHost, _, err := net.SplitHostPort(localAddr)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to split local address: %w", err)
+			return nil, fmt.Errorf("failed to split local address: %w", err)
 		}
 		leafCertTemplate.IPAddresses = append(leafCertTemplate.IPAddresses, net.ParseIP(localHost))
 	}
 
-	leafCertBytes, err := x509.CreateCertificate(rand.Reader, leafCertTemplate, rootCert, leafPubKey, rootPrivKey)
+	// If we have a root cert and key, use them to sign the leaf cert
+	// otherwise, self-sign the leaf cert.
+	rc := rootCert
+	rpk := rootPrivKey
+	if rc == nil && rpk == nil {
+		rc = leafCertTemplate
+		rpk = leafPrivKey
+	}
+
+	leafCertBytes, err := x509.CreateCertificate(rand.Reader, leafCertTemplate, rc, leafPrivKey.Public(), rpk)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate: %w", err)
+		log.Logger().Error().
+			Err(err).
+			Interface("leaf_cert_template", leafCertTemplate).
+			Msg("Failed to create certificate")
+
+		return nil, fmt.Errorf("failed to create certificate: %w", err)
 	}
 	leafCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCertBytes})
-	leafKeyBytes, err := x509.MarshalPKCS8PrivateKey(leafPrivKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal private key: %w", err)
-	}
 
-	var leafKeyBlockType string
-	switch pkeyAlgorithm {
-	case "rsa-2048", "rsa-3072", "rsa-7680":
-		leafKeyBlockType = "RSA PRIVATE KEY"
-	case "ecdsa-p224", "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
-		leafKeyBlockType = "EC PRIVATE KEY"
-	}
-
-	leafKeyPEM := pem.EncodeToMemory(&pem.Block{Type: leafKeyBlockType, Bytes: leafKeyBytes})
-
-	return leafCertPEM, leafKeyPEM, nil
-}
-
-func GeneratePrivateKey(algorithm string) (any, any, error) {
-	switch algorithm {
-	case "rsa-2048":
-		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate RSA-2048 private key: %w", err)
-		}
-		return privKey, privKey.PublicKey, nil
-	case "rsa-3072":
-		privKey, err := rsa.GenerateKey(rand.Reader, 3072)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate RSA-3072 private key: %w", err)
-		}
-		return privKey, privKey.PublicKey, nil
-	case "rsa-7680":
-		privKey, err := rsa.GenerateKey(rand.Reader, 7680)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate RSA-7680 private key: %w", err)
-		}
-		return privKey, privKey.PublicKey, nil
-	case "ecdsa-p224":
-		privKey, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate ECDSA-P224 private key: %w", err)
-		}
-		return privKey, privKey.Public(), nil
-	case "ecdsa-p256":
-		privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate ECDSA-P256 private key: %w", err)
-		}
-		return privKey, privKey.Public(), nil
-	case "ecdsa-p384":
-		privKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate ECDSA-P384 private key: %w", err)
-		}
-		return privKey, privKey.Public(), nil
-	case "ecdsa-p521":
-		privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate ECDSA-P521 private key: %w", err)
-		}
-		return privKey, privKey.Public(), nil
-	}
-	return nil, nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
+	return leafCertPEM, nil
 }
 
 func parseTime(s string) (time.Time, error) {
@@ -278,24 +366,20 @@ func parseTime(s string) (time.Time, error) {
 
 func CertFromConfig(config *configuration.GeneratedCertificate, isLeaf bool) (*x509.Certificate, error) {
 	var (
-		pkeyAlgorithm = config.GetPrivateKeyAlgorithm()
+		pkeyAlgorithm = KeyType(config.GetPrivateKeyAlgorithm())
 		cert          = x509.Certificate{
 			NotBefore:             time.Now(),
 			NotAfter:              time.Now().AddDate(1, 0, 0),
 			BasicConstraintsValid: true,
+			IsCA:                  !isLeaf,
 		}
 		err error
 	)
 
+	cert.SignatureAlgorithm = pkeyAlgorithm.toSignatureAlgorithm()
 	cert.SerialNumber, err = rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate serial number: %w", err)
-	}
-	switch pkeyAlgorithm {
-	case "rsa-2048", "rsa-3072", "rsa-7680":
-		cert.SignatureAlgorithm = x509.SHA256WithRSA
-	case "ecdsa-p224", "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
-		cert.SignatureAlgorithm = x509.ECDSAWithSHA256
 	}
 
 	if config.Subject != nil {
@@ -309,6 +393,11 @@ func CertFromConfig(config *configuration.GeneratedCertificate, isLeaf bool) (*x
 		if !isLeaf {
 			cert.Subject.CommonName += "-local-ca"
 		}
+	}
+
+	if isLeaf {
+		cert.KeyUsage |= x509.KeyUsageDigitalSignature
+		cert.ExtKeyUsage = append(cert.ExtKeyUsage, x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth)
 	}
 
 	if config.NotBefore != "" {
