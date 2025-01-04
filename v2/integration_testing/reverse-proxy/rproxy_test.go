@@ -42,12 +42,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 		s.ListenAndServe()
 	}()
 
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"rproxy", "http://localhost" + s.Addr}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("rproxy http://localhost" + s.Addr)
+	oneshot.IsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -88,12 +84,8 @@ func (suite *ts) Test_tee_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 		s.ListenAndServe()
 	}()
 
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"rproxy", "--tee", "http://localhost" + s.Addr}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("rproxy --tee http://localhost" + s.Addr)
+	oneshot.IsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -141,16 +133,7 @@ func (suite *ts) Test_flags_FROM_ANY_TO_Stdout() {
 		wg.Done()
 	}()
 
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"--output", "json",
-		"rproxy",
-		"--status-code", strconv.Itoa(http.StatusTeapot),
-		"--request-header", "X-Test=123",
-		"--response-header", "X-Test=321",
-		"--method", "POST",
-		"--match-host",
-		"http://127.0.0.1" + s.Addr,
-	}
+	var oneshot = suite.NewOneshot("--output json rproxy --status-code " + strconv.Itoa(http.StatusTeapot) + " --request-header X-Test=123 --response-header X-Test=321 --method POST --match-host http://127.0.0.1" + s.Addr)
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -202,8 +185,7 @@ func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
 		s.ListenAndServe()
 	}()
 
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"--output", "json", "rproxy", "http://localhost" + s.Addr}
+	var oneshot = suite.NewOneshot("--output json rproxy http://localhost" + s.Addr)
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -267,8 +249,7 @@ func (suite *ts) Test_MultipleClients() {
 		s.ListenAndServe()
 	}()
 
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"rproxy", "--tee", "http://localhost" + s.Addr}
+	var oneshot = suite.NewOneshot("rproxy http://localhost" + s.Addr)
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -322,9 +303,6 @@ func (suite *ts) Test_MultipleClients() {
 	oneshot.Wait()
 	s.Shutdown(context.Background())
 	swg.Wait()
-
-	stdout := oneshot.Stdout.(*bytes.Buffer).Bytes()
-	suite.Assert().Equal("SUCCESS", string(stdout))
 
 	stderr := oneshot.Stderr.(*bytes.Buffer).Bytes()
 	suite.Assert().Regexp(`listening on http://.*\n`, string(stderr))

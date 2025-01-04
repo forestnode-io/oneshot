@@ -143,7 +143,8 @@ func (rc *RetryClient) Do(req *http.Request) (*http.Response, error) {
 
 type TestSuite struct {
 	suite.Suite
-	TestDir string
+	TestDir  string
+	Oneshots []*Oneshot
 }
 
 func (suite *TestSuite) SetupSuite() {
@@ -170,17 +171,43 @@ func (suite *TestSuite) TearDownSuite() {
 	suite.Require().NoError(err)
 }
 
-func (suite *TestSuite) NewOneshot() *Oneshot {
+func (suite *TestSuite) NewOneshot(args string) *Oneshot {
 	wdir, err := os.MkdirTemp(suite.TestDir, "subtest-working-dir*")
 	suite.Require().NoError(err)
 	tdir, err := os.MkdirTemp(suite.TestDir, "subtest-temp-dir*")
 	suite.Require().NoError(err)
-	return &Oneshot{
+	o := Oneshot{
 		T:          suite.T(),
 		WorkingDir: wdir,
 		TempDir:    tdir,
 		Port:       oneshotPortPool.Get(),
 	}
+
+	if args != "" {
+		o.Args = strings.Split(args, " ")
+	}
+
+	suite.Oneshots = append(suite.Oneshots, &o)
+	return &o
+}
+
+func (suite *TestSuite) AfterTest(_, _ string) {
+	t := suite.T()
+	for idx, o := range suite.Oneshots {
+		if o == nil {
+			continue
+		}
+
+		if o.StderrBuf != nil {
+			t.Logf("oneshot[%d] stderr:\n%s", idx, o.StderrBuf.String())
+		}
+		if o.StdoutBuf != nil {
+			t.Logf("oneshot[%d] stdout:%s", idx, o.StdoutBuf.String())
+		}
+
+		o.Kill()
+	}
+	suite.Oneshots = nil
 }
 
 func (suite *TestSuite) WaitForFileToExist(path string, timeout time.Duration) {
@@ -205,8 +232,10 @@ func (suite *TestSuite) GenerateSelfSignedCertAndKey(config *configuration.Gener
 		}
 	}
 
-	privKey, pubKey, err := ssl.GeneratePrivateKey(conf.GetPrivateKeyAlgorithm())
+	algorithm := conf.GetPrivateKeyAlgorithm()
+	privKey, err := ssl.KeyType(algorithm).GenerateKey(nil)
 	suite.Require().NoError(err)
+	pubKey := privKey.Public()
 
 	certTemplate, err := ssl.CertFromConfig(conf, true)
 	suite.Require().NoError(err)

@@ -17,18 +17,8 @@ type ts struct {
 	itest.TestSuite
 }
 
-func (suite *ts) Test_NoHang() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"version"}
-	oneshot.Start()
-	defer oneshot.Cleanup()
-
-	oneshot.Wait()
-}
-
 func (suite *ts) Test_NoError() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"version"}
+	var oneshot = suite.NewOneshot("version")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -38,10 +28,9 @@ func (suite *ts) Test_NoError() {
 
 func (suite *ts) Test_JSON() {
 	var (
-		oneshot = suite.NewOneshot()
+		oneshot = suite.NewOneshot("version --output json")
 		stdout  = bytes.NewBuffer(nil)
 	)
-	oneshot.Args = []string{"version", "--output=json"}
 	oneshot.Stdout = stdout
 	oneshot.Start()
 	defer oneshot.Cleanup()

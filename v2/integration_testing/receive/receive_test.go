@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+var _true = true
+
 func TestBasicTestSuite(t *testing.T) {
 	suite.Run(t, new(ts))
 }
@@ -32,12 +34,8 @@ type ts struct {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("receive")
+	oneshot.IsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -59,11 +57,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrNONTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-	}
+	var oneshot = suite.NewOneshot("receive")
+	oneshot.StdOutIsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -82,12 +77,8 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY__StderrNONTTY() {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_File__StdoutTTY_StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "./test.txt"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("receive ./test.txt")
+	oneshot.IsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -113,11 +104,8 @@ func (suite *ts) Test_FROM_ANY_TO_File__StdoutTTY_StderrTTY() {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_StdoutTTY_DecodeBase64() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "--decode-b64"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-	}
+	var oneshot = suite.NewOneshot("receive --decode-b64")
+	oneshot.StdOutIsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -139,8 +127,7 @@ func (suite *ts) Test_FROM_ANY_TO_StdoutTTY_DecodeBase64() {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_File_DecodeBase64() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "./test.txt", "--decode-b64"}
+	var oneshot = suite.NewOneshot("receive ./test.txt --decode-b64")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -163,8 +150,7 @@ func (suite *ts) Test_FROM_ANY_TO_File_DecodeBase64() {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_FILE__JSON() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "./test.txt", "--output", "json"}
+	var oneshot = suite.NewOneshot("receive ./test.txt --output json")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -224,8 +210,7 @@ func (suite *ts) Test_FROM_ANY_TO_FILE__JSON() {
 }
 
 func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "--output", "json"}
+	var oneshot = suite.NewOneshot("receive --output json")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -285,12 +270,8 @@ func (suite *ts) Test_FROM_ANY_TO_Stdout__JSON() {
 }
 
 func (suite *ts) Test_MultipleClients() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "./test.txt"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("receive ./test.txt")
+	oneshot.IsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -352,18 +333,16 @@ func (suite *ts) Test_MultipleClients() {
 }
 
 func (suite *ts) Test_TLS_FROM_ANY_TO_StdoutTTY__StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("receive")
+	oneshot.IsTTY()
+
 	caFilePath := filepath.Join(oneshot.TempDir, "ca.pem")
 	oneshot.Configuration = &configuration.Root{
 		Server: configuration.Server{
 			TLS: &configuration.TLS{
 				Certificate: &configuration.StaticOrGeneratedCertificate{
 					GeneratedCertificate: &configuration.GeneratedCertificate{
+						Enabled: &_true,
 						Subject: &configuration.PKIXName{
 							CommonName: "localhost",
 						},
@@ -395,7 +374,7 @@ func (suite *ts) Test_TLS_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 			RootCAs: certPool,
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 				rootCert := verifiedChains[0][len(verifiedChains[0])-1]
-				if rootCert.Subject.CommonName != "oneshot-local-ca" {
+				if rootCert.Subject.CommonName != "localhost" {
 					certValidationError = errors.Join(certValidationError, fmt.Errorf("unexpected root cert subject: %+v", rootCert.Subject))
 				}
 				leafCert := verifiedChains[0][0]
@@ -423,12 +402,9 @@ func (suite *ts) Test_TLS_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 }
 
 func (suite *ts) Test_MTLS_FROM_ANY_TO_StdoutTTY__StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("receive")
+	oneshot.IsTTY()
+	oneshot.LogToStdErr()
 
 	clientCert, clientPKey := suite.GenerateSelfSignedCertAndKey(nil)
 
@@ -438,6 +414,7 @@ func (suite *ts) Test_MTLS_FROM_ANY_TO_StdoutTTY__StderrTTY() {
 			TLS: &configuration.TLS{
 				Certificate: &configuration.StaticOrGeneratedCertificate{
 					GeneratedCertificate: &configuration.GeneratedCertificate{
+						Enabled: &_true,
 						Subject: &configuration.PKIXName{
 							CommonName: "localhost",
 						},

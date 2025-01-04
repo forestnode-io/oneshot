@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -12,7 +11,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"math/big"
 	"net"
 	"os"
@@ -23,65 +21,6 @@ import (
 	"github.com/forestnode-io/oneshot/v2/pkg/events"
 	"github.com/forestnode-io/oneshot/v2/pkg/log"
 )
-
-type PrivateKey interface {
-	Public() crypto.PublicKey
-}
-
-type KeyType string
-
-const (
-	KeyTypeRSA2048  KeyType = "rsa-2048"
-	KeyTypeRSA3072  KeyType = "rsa-3072"
-	KeyTypeRSA7680  KeyType = "rsa-7680"
-	KeyTypeECDSA224 KeyType = "ecdsa-p224"
-	KeyTypeECDSA256 KeyType = "ecdsa-p256"
-	KeyTypeECDSA384 KeyType = "ecdsa-p384"
-	KeyTypeECDSA521 KeyType = "ecdsa-p521"
-)
-
-func (kt KeyType) generateKey(randReader io.Reader) (PrivateKey, error) {
-	switch kt {
-	case KeyTypeRSA2048:
-		return rsa.GenerateKey(randReader, 2048)
-	case KeyTypeRSA3072:
-		return rsa.GenerateKey(randReader, 3072)
-	case KeyTypeRSA7680:
-		return rsa.GenerateKey(randReader, 7680)
-	case KeyTypeECDSA224:
-		return ecdsa.GenerateKey(elliptic.P224(), randReader)
-	case KeyTypeECDSA256:
-		return ecdsa.GenerateKey(elliptic.P256(), randReader)
-	case KeyTypeECDSA384:
-		return ecdsa.GenerateKey(elliptic.P384(), randReader)
-	case KeyTypeECDSA521:
-		return ecdsa.GenerateKey(elliptic.P521(), randReader)
-	default:
-		return nil, fmt.Errorf("unsupported key type: %s", kt)
-	}
-}
-
-func (kt KeyType) toSignatureAlgorithm() x509.SignatureAlgorithm {
-	switch kt {
-	case KeyTypeRSA2048, KeyTypeRSA3072, KeyTypeRSA7680:
-		return x509.SHA256WithRSA
-	case KeyTypeECDSA224, KeyTypeECDSA256, KeyTypeECDSA384, KeyTypeECDSA521:
-		return x509.ECDSAWithSHA256
-	default:
-		return x509.UnknownSignatureAlgorithm
-	}
-}
-
-func (kt KeyType) toPEMBlockType() string {
-	switch kt {
-	case KeyTypeRSA2048, KeyTypeRSA3072, KeyTypeRSA7680:
-		return "RSA PRIVATE KEY"
-	case KeyTypeECDSA224, KeyTypeECDSA256, KeyTypeECDSA384, KeyTypeECDSA521:
-		return "EC PRIVATE KEY"
-	default:
-		return ""
-	}
-}
 
 func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 	if !config.IsEnabled() {
@@ -237,7 +176,7 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 
 		certGenConfig := config.Certificate.GeneratedCertificate
 		pkeyAlgorithm := certGenConfig.GetPrivateKeyAlgorithm()
-		leafPrivKey, err := KeyType(pkeyAlgorithm).generateKey(rand.Reader)
+		leafPrivKey, err := KeyType(pkeyAlgorithm).GenerateKey(rand.Reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate private key: %w", err)
 		}
@@ -294,7 +233,7 @@ func GetTLSConfig(config *configuration.TLS) (*tls.Config, error) {
 func generateRootCertAndKey(config *configuration.GeneratedCertificate) (*x509.Certificate, PrivateKey, error) {
 	pkeyAlgorithm := config.GetPrivateKeyAlgorithm()
 
-	rootPrivKey, err := KeyType(pkeyAlgorithm).generateKey(rand.Reader)
+	rootPrivKey, err := KeyType(pkeyAlgorithm).GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}

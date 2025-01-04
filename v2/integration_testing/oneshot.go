@@ -17,28 +17,24 @@ import (
 
 type PortPool struct {
 	sync.Mutex
-	used  map[string]struct{}
-	start int
-	end   int
+	start   int
+	end     int
+	current int
 }
 
 func (pr *PortPool) Get() string {
 	pr.Lock()
 	defer pr.Unlock()
 
-	if pr.used == nil {
-		pr.used = make(map[string]struct{})
+	if pr.current == 0 {
+		pr.current = pr.start
 	}
-
-	for i := pr.start; i < pr.end; i++ {
-		port := strconv.Itoa(i)
-		if _, ok := pr.used[port]; !ok {
-			pr.used[port] = struct{}{}
-			return port
-		}
+	p := pr.current
+	pr.current++
+	if pr.current > pr.end {
+		panic("no available ports")
 	}
-
-	panic("no available ports")
+	return strconv.Itoa(p)
 }
 
 var oneshotPortPool = &PortPool{
@@ -60,8 +56,8 @@ type Oneshot struct {
 	Configuration *configuration.Root
 
 	Cmd       *exec.Cmd
-	stdoutBuf *bytes.Buffer
-	stderrBuf *bytes.Buffer
+	StdoutBuf *bytes.Buffer
+	StderrBuf *bytes.Buffer
 }
 
 func (o *Oneshot) Cleanup() {}
@@ -72,13 +68,13 @@ func (o *Oneshot) Start() {
 	}
 
 	if o.Stdout == nil {
-		o.stdoutBuf = bytes.NewBuffer(nil)
-		o.Stdout = o.stdoutBuf
+		o.StdoutBuf = bytes.NewBuffer(nil)
+		o.Stdout = o.StdoutBuf
 	}
 
 	if o.Stderr == nil {
-		o.stderrBuf = bytes.NewBuffer(nil)
-		o.Stderr = o.stderrBuf
+		o.StderrBuf = bytes.NewBuffer(nil)
+		o.Stderr = o.StderrBuf
 	}
 
 	// find "port" in the args and replace the following arg with the port
@@ -168,4 +164,36 @@ func (o *Oneshot) Signal(sig os.Signal) {
 	if o.Cmd != nil {
 		o.Cmd.Process.Signal(sig)
 	}
+}
+
+func (o *Oneshot) Kill() {
+	if o.Cmd != nil {
+		o.Cmd.Process.Kill()
+		o.Cmd.Process.Wait()
+	}
+}
+
+func (o *Oneshot) LogToStdErr() {
+	o.Env = append(o.Env, "ONESHOT_LOG_STDERR=true")
+}
+
+func (o *Oneshot) LogLevel(level string) {
+	o.Env = append(o.Env, "ONESHOT_LOG_LEVEL="+level)
+}
+
+func (o *Oneshot) StdErrIsTTY() {
+	o.Env = append(o.Env, "ONESHOT_TESTING_TTY_STDERR=true")
+}
+
+func (o *Oneshot) StdOutIsTTY() {
+	o.Env = append(o.Env, "ONESHOT_TESTING_TTY_STDOUT=true")
+}
+
+func (o *Oneshot) StdInIsTTY() {
+	o.Env = append(o.Env, "ONESHOT_TESTING_TTY_STDIN=true")
+}
+
+func (o *Oneshot) IsTTY() {
+	o.StdErrIsTTY()
+	o.StdOutIsTTY()
 }

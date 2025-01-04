@@ -27,13 +27,9 @@ type ts struct {
 }
 
 func (suite *ts) Test_StdinTTY_StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"exec", "go", "env", "GOOS"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("exec go env GOOS")
+	oneshot.IsTTY()
+	oneshot.StdInIsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -61,8 +57,7 @@ func (suite *ts) Test_StdinTTY_StderrTTY() {
 }
 
 func (suite *ts) Test_JSON() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"exec", "--output", "json", "go", "env", "GOOS"}
+	var oneshot = suite.NewOneshot("exec --output json go env GOOS")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -128,13 +123,9 @@ func (suite *ts) Test_JSON() {
 }
 
 func (suite *ts) Test_MultipleClients() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"exec", "go", "env", "GOOS"}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
+	var oneshot = suite.NewOneshot("exec go env GOOS")
+	oneshot.IsTTY()
+	oneshot.StdInIsTTY()
 	oneshot.Start()
 	defer oneshot.Cleanup()
 

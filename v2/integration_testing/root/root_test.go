@@ -20,8 +20,7 @@ type ts struct {
 }
 
 func (suite *ts) Test_Signal_SIGINT() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive"}
+	var oneshot = suite.NewOneshot("receive")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -33,8 +32,7 @@ func (suite *ts) Test_Signal_SIGINT() {
 }
 
 func (suite *ts) Test_timeoutFlag() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"receive", "--timeout", "1s"}
+	var oneshot = suite.NewOneshot("receive --timeout 1s")
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -48,14 +46,10 @@ func (suite *ts) Test_timeoutFlag() {
 }
 
 func (suite *ts) Test_Basic_Auth() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "--username", "oneshot", "--password", "hunter2"}
+	var oneshot = suite.NewOneshot("send --username oneshot --password hunter2")
+	oneshot.IsTTY()
+	oneshot.StdInIsTTY()
 	oneshot.Stdin = itest.EOFReader([]byte("SUCCESS"))
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 

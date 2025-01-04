@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -34,15 +35,11 @@ type ts struct {
 	itest.TestSuite
 }
 
-func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutTTY_StdoutErrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send"}
+func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutTTY_StdErrTTY() {
+	var oneshot = suite.NewOneshot("send")
+	oneshot.IsTTY()
+	oneshot.StdInIsTTY()
 	oneshot.Stdin = itest.EOFReader([]byte("SUCCESS"))
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -68,13 +65,10 @@ func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutTTY_StdoutErrTTY() {
 }
 
 func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutNONTTY_StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send"}
+	var oneshot = suite.NewOneshot("send")
+	oneshot.StdInIsTTY()
+	oneshot.StdErrIsTTY()
 	oneshot.Stdin = itest.EOFReader([]byte("SUCCESS"))
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -100,14 +94,10 @@ func (suite *ts) Test_FROM_StdinTTY_TO_ANY__StdoutNONTTY_StderrTTY() {
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__StdoutTTY_StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "./test.txt"}
+	var oneshot = suite.NewOneshot("send ./test.txt")
+	oneshot.IsTTY()
+	oneshot.StdInIsTTY()
 	oneshot.Files = itest.FilesMap{"./test.txt": []byte("SUCCESS")}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -133,13 +123,10 @@ func (suite *ts) Test_FROM_File_TO_ANY__StdoutTTY_StderrTTY() {
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "./test.txt"}
+	var oneshot = suite.NewOneshot("send ./test.txt")
+	oneshot.StdInIsTTY()
+	oneshot.StdErrIsTTY()
 	oneshot.Files = itest.FilesMap{"./test.txt": []byte("SUCCESS")}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -165,12 +152,9 @@ func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrTTY() {
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrNONTTY() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "./test.txt"}
+	var oneshot = suite.NewOneshot("send ./test.txt")
+	oneshot.StdInIsTTY()
 	oneshot.Files = itest.FilesMap{"./test.txt": []byte("SUCCESS")}
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -197,8 +181,7 @@ func (suite *ts) Test_FROM_File_TO_ANY__StdoutNONTTY_StderrNONTTY() {
 }
 
 func (suite *ts) Test_FROM_File_TO_ANY__JSON() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "--output", "json", "./test.txt"}
+	var oneshot = suite.NewOneshot("send --output json ./test.txt")
 	oneshot.Files = itest.FilesMap{"./test.txt": []byte("SUCCESS")}
 	oneshot.Start()
 	defer oneshot.Cleanup()
@@ -257,12 +240,9 @@ func (suite *ts) Test_FROM_File_TO_ANY__JSON() {
 }
 
 func (suite *ts) Test_StatusCode() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "--status-code", "418"}
+	var oneshot = suite.NewOneshot("send --status-code " + strconv.Itoa(http.StatusTeapot))
+	oneshot.StdInIsTTY()
 	oneshot.Stdin = itest.EOFReader([]byte("SUCCESS"))
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDIN=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
@@ -275,8 +255,7 @@ func (suite *ts) Test_StatusCode() {
 }
 
 func (suite *ts) Test_Send_Directory_targz() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "./testDir"}
+	var oneshot = suite.NewOneshot("send ./testDir")
 	oneshot.Files = itest.FilesMap{
 		"./testDir/testDir1/testDir1_1/test.txt":  []byte("SUCCESS"),
 		"./testDir/testDir1/testDir1_1/test2.txt": []byte("SUCCESS2"),
@@ -322,8 +301,7 @@ func (suite *ts) Test_Send_Oneshot_Directory_targz() {
 		suite.T().Skip("skipping test that requires internet access")
 	}
 
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "./oneshot"}
+	var oneshot = suite.NewOneshot("send ./oneshot")
 
 	oneshotRepoPath := filepath.Join(oneshot.WorkingDir, "oneshot")
 
@@ -364,8 +342,7 @@ func (suite *ts) Test_Send_Oneshot_Directory_targz() {
 }
 
 func (suite *ts) Test_Send_Directory_zip() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send", "-a", "zip", "./testDir"}
+	var oneshot = suite.NewOneshot("send -a zip ./testDir")
 	oneshot.Files = itest.FilesMap{
 		"./testDir/test.txt":  []byte("SUCCESS"),
 		"./testDir/test2.txt": []byte("SUCCESS2"),
@@ -417,13 +394,9 @@ func (suite *ts) Test_Send_Directory_zip() {
 }
 
 func (suite *ts) Test_MultipleClients() {
-	var oneshot = suite.NewOneshot()
-	oneshot.Args = []string{"send"}
+	var oneshot = suite.NewOneshot("send")
+	oneshot.IsTTY()
 	oneshot.Stdin = io.LimitReader(rand.Reader, 1<<15)
-	oneshot.Env = []string{
-		"ONESHOT_TESTING_TTY_STDOUT=true",
-		"ONESHOT_TESTING_TTY_STDERR=true",
-	}
 	oneshot.Start()
 	defer oneshot.Cleanup()
 
