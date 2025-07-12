@@ -13,6 +13,8 @@ Rich JSON output is also supported, which provides stats on the file transfer an
 - Support for cloud integration with built in discovery / signalling server to allow for self hosted instances.
 - Works with any HTTP client including browsers, only one person needs to have oneshot installed.
 - Support for rich, machine-readable output; easily integrate oneshot into your pipelines.
+- TLS information included in rich JSON output for security monitoring and debugging.
+- Comprehensive TLS/HTTPS support with self-signed certificate generation, mTLS, configurable TLS versions, etc.
 - Highly configurable HTTP responses, custom upload clients, and more.
 
 ### Use Cases & Examples
@@ -29,6 +31,12 @@ $ oneshot send -u username -W path/to/file.txt
 ```
 The `-W` option will cause oneshot to prompt you for a password.
 Oneshot also supports HTTPS, simply pass in the key and certificate using the `--tls-key` and `--tls-cert` flags.
+
+#### Send a file with automatic HTTPS
+```bash
+$ oneshot send --self-signed path/to/file.txt
+```
+The `--self-signed` flag automatically generates a self-signed certificate for HTTPS without requiring manual certificate management.
 
 #### Receive a file
 ```bash
