@@ -28,6 +28,7 @@ type dataChannel struct {
 	continueChan chan struct{}
 
 	eventsChan chan dataChannelEvent
+	ctx        context.Context
 	cancel     func()
 }
 
@@ -42,10 +43,19 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 	}
 	dc.SetBufferedAmountLowThreshold(oneshotwebrtc.BufferedAmountLowThreshold)
 
+	// Cancelable context shared by this data channel's goroutines and event
+	// handlers. Every send on eventsChan/continueChan is guarded by it so that
+	// teardown (which may be triggered concurrently from OnClose, OnError, the
+	// read pump, or the parent context) can never panic by sending on, or
+	// double-closing, a channel. These channels are intentionally never closed.
+	dcCtx, cancel := context.WithCancel(ctx)
+
 	d := &dataChannel{
 		dc:           dc,
 		continueChan: make(chan struct{}, 1),
 		eventsChan:   make(chan dataChannelEvent, 1),
+		ctx:          dcCtx,
+		cancel:       cancel,
 	}
 
 	dc.OnClose(d.onClose)
@@ -57,8 +67,7 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 		rawDC, err := dc.Detach()
 		if err != nil {
 			err = fmt.Errorf("unable to detach data channel for webRTC peer connection: %w", err)
-			d.eventsChan <- dataChannelEvent{err: err}
-			close(d.eventsChan)
+			d.emit(dataChannelEvent{err: err})
 			return
 		}
 		dcChan <- rawDC
@@ -67,7 +76,10 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 	dc.OnBufferedAmountLow(func() {
 		log.Debug().
 			Msg("data channel buffered amount low")
-		d.continueChan <- struct{}{}
+		select {
+		case d.continueChan <- struct{}{}:
+		case <-d.ctx.Done():
+		}
 	})
 
 	// wait for the data channel to be established and detached (or an error)
@@ -75,10 +87,11 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 	defer cancelTimedCtx()
 	select {
 	case <-timedCtx.Done():
+		cancel()
 		return nil, timedCtx.Err()
 	case e := <-d.eventsChan:
 		if e.err != nil {
-			close(d.eventsChan)
+			cancel()
 			return nil, fmt.Errorf("unable to establish data channel: %w", e.err)
 		}
 	case rawDC := <-dcChan:
@@ -95,13 +108,10 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 	// client can send fragmented http requests.
 	// the client will send the head as a string and the body as binary.
 	// an empty string signals the end of the request.
-	ctx, cancel := context.WithCancel(ctx)
-	d.cancel = cancel
 	go func() {
 		for {
-			if ctx.Err() != nil {
+			if d.ctx.Err() != nil {
 				d.ReadWriteCloser.Close()
-				close(d.eventsChan)
 				return
 			}
 
@@ -118,7 +128,7 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 				bytesRead += n
 				if err != nil {
 					d.ReadWriteCloser.Close()
-					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("unable to read data channel: %w", err)}
+					d.emit(dataChannelEvent{err: fmt.Errorf("unable to read data channel: %w", err)})
 					return
 				}
 
@@ -136,7 +146,7 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 						Str("remote_addr", remoteAddr).
 						Msg("received binary data during header parsing")
 					d.ReadWriteCloser.Close()
-					d.eventsChan <- dataChannelEvent{err: fmt.Errorf("received binary data during header parsing")}
+					d.emit(dataChannelEvent{err: fmt.Errorf("received binary data during header parsing")})
 					return
 				}
 
@@ -157,7 +167,7 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 				log.Error().Err(err).
 					Msg("unable to read request")
 				d.ReadWriteCloser.Close()
-				d.eventsChan <- dataChannelEvent{err: err}
+				d.emit(dataChannelEvent{err: err})
 				return
 			}
 			req.RemoteAddr = remoteAddr
@@ -166,11 +176,11 @@ func newDataChannel(ctx context.Context, timeout time.Duration, pc *peerConnecti
 			// the data channel until the client sends a string message
 			b := newBody(d)
 			req.Body = b
-			d.eventsChan <- dataChannelEvent{request: req}
+			d.emit(dataChannelEvent{request: req})
 
 			// wait for the client to finish reading the body or the context to be canceled.
 			select {
-			case <-ctx.Done():
+			case <-d.ctx.Done():
 				return
 			case <-b.doneChan:
 				continue
@@ -190,22 +200,27 @@ func (d *dataChannel) onClose() {
 	log.Debug().
 		Msg("data channel closed")
 
-	d.error(fmt.Errorf("data channel closed"))
+	d.emit(dataChannelEvent{err: fmt.Errorf("data channel closed")})
 	d.cancel()
-	close(d.eventsChan)
-	close(d.continueChan)
 }
 
 func (d *dataChannel) onError(err error) {
 	log := log.Logger()
 	log.Error().Err(err).
 		Msg("data channel error")
-	d.error(err)
+	d.emit(dataChannelEvent{err: err})
 }
 
-func (d *dataChannel) error(err error) {
+// emit delivers an event to the consumer without ever blocking the caller or
+// panicking on teardown. The send is performed on a goroutine and is abandoned
+// if the data channel's context is canceled (e.g. the connection closed),
+// which is why eventsChan is never closed.
+func (d *dataChannel) emit(e dataChannelEvent) {
 	go func() {
-		d.eventsChan <- dataChannelEvent{err: err}
+		select {
+		case d.eventsChan <- e:
+		case <-d.ctx.Done():
+		}
 	}()
 }
 

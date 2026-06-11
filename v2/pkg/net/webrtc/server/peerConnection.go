@@ -116,6 +116,7 @@ func (p *peerConnection) _answerOffer() {
 		if err != nil {
 			err = fmt.Errorf("unable to unmarshal session description: %w", err)
 			p.error(true, err)
+			return
 		}
 		sdp = sdp.WithValueAttribute("BasicAuthToken", p.basicAuthToken)
 		sdpBytes, err := sdp.Marshal()
@@ -134,17 +135,20 @@ func (p *peerConnection) _answerOffer() {
 	if err != nil {
 		err = fmt.Errorf("unable to exchange session description with signaling server: %w", err)
 		p.error(true, err)
+		return
 	}
 
 	answerSD, err := answer.WebRTCSessionDescription()
 	if err != nil {
 		err = fmt.Errorf("unable to convert session description to webRTC session description: %w", err)
 		p.error(true, err)
+		return
 	}
 
 	if err := pc.SetRemoteDescription(answerSD); err != nil {
 		err = fmt.Errorf("unable to set remote session description during webRTC negotiation: %w", err)
 		p.error(true, err)
+		return
 	}
 
 	p.answeredOffer = true
@@ -223,11 +227,13 @@ func (p *peerConnection) onNegotiationNeeded() {
 	if err != nil {
 		err = fmt.Errorf("unable to create offer session description during webRTC negotiation: %w", err)
 		p.error(true, err)
+		return
 	}
 
 	if err := pc.SetLocalDescription(sd); err != nil {
 		err = fmt.Errorf("unable to set local session description during webRTC negotiation: %w", err)
 		p.error(true, err)
+		return
 	}
 }
 

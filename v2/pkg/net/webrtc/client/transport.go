@@ -128,13 +128,25 @@ func (t *Transport) HandleOffer(ctx context.Context, id string, o sdp.Offer) (sd
 		return "", fmt.Errorf("unable to create answer: %w", err)
 	}
 
+	// Create the gathering-complete promise before SetLocalDescription so we
+	// can't miss a gathering completion that happens immediately.
+	gatherComplete := webrtc.GatheringCompletePromise(pc)
+
 	if err = pc.SetLocalDescription(answer); err != nil {
 		return "", fmt.Errorf("unable to set local description: %w", err)
 	}
 
-	<-webrtc.GatheringCompletePromise(pc)
+	<-gatherComplete
 
-	return sdp.Answer(answer.SDP), nil
+	// The remote peer uses non-trickle ICE, so the answer we send must contain
+	// all of our gathered ICE candidates. Those live in pc.LocalDescription(),
+	// not in the original `answer` returned by CreateAnswer.
+	local := pc.LocalDescription()
+	if local == nil {
+		return "", fmt.Errorf("unable to get local description after ICE gathering")
+	}
+
+	return sdp.Answer(local.SDP), nil
 }
 
 func (t *Transport) PeerAddresses() []string {

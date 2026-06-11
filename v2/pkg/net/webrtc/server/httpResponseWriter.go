@@ -22,6 +22,7 @@ type ResponseWriter struct {
 	channel        datachannel.ReadWriteCloser
 	bufferedAmount func() int
 	continueChan   chan struct{}
+	done           <-chan struct{}
 
 	triggersShutdown bool
 }
@@ -30,6 +31,7 @@ func NewResponseWriter(dc *dataChannel) *ResponseWriter {
 	return &ResponseWriter{
 		channel:        dc.ReadWriteCloser,
 		continueChan:   dc.continueChan,
+		done:           dc.ctx.Done(),
 		bufferedAmount: func() int { return int(dc.dc.BufferedAmount()) },
 	}
 }
@@ -73,7 +75,11 @@ func (w *ResponseWriter) Write(b []byte) (int, error) {
 		// flow control
 		// wait until the buffered amount (plus what we would send) is less than the maxBufferedAmount
 		if ba := w.bufferedAmount(); webrtc.MaxBufferedAmount < ba+size {
-			<-w.continueChan
+			select {
+			case <-w.continueChan:
+			case <-w.done:
+				return total, fmt.Errorf("data channel closed")
+			}
 		}
 	}
 
@@ -139,7 +145,9 @@ func (w *ResponseWriter) writeHeader() error {
 	status := bytes.NewBuffer(nil)
 	fmt.Fprintf(status, "HTTP/1.1 %d %s\n", w.statusCode, http.StatusText(w.statusCode))
 	for k, v := range w.header {
-		fmt.Fprintf(status, "%s: %s\n", k, v[0])
+		for _, vv := range v {
+			fmt.Fprintf(status, "%s: %s\n", k, vv)
+		}
 	}
 	fmt.Fprint(status, "\n")
 
