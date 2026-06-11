@@ -32,6 +32,13 @@ export class HTTPOverWebRTCClient {
         this.resolveAnswerPromise = resolve;
         this.rejectAnswerPromise = reject;
     });
+    private answerResolved: boolean = false;
+    private iceTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    // ICE gathering can stall on some browsers (notably iOS Safari) without ever
+    // firing a final "complete" state change. If we don't get there within this
+    // window we send whatever candidates we have gathered so far.
+    private static readonly ICE_GATHER_TIMEOUT_MS = 5000;
 
     private _fetch: ((resource: RequestInfo | URL, options?: RequestInit | undefined) => Promise<Response>) | undefined;
 
@@ -52,13 +59,8 @@ export class HTTPOverWebRTCClient {
         const pc = this.peerConnection!;
         pc.onicegatheringstatechange = (event: Event) => {
             console.log("onicegatheringstatechange", pc.iceGatheringState);
-            console.log("event", event)
-
-            let target = event.target as RTCPeerConnection;
-            console.log("target", target)
-            if (target.iceGatheringState === 'complete' && target.localDescription) {
-                this.resolveAnswerPromise(target.localDescription);
-                //this.onAnswer(target.localDescription);
+            if (pc.iceGatheringState === 'complete') {
+                this._finalizeAnswer("ice gathering complete");
             }
         };
 
@@ -80,13 +82,43 @@ export class HTTPOverWebRTCClient {
         };
 
         pc.oniceconnectionstatechange = (event) => {
-            console.log("oniceconnectionstatechange", event)
             console.log("oniceconnectionstatechange", pc.iceConnectionState);
+            if (pc.iceConnectionState === 'failed') {
+                this.connectionPromiseReject("webRTC ICE connection failed");
+            }
         };
 
         pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
-            console.log("onicecandidate", event);
+            console.log("onicecandidate", event.candidate);
+            // A null candidate signals the end of ICE gathering. Some browsers
+            // (notably iOS Safari) deliver this reliably while not always firing
+            // an icegatheringstatechange of "complete", so we handle both.
+            if (event.candidate === null) {
+                this._finalizeAnswer("null ice candidate");
+            }
+        };
+    }
+
+    // _finalizeAnswer resolves the answer promise exactly once, using the local
+    // description which (after ICE gathering) contains all of our ICE candidates.
+    // The remote peer performs non-trickle ICE, so the answer must carry every
+    // candidate; resolving before gathering completes produces a candidate-less
+    // answer that can never connect.
+    private _finalizeAnswer(reason: string): void {
+        if (this.answerResolved) {
+            return;
         }
+        const pc = this.peerConnection!;
+        if (!pc.localDescription) {
+            return;
+        }
+        this.answerResolved = true;
+        if (this.iceTimeout !== undefined) {
+            clearTimeout(this.iceTimeout);
+            this.iceTimeout = undefined;
+        }
+        console.log("finalizing answer:", reason);
+        this.resolveAnswerPromise(pc.localDescription);
     }
 
     // answerOffer returns a pair of promises.
@@ -116,7 +148,22 @@ export class HTTPOverWebRTCClient {
         const consumeAnswer = (answer: RTCSessionDescriptionInit) => {
             pc.setLocalDescription(answer).then(() => {
                 this.answered = true;
-                this.resolveAnswerPromise(new RTCSessionDescription(answer));
+                // Setting the local description starts ICE gathering. We must NOT
+                // resolve the answer here: the SDP at this point has no ICE
+                // candidates. The answer is resolved once gathering completes
+                // (see _finalizeAnswer). Arm a fallback timeout in case the
+                // browser never reports gathering completion.
+                if (pc.iceGatheringState === 'complete') {
+                    this._finalizeAnswer("already complete after setLocalDescription");
+                } else {
+                    this.iceTimeout = setTimeout(() => {
+                        this._finalizeAnswer("ice gathering timeout");
+                    }, HTTPOverWebRTCClient.ICE_GATHER_TIMEOUT_MS);
+                }
+            }).catch((err) => {
+                console.error(err);
+                this.rejectAnswerPromise(err);
+                this.connectionPromiseReject(err);
             });
         };
 

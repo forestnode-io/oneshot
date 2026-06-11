@@ -40,25 +40,30 @@ export async function writeHeader(channel: RTCDataChannel, resource: RequestInfo
 
     console.log("writing header: ", headerString);
 
-    const pump = sendPump(channel, headerString);
-    try {
+    return new Promise<void>((resolve, reject) => {
+        const pump = sendPump(channel, headerString, resolve, reject);
         pump();
-    } catch (e) {
-        return Promise.reject(e);
-    }
-
-    return Promise.resolve();
+    });
 }
 
-function sendPump(channel: RTCDataChannel, data: string): () => void {
+// sendPump sends `data` over the channel in MTU-sized chunks, honoring
+// backpressure. It calls resolve() once all data has been flushed and reject()
+// on a fatal send error. Because it may pause and resume asynchronously when
+// the send buffer fills, callers must wait on the promise before sending more
+// data on the same channel to avoid interleaving.
+function sendPump(channel: RTCDataChannel, data: string, resolve: () => void, reject: (reason: any) => void): () => void {
     var mtu = DataChannelMTU;
     const s = function () {
         while (data.length) {
             if (channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
+                // Buffer is full: pause and resume once it drains below the
+                // low threshold. Without returning here we would keep sending
+                // and overflow the send buffer (throws on iOS Safari).
                 channel.onbufferedamountlow = () => {
                     channel.onbufferedamountlow = null;
                     s();
                 }
+                return;
             }
 
             if (data.length < mtu) {
@@ -70,23 +75,26 @@ function sendPump(channel: RTCDataChannel, data: string): () => void {
             try {
                 channel.send(chunk);
             } catch (e) {
+                // RTCDataChannels aren't always immediately ready in Safari,
+                // even after the open event, so retry once after a short delay.
                 if (e instanceof DOMException && e.name === 'InvalidStateError') {
                     setTimeout(() => {
                         try {
                             channel.send(chunk);
+                            s();
                         } catch (e) {
-                            throw e;
+                            reject(e);
                         }
                     }, 500);
+                    return;
                 } else {
-                    throw e;
+                    reject(e);
+                    return;
                 }
             }
-
-            if (mtu != DataChannelMTU) {
-                return;
-            }
         }
+
+        resolve();
     }
 
     return s;

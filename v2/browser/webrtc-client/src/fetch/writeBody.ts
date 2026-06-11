@@ -81,10 +81,14 @@ function sendPump(channel: RTCDataChannel, data: ArrayBuffer, resolve?: (() => v
     const s = function () {
         while (data.byteLength) {
             if (channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
+                // Buffer is full: pause and resume once it drains below the
+                // low threshold. Without returning here we would keep sending
+                // and overflow the send buffer (throws on iOS Safari).
                 channel.onbufferedamountlow = () => {
                     channel.onbufferedamountlow = null;
                     s();
                 }
+                return;
             }
 
             if (data.byteLength < mtu) {
@@ -94,13 +98,11 @@ function sendPump(channel: RTCDataChannel, data: ArrayBuffer, resolve?: (() => v
             const chunk = data.slice(0, mtu);
             data = data.slice(mtu);
             channel.send(chunk);
-
-            if (mtu != DataChannelMTU) {
-                channel.send("");
-                if (resolve) resolve();
-                return;
-            }
         }
+
+        // oneshot uses an empty string as the end-of-body marker.
+        channel.send("");
+        if (resolve) resolve();
     }
 
     return s;
